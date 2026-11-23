@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
@@ -103,7 +104,7 @@ func TestProfileStartLockSerialisesStartsOfOneProfile(t *testing.T) {
 	// A lock left by a crashed start is taken over once it is older than the
 	// stale age. The file is written directly, with no open handle, as a crash
 	// leaves it (Windows would not let a live holder's file be removed).
-	cache, err := os.UserCacheDir()
+	cache, err := paths.CacheBase()
 	if err != nil {
 		t.Fatal(err)
 	}

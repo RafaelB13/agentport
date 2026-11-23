@@ -21,7 +21,7 @@ func IsolateUserDirs(t testing.TB) string {
 	return home
 }
 
-var userDirVariables = []string{"HOME", "USERPROFILE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "LocalAppData", "AppData"}
+var userDirVariables = []string{"HOME", "USERPROFILE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "LocalAppData", "AppData", "AGENTPORT_CACHE_DIR", "AGENTPORT_CONFIG_DIR"}
 
 // Main runs a package's tests with every per-user directory redirected to a
 // temporary one, so no test can reach the real files even if it forgets to call

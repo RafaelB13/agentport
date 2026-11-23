@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"io"
 	"net"
 	"net/http"
@@ -123,11 +124,11 @@ func runtimePath(name string) (string, error) {
 	if !validProfileName(name) {
 		return "", errors.New("companion profile name must be a simple filename")
 	}
-	cacheDir, err := os.UserCacheDir()
+	dir, err := paths.Dir("companions")
 	if err != nil {
-		return "", fmt.Errorf("find agentport cache directory: %w", err)
+		return "", err
 	}
-	return filepath.Join(cacheDir, "agentport", "companions", name+".json"), nil
+	return filepath.Join(dir, name+".json"), nil
 }
 
 func writePrivateJSON(path, temporaryPrefix string, value any) error {

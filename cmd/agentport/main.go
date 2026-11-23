@@ -32,6 +32,7 @@ import (
 	"github.com/rafaelb13/agentport/internal/harness"
 	"github.com/rafaelb13/agentport/internal/i18n"
 	"github.com/rafaelb13/agentport/internal/mcpserver"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/release"
 	"github.com/rafaelb13/agentport/internal/remote"
 	"github.com/rafaelb13/agentport/internal/selfupgrade"
@@ -78,11 +79,10 @@ func main() {
 }
 
 func acquireBridgeLock() (func(), error) {
-	cacheDir, err := os.UserCacheDir()
+	dir, err := paths.Dir()
 	if err != nil {
-		return nil, fmt.Errorf("find agentport cache directory: %w", err)
+		return nil, err
 	}
-	dir := filepath.Join(cacheDir, "agentport")
 	if err := os.MkdirAll(dir, 0700); err != nil {
 		return nil, fmt.Errorf("create agentport cache directory: %w", err)
 	}
@@ -358,11 +358,11 @@ func startCompanion(name string, verbose bool) error {
 }
 
 func companionLogPath(name string) string {
-	cacheDir, err := os.UserCacheDir()
+	path, err := paths.Dir("logs", name+".log")
 	if err != nil {
 		return filepath.Join("~", ".cache", "agentport", "logs", name+".log")
 	}
-	return filepath.Join(cacheDir, "agentport", "logs", name+".log")
+	return path
 }
 
 func runLogs(arguments []string) error {
@@ -906,11 +906,10 @@ const (
 // waiting start gets the lock as soon as the first one has either claimed the
 // profile or given up.
 func acquireProfileStartLock(name string, wait, stale time.Duration) (func(), error) {
-	cacheDir, err := os.UserCacheDir()
+	directory, err := paths.Dir("companions")
 	if err != nil {
-		return nil, fmt.Errorf("find agentport cache directory: %w", err)
+		return nil, err
 	}
-	directory := filepath.Join(cacheDir, "agentport", "companions")
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return nil, fmt.Errorf("create agentport cache directory: %w", err)
 	}

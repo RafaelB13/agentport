@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/release"
 )
 
@@ -185,11 +186,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func statePath() (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "agentport", "bridge.json"), nil
+	return paths.Dir("bridge.json")
 }
 
 func saveState(s State) error {

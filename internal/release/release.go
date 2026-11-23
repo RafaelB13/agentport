@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/buildinfo"
+	"github.com/rafaelb13/agentport/internal/paths"
 )
 
 const (
@@ -139,11 +140,7 @@ func (c Checker) cachePath() (string, error) {
 	if c.CachePath != "" {
 		return c.CachePath, nil
 	}
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "agentport", "release.json"), nil
+	return paths.Dir("release.json")
 }
 
 func (c Checker) readCache() (cacheEntry, bool) {

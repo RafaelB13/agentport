@@ -250,6 +250,22 @@ agentport -v
 Exibe a versão do binário. Os instaladores usam esse comando para decidir se
 uma atualização é necessária.
 
+## Diretórios
+
+Os perfis e as chaves ficam sob o diretório de configuração. O estado de
+execução (bridge, Companions, portas, sockets ControlMaster, logs e cache de
+releases) fica sob o diretório de cache. As variáveis abaixo mudam esses
+diretórios; caminhos relativos são recusados.
+
+| Variável | Efeito |
+| --- | --- |
+| `AGENTPORT_CONFIG_DIR` | Base da configuração: `agentport/profiles` e `agentport/keys` ficam dentro dela. Padrão: `os.UserConfigDir()`. |
+| `AGENTPORT_CACHE_DIR` | Base do cache: `agentport/bridge.json`, `companions/`, `ports/`, `logs/`, `release.json` e `cm/`. Padrão: `XDG_CACHE_HOME` quando definida (em qualquer sistema), senão `os.UserCacheDir()`. |
+
+Os sockets ControlMaster têm limite de tamanho no Unix. Quando o caminho em
+`agentport/cm/` ficaria longo demais, o socket vai para `/tmp/agentport-<uid>/`
+(diretório `0700`).
+
 ## Idioma
 
 A saída da linha de comando, o `help`, as mensagens dos instaladores e a página
