@@ -6,6 +6,7 @@
   "agentport %s will replace itself and restart %d Companion(s) shortly.": "O agentport %s vai se substituir e reiniciar %d Companion(s) em instantes.",
   "agentport is already up to date (%s).": "O agentport já está atualizado (%s).",
   "agentport was installed with Homebrew. Run: brew upgrade agentport": "O agentport foi instalado com o Homebrew. Execute: brew upgrade agentport",
+  "this build (%s) is not a release, so the saved servers were not updated.": "este executável (%s) não é uma release, então os servidores salvos não foram atualizados.",
   "agentport updated to %s.": "agentport atualizado para %s.",
   "Also known as:": "Também conhecido como:",
   "Check that a local bridge is healthy": "Verifica se há um bridge local saudável",
