@@ -588,3 +588,30 @@ func TestSaveCallbackRunsOnChange(t *testing.T) {
 		t.Fatal("state was not persisted after an approval")
 	}
 }
+
+// The sweep runs every few seconds; it must write the state file only when a
+// forward or session actually changed, not on every tick.
+func TestSweepWritesOnlyWhenSomethingChanged(t *testing.T) {
+	var saves int
+	h := newHarness(t, func(o *Options) {
+		o.Save = func([]Record) error { saves++; return nil }
+	})
+	sess := h.register("claude-code", "/a")
+	out := h.requestAsync(sess, batch("api", 3000))
+	_, _ = h.store.Approve(context.Background(), h.firstPending().ID, Approval{Duration: DurationSession, Ports: []PortDecision{{RemotePort: 3000}}})
+	<-out
+	before := saves
+	for i := 0; i < 3; i++ {
+		h.advance(time.Second)
+		h.store.Sweep()
+		_ = h.store.Heartbeat(sess)
+	}
+	if saves != before {
+		t.Fatalf("idle sweeps wrote the state %d times", saves-before)
+	}
+	h.advance(61 * time.Second)
+	h.store.Sweep()
+	if saves == before {
+		t.Fatal("a session that ended by silence was not persisted")
+	}
+}

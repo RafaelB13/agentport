@@ -532,7 +532,9 @@ func (s *Store) CloseByUser(remote int) error {
 func (s *Store) Forwards(sessionID string) []portsproto.ForwardInfo {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.sweepLocked(s.opts.Now())
+	if s.sweepLocked(s.opts.Now()) {
+		s.saveLocked()
+	}
 	remotes := make([]int, 0, len(s.forwards))
 	for remote := range s.forwards {
 		remotes = append(remotes, remote)
@@ -557,8 +559,9 @@ func (s *Store) Closed() []ClosedForward {
 func (s *Store) Sweep() {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	s.sweepLocked(s.opts.Now())
-	s.saveLocked()
+	if s.sweepLocked(s.opts.Now()) {
+		s.saveLocked()
+	}
 }
 
 // Snapshot returns the forwards as they should be persisted.
@@ -676,10 +679,14 @@ func (s *Store) endSessionLocked(sess *session, now time.Time) {
 	sort.Ints(sess.owned)
 }
 
-func (s *Store) sweepLocked(now time.Time) {
+// sweepLocked applies the time rules and reports whether the set of forwards
+// changed, so that only real changes are written to disk.
+func (s *Store) sweepLocked(now time.Time) bool {
+	changed := false
 	for id, sess := range s.sessions {
 		if !sess.ended && now.Sub(sess.lastSeen) > s.opts.SessionSilence {
 			s.endSessionLocked(sess, now)
+			changed = true
 		}
 		if sess.ended && now.Sub(sess.endedAt) > s.opts.SessionGrace {
 			delete(s.sessions, id)
@@ -698,9 +705,12 @@ func (s *Store) sweepLocked(now time.Time) {
 			}
 			if err := s.closeLocked(f, reason, now); err != nil {
 				s.onError(fmt.Errorf("close forward %d: %w", f.remote, err))
+			} else {
+				changed = true
 			}
 		}
 	}
+	return changed
 }
 
 func (s *Store) pendingLocked(id string) (*request, error) {
