@@ -112,29 +112,49 @@ type ForwardedRef struct {
 	Mine      bool   `json:"mine"`
 }
 
-func (t *PortTools) list(ctx context.Context, in listInput) (*mcp.CallToolResult, any, error) {
-	exclude := append([]int{sshdPort}, t.ExcludePorts...)
-	listeners, err := t.Scan(ctx, portscan.Options{IncludeSystem: in.IncludeSystem, ExcludePorts: exclude})
-	if err != nil {
-		return toolError(fmt.Errorf("list listening ports: %w", err))
+// ListPorts lists the listening ports of this server, as ports_list does: the
+// excluded ports (sshd is always excluded) and, unless includeSystem is set, the
+// system services are hidden; onlyUser drops the ports owned by root. Forwarded
+// is not filled in: see MarkForwarded.
+func ListPorts(ctx context.Context, scan func(context.Context, portscan.Options) ([]portscan.Listener, error), exclude []int, includeSystem, onlyUser bool) ([]ListEntry, error) {
+	if scan == nil {
+		scan = portscan.Scan
 	}
-	forwards, fwdErr := t.Bridge.Forwards(ctx)
+	listeners, err := scan(ctx, portscan.Options{IncludeSystem: includeSystem, ExcludePorts: append([]int{sshdPort}, exclude...)})
+	if err != nil {
+		return nil, err
+	}
+	entries := []ListEntry{}
+	for _, l := range listeners {
+		if onlyUser && l.User == "root" {
+			continue
+		}
+		entries = append(entries, ListEntry{Port: l.Port, Bind: l.Bind, PID: l.PID, Process: l.Process,
+			Cmdline: shortCmdline(l.Cmdline), User: l.User, Container: l.Container})
+	}
+	return entries, nil
+}
+
+// MarkForwarded sets Forwarded on every entry whose port is forwarded.
+func MarkForwarded(entries []ListEntry, forwards []portsproto.ForwardInfo) {
 	byRemote := map[int]portsproto.ForwardInfo{}
 	for _, f := range forwards {
 		byRemote[f.RemotePort] = f
 	}
-	entries := []ListEntry{}
-	for _, l := range listeners {
-		if in.OnlyUser && l.User == "root" {
-			continue
+	for i := range entries {
+		if f, ok := byRemote[entries[i].Port]; ok {
+			entries[i].Forwarded = &ForwardedRef{LocalPort: f.LocalPort, URL: f.URL, Mine: f.Mine}
 		}
-		entry := ListEntry{Port: l.Port, Bind: l.Bind, PID: l.PID, Process: l.Process,
-			Cmdline: shortCmdline(l.Cmdline), User: l.User, Container: l.Container}
-		if f, ok := byRemote[l.Port]; ok {
-			entry.Forwarded = &ForwardedRef{LocalPort: f.LocalPort, URL: f.URL, Mine: f.Mine}
-		}
-		entries = append(entries, entry)
 	}
+}
+
+func (t *PortTools) list(ctx context.Context, in listInput) (*mcp.CallToolResult, any, error) {
+	entries, err := ListPorts(ctx, t.Scan, t.ExcludePorts, in.IncludeSystem, in.OnlyUser)
+	if err != nil {
+		return toolError(fmt.Errorf("list listening ports: %w", err))
+	}
+	forwards, fwdErr := t.Bridge.Forwards(ctx)
+	MarkForwarded(entries, forwards)
 	out := map[string]any{"ports": entries}
 	if fwdErr != nil {
 		out["forwarded_status"] = offlineText(fwdErr)
