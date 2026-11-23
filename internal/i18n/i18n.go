@@ -22,6 +22,10 @@ const (
 	English = "en-US"
 	// Portuguese is the Brazilian Portuguese catalog.
 	Portuguese = "pt-BR"
+	// Spanish and ChineseTraditional are chosen by detection and by browsers.
+	// Until their catalogs exist, every message of them is shown in English.
+	Spanish            = "es"
+	ChineseTraditional = "zh-Hant"
 	// Env selects the language of the command line and the installers.
 	Env = "AGENTPORT_LANG"
 )
@@ -46,7 +50,7 @@ func init() {
 }
 
 // Languages lists the languages a person can choose, English first.
-func Languages() []string { return []string{English, Portuguese} }
+func Languages() []string { return []string{English, Portuguese, Spanish, ChineseTraditional} }
 
 var current atomic.Value
 
@@ -64,10 +68,27 @@ func SetLanguage(tag string) {
 	current.Store(English)
 }
 
-// Init reads AGENTPORT_LANG. It is the only thing that picks the language of the
-// command line: the system locale is not consulted, so the same command prints
-// the same words on every machine unless the person asks otherwise.
-func Init() { SetLanguage(os.Getenv(Env)) }
+// Init chooses the language of the process from the environment (see Detect).
+func Init() { SetLanguage(Detect(os.Getenv)) }
+
+// Detect chooses the language of the command line and the Companion from the
+// environment, in this order: AGENTPORT_LANG, LC_ALL, LC_MESSAGES, LANG. The
+// first one that is set decides, as it does for the C library; a value that is
+// not a supported language, or "C" and "POSIX", means English. getenv is
+// injected so the order can be tested.
+func Detect(getenv func(string) string) string {
+	for _, name := range []string{Env, "LC_ALL", "LC_MESSAGES", "LANG"} {
+		value := strings.TrimSpace(getenv(name))
+		if value == "" {
+			continue
+		}
+		if language, ok := Supported(value); ok {
+			return language
+		}
+		return English
+	}
+	return English
+}
 
 // Supported normalizes a language tag such as "pt", "pt_BR.UTF-8" or "en-GB"
 // to a language with a catalog, and says whether there was one.
@@ -85,7 +106,12 @@ func Supported(tag string) (string, bool) {
 		return Portuguese, true
 	case tag == "en" || strings.HasPrefix(tag, "en-"):
 		return English, true
+	case tag == "es" || strings.HasPrefix(tag, "es-"):
+		return Spanish, true
+	case tag == "zh-tw" || tag == "zh-hk" || tag == "zh-mo" || strings.HasPrefix(tag, "zh-hant"):
+		return ChineseTraditional, true
 	}
+	// zh-CN and zh-Hans have no catalog and are not supported: English.
 	return "", false
 }
 
