@@ -464,3 +464,13 @@ button.host:hover{border-color:var(--line-strong)}
 }
 .panel-body{margin-top:16px}
 .panel-body{margin-top:16px}
+
+/* Server terminal: the screen is xterm.js, drawn on a canvas by its WebGL renderer. */
+.term{display:flex;flex-direction:column;gap:10px}
+.term-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.term-state{font:500 12px var(--mono);color:var(--muted)}
+.term-state[data-state="open"]{color:var(--fg)}
+.term-note{margin:0;font-size:13px;color:var(--muted)}
+.term-screen{height:340px;border:1px solid var(--line);border-radius:10px;background:var(--bg);padding:8px;overflow:hidden;box-sizing:border-box}
+.term-screen .xterm{height:100%}
+@media (max-width:640px){.term-screen{height:260px}}

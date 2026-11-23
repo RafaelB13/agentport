@@ -310,6 +310,10 @@ agentport companion status m2
 
 **目前**，Companion 網頁是一個簡單的運作檢視頁，位於 `127.0.0.1`，你可以用 `agentport companion open m2` 開啟它，並需要其中的權杖。它會顯示設定檔與目的地、通道狀態（`Connected` 或 `Disconnected`，英文原文）與最後一次錯誤，若有更新的穩定發行版本會顯示提示，還有 **Stop Companion** 按鈕，其作用與 `agentport companion stop m2` 相同。它不傳輸檔案。
 
+## 終端機
+
+面板有一個 **Terminal** 分頁，可以在已連線的伺服器上開啟 shell，不必離開瀏覽器就能執行快速指令。它沿用通道的 SSH 連線（不需要再次登入），只提供給 `127.0.0.1` 上的面板，並且只接受來自面板本身頁面的連線。最多可同時開啟四個終端機。關閉終端機或停止 Companion，都會結束伺服器上的 SSH 工作階段。終端機內容絕不寫入記錄檔。Windows 版本目前不提供此終端機。
+
 ## MCP 工具
 
 代理程式透過伺服器上的 MCP 伺服器看到以下工具。

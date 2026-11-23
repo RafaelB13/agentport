@@ -139,7 +139,6 @@
   "Select :{port}": "Selecionar :{port}",
   "Select all": "Selecionar todas",
   "Select group {name}": "Selecionar o grupo {name}",
-  "Server terminal": "Terminal do servidor",
   "Servers on this computer": "Servidores neste computador",
   "Session": "Sessão",
   "Set up a server once in a terminal with agentport setup. Then ask your agent to open a port, for example the database.": "Configure um servidor uma vez, num terminal, com agentport setup. Depois peça ao agente para abrir uma porta, por exemplo a do banco de dados.",
@@ -233,5 +232,15 @@
   "Checking…": "Verificando…",
   "TCP ok": "TCP ok",
   "TCP not reachable: {error}": "TCP inacessível: {error}",
-  "HTTP status {status}, answered in {ms} ms": "HTTP {status}, respondeu em {ms} ms"
+  "HTTP status {status}, answered in {ms} ms": "HTTP {status}, respondeu em {ms} ms",
+  "Connecting": "Conectando",
+  "Session ended": "Sessão encerrada",
+  "Session closed": "Sessão fechada",
+  "Unavailable": "Indisponível",
+  "Reconnect": "Reconectar",
+  "Open terminal": "Abrir terminal",
+  "Close terminal": "Fechar terminal",
+  "The server terminal is not available on this computer.": "O terminal do servidor não está disponível neste computador.",
+  "The server terminal could not start. Check that the server is connected.": "O terminal do servidor não pôde iniciar. Verifique se o servidor está conectado.",
+  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "Abre um shell no servidor conectado. Tudo o que você digitar é executado ali. Ele termina quando você fecha o terminal ou para o Companion."
 }
