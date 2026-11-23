@@ -14,7 +14,7 @@ import (
 func isolateEnsure(t *testing.T) {
 	t.Helper()
 	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("AGENTPORT_CACHE_DIR", t.TempDir())
 }
 
 func saveEnsureProfile(t *testing.T, name string) {

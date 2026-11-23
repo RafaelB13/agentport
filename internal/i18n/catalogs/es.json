@@ -10,7 +10,6 @@
   "Also known as:": "También conocido como:",
   "Check that a local bridge is healthy": "Verifica que haya un bridge local en buen estado",
   "Companion %q does not start when you log in.": "El Companion %q no arranca cuando inicias sesión.",
-  "Companion %q is stopping.": "El Companion %q se está deteniendo.",
   "Companion %q started. Open: agentport companion open %s": "Companion %q iniciado. Ábrelo con: agentport companion open %s",
   "Companion %q starts when you log in.": "El Companion %q arranca cuando inicias sesión.",
   "Companion %q will no longer start when you log in. A Companion the service started is stopped; one you started yourself keeps running.": "El Companion %q ya no arrancará cuando inicies sesión. Un Companion que inició el servicio se detiene; uno que iniciaste tú mismo sigue ejecutándose.",
@@ -43,9 +42,7 @@
   "Restarting %d Companion(s)...": "Reiniciando %d Companion(s)...",
   "Run \"agentport help <command>\" for the details of a command.": "Usa \"agentport help <comando>\" para ver los detalles de un comando.",
   "Run and manage the local Companion": "Ejecuta y gestiona el Companion local",
-  "Run the local bridge on its own (internal)": "Ejecuta el bridge local por sí solo (interno)",
   "Runs the MCP server on standard input and output. A harness starts it; you do\nnot run it yourself.": "Ejecuta el servidor MCP en la entrada y salida estándar. El harness lo inicia;\nno lo ejecutas tú.",
-  "Runs the local bridge without a Companion. It is used internally; the Companion\nstarts the bridge for you.": "Ejecuta el bridge local sin un Companion. Se usa internamente; el Companion\ninicia el bridge por ti.",
   "Serve the MCP tools over stdio (run by the harness)": "Sirve las herramientas MCP por stdio (ejecutado por el harness)",
   "Set %s=pt-BR to see the messages in Brazilian Portuguese.": "Define %s=en-US para ver los mensajes en inglés.",
   "Set up a server": "Configurar un servidor",
@@ -107,5 +104,10 @@
   "session, 1h or pin": "session, 1h o pin",
   "several server profiles exist; pass --profile NAME": "hay varios perfiles de servidor; pasa --profile NOMBRE",
   "%s asks for port %s": "%s pide el puerto %s",
-  "Companion %q is already running.": "El Companion %q ya está en ejecución."
+  "Companion %q is already running.": "El Companion %q ya está en ejecución.",
+  "Companion %q stopped.": "Companion %q detenido.",
+  "Companion %q did not stop in time and was killed.": "El Companion %q no se detuvo a tiempo y fue terminado a la fuerza.",
+  "Run the local bridge on its own, or stop it (internal)": "Ejecuta el bridge local por sí solo, o lo detiene (interno)",
+  "Runs the local bridge without a Companion. It is used internally; the Companion\nstarts the bridge for you and stops it when no Companion uses it any more.\n\"bridge stop\" stops a bridge that is still running. It refuses while a Companion\nuses the bridge, unless --force is given.": "Ejecuta el bridge local sin un Companion. Es de uso interno; el Companion inicia el\nbridge por usted y lo detiene cuando ningún Companion lo usa ya.\n\"bridge stop\" detiene un bridge que todavía esté en ejecución. Se niega mientras un\nCompanion use el bridge, salvo que se indique --force.",
+  "bridge stopped": "bridge detenido"
 }

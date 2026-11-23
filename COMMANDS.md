@@ -95,7 +95,10 @@ Gerencia a parte local persistente do agentport.
 
 - `start`: inicia o Companion em background. Ele mantém o bridge local e abre
   o túnel SSH reverso.
-- `stop`: pede uma parada limpa do Companion e encerra o túnel.
+- `stop`: pede uma parada limpa do Companion e encerra o túnel. Se o Companion
+  não parar em 8 s, ele é encerrado à força (mais 3 s de espera). A saída diz
+  "parado" ou "não parou a tempo e foi encerrado à força". O bridge é encerrado
+  junto quando nenhum outro Companion está rodando.
 - `status`: imprime em JSON o perfil, o destino, o estado do túnel e o aviso de
   versão.
 - `open` ou `view`: abre a página web local do Companion no navegador padrão.
@@ -250,6 +253,22 @@ agentport -v
 Exibe a versão do binário. Os instaladores usam esse comando para decidir se
 uma atualização é necessária.
 
+## Diretórios
+
+Os perfis e as chaves ficam sob o diretório de configuração. O estado de
+execução (bridge, Companions, portas, sockets ControlMaster, logs e cache de
+releases) fica sob o diretório de cache. As variáveis abaixo mudam esses
+diretórios; caminhos relativos são recusados.
+
+| Variável | Efeito |
+| --- | --- |
+| `AGENTPORT_CONFIG_DIR` | Base da configuração: `agentport/profiles` e `agentport/keys` ficam dentro dela. Padrão: `os.UserConfigDir()`. |
+| `AGENTPORT_CACHE_DIR` | Base do cache: `agentport/bridge.json`, `companions/`, `ports/`, `logs/`, `release.json` e `cm/`. Padrão: `XDG_CACHE_HOME` quando definida (em qualquer sistema), senão `os.UserCacheDir()`. |
+
+Os sockets ControlMaster têm limite de tamanho no Unix. Quando o caminho em
+`agentport/cm/` ficaria longo demais, o socket vai para `/tmp/agentport-<uid>/`
+(diretório `0700`).
+
 ## Idioma
 
 A saída da linha de comando, o `help`, as mensagens dos instaladores e a página
@@ -307,11 +326,15 @@ adaptadores. Não é necessário executá-lo diretamente em um terminal.
 
 ```text
 agentport bridge
+agentport bridge stop [--force]
 ```
 
-Processo interno que recebe a inicialização pelo `stdin` e mantém o bridge HTTP
-local. É iniciado pelo Companion; não deve ser executado
+`agentport bridge` é o processo interno que recebe a inicialização pelo `stdin`
+e mantém o bridge HTTP local. É iniciado pelo Companion; não deve ser executado
 manualmente.
+
+`agentport bridge stop` para um bridge que ainda esteja rodando. Ele se recusa
+enquanto algum Companion o usar; `--force` para mesmo assim.
 
 ## Após reinicializações
 

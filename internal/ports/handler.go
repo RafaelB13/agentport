@@ -28,7 +28,14 @@ const maxBody = 64 * 1024
 // behind its control token, so every route here is reached only by the bridge
 // (remote protocol) or by the local panel and CLI (local API).
 func NewHandler(store *Store) http.Handler {
-	h := &handler{store: store}
+	return NewHandlerWithDetector(store, nil)
+}
+
+// NewHandlerWithDetector is NewHandler with a source of the server's listening
+// ports, which the panel shows as "Detected on server". Without one, the list is
+// empty and says why.
+func NewHandlerWithDetector(store *Store, detector Detector) http.Handler {
+	h := &handler{store: store, detector: detector}
 	mux := http.NewServeMux()
 	// Remote protocol, reached through the bridge.
 	mux.HandleFunc("POST /v1/ports/sessions", h.register)
@@ -53,10 +60,15 @@ func NewHandler(store *Store) http.Handler {
 	mux.HandleFunc("POST /v1/ports/closed/reopen", h.reopenClosed)
 	mux.HandleFunc("POST /v1/ports/closed/forget", h.forgetClosed)
 	mux.HandleFunc("GET /v1/ports/local/check", h.checkLocal)
+	mux.HandleFunc("GET /v1/ports/local/health", h.localHealth)
+	mux.HandleFunc("GET /v1/ports/detected", h.detected)
 	return mux
 }
 
-type handler struct{ store *Store }
+type handler struct {
+	store    *Store
+	detector Detector
+}
 
 func (h *handler) register(w http.ResponseWriter, r *http.Request) {
 	var req portsproto.RegisterSessionRequest

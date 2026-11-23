@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
@@ -18,7 +19,7 @@ func TestRequireLogNeverCreatesALog(t *testing.T) {
 	if err := RequireLog("typo"); !errors.Is(err, ErrNoLog) {
 		t.Fatalf("RequireLog of an unused profile = %v, want ErrNoLog", err)
 	}
-	cache, err := os.UserCacheDir()
+	cache, err := paths.CacheBase()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -50,7 +51,7 @@ func TestRequireLogRefusesNamesThatAreNotProfiles(t *testing.T) {
 // path that is not a regular file is its own error.
 func TestRequireLogDistinguishesMissingFromUnreadableAndIrregular(t *testing.T) {
 	testenv.IsolateUserDirs(t)
-	cache, err := os.UserCacheDir()
+	cache, err := paths.CacheBase()
 	if err != nil {
 		t.Fatal(err)
 	}

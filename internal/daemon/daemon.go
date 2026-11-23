@@ -12,9 +12,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/release"
 )
 
@@ -32,11 +34,17 @@ type State struct {
 	UpdatedAt    time.Time `json:"updated_at"`
 }
 
+// shutdownGrace is how long in-flight requests may finish when the daemon
+// stops. A panel tab with an open event stream must not keep the bridge alive.
+const shutdownGrace = 2 * time.Second
+
 type Daemon struct {
 	Bridge   *bridge.Bridge
 	State    State
 	server   *http.Server
 	listener net.Listener
+	done     chan struct{}
+	closing  sync.Once
 }
 
 // Start launches a loopback daemon. The control token is required for the
@@ -50,7 +58,7 @@ func Start(controlToken string) (*Daemon, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := &Daemon{Bridge: b, listener: l}
+	d := &Daemon{Bridge: b, listener: l, done: make(chan struct{})}
 	d.State = State{Address: l.Addr().String(), ControlToken: controlToken, PID: os.Getpid(), UpdatedAt: time.Now().UTC()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/control/persistent-session", d.persistentSession)
@@ -88,15 +96,32 @@ func (d *Daemon) release(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]bool{"updated": true})
 }
 
+// Done is closed when the daemon starts to close. A process that serves the
+// daemon waits on it, so a shutdown request ends the process as well.
+func (d *Daemon) Done() <-chan struct{} { return d.done }
+
 func (d *Daemon) Close() error {
+	d.closing.Do(func() { close(d.done) })
 	if d.server == nil {
 		return nil
 	}
-	err := d.server.Shutdown(context.Background())
+	err := shutdownServer(d.server)
 	if current, loadErr := LoadState(); loadErr == nil && current.PID == d.State.PID && current.ControlToken == d.State.ControlToken {
 		if path, pathErr := statePath(); pathErr == nil {
 			_ = os.Remove(path)
 		}
+	}
+	return err
+}
+
+// shutdownServer stops srv. In-flight requests get shutdownGrace; the rest are
+// closed so that a stuck connection cannot keep the process running.
+func shutdownServer(srv *http.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), shutdownGrace)
+	defer cancel()
+	err := srv.Shutdown(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return srv.Close()
 	}
 	return err
 }
@@ -185,11 +210,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 }
 
 func statePath() (string, error) {
-	dir, err := os.UserCacheDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(dir, "agentport", "bridge.json"), nil
+	return paths.Dir("bridge.json")
 }
 
 func saveState(s State) error {

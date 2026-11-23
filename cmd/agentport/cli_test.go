@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
@@ -228,7 +229,7 @@ func TestCLICommandsOnAnUnknownProfileFailWithoutSideEffects(t *testing.T) {
 	if result := runCLI(t, "logs", "nope"); result.exitCode != 1 || !strings.Contains(result.stderr, "no log for this profile") {
 		t.Fatalf("logs of an unknown profile = exit %d, stderr %q", result.exitCode, result.stderr)
 	}
-	if cache, err := os.UserCacheDir(); err == nil {
+	if cache, err := paths.CacheBase(); err == nil {
 		if _, err := os.Stat(filepath.Join(cache, "agentport", "bridge.json")); err == nil {
 			t.Error("a failed command left a bridge state file behind")
 		}

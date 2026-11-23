@@ -10,7 +10,6 @@
   "Also known as:": "別名：",
   "Check that a local bridge is healthy": "檢查本機 bridge 是否運作正常",
   "Companion %q does not start when you log in.": "Companion %q 在您登入時不會啟動。",
-  "Companion %q is stopping.": "Companion %q 正在停止。",
   "Companion %q started. Open: agentport companion open %s": "Companion %q 已啟動。開啟方式：agentport companion open %s",
   "Companion %q starts when you log in.": "Companion %q 會在您登入時啟動。",
   "Companion %q will no longer start when you log in. A Companion the service started is stopped; one you started yourself keeps running.": "Companion %q 在您登入時將不再啟動。由服務啟動的 Companion 會被停止；您自行啟動的則會繼續執行。",
@@ -43,9 +42,7 @@
   "Restarting %d Companion(s)...": "正在重新啟動 %d 個 Companion...",
   "Run \"agentport help <command>\" for the details of a command.": "使用 \"agentport help <指令>\" 查看指令的詳細說明。",
   "Run and manage the local Companion": "執行並管理本機 Companion",
-  "Run the local bridge on its own (internal)": "單獨執行本機 bridge（內部使用）",
   "Runs the MCP server on standard input and output. A harness starts it; you do\nnot run it yourself.": "在標準輸入與標準輸出上執行 MCP 伺服器。由 harness 啟動；您不需要自行執行。",
-  "Runs the local bridge without a Companion. It is used internally; the Companion\nstarts the bridge for you.": "在沒有 Companion 的情況下執行本機 bridge。此為內部使用；Companion 會替您啟動 bridge。",
   "Serve the MCP tools over stdio (run by the harness)": "透過 stdio 提供 MCP 工具（由 harness 執行）",
   "Set %s=pt-BR to see the messages in Brazilian Portuguese.": "設定 %s=en-US 以英文顯示訊息。",
   "Set up a server": "設定伺服器",
@@ -107,5 +104,10 @@
   "session, 1h or pin": "session、1h 或 pin",
   "several server profiles exist; pass --profile NAME": "存在多個伺服器設定檔；請傳入 --profile NAME",
   "%s asks for port %s": "%s 請求連接埠 %s",
-  "Companion %q is already running.": "Companion %q 已在執行中。"
+  "Companion %q is already running.": "Companion %q 已在執行中。",
+  "Companion %q stopped.": "Companion %q 已停止。",
+  "Companion %q did not stop in time and was killed.": "Companion %q 未能及時停止，已強制終止。",
+  "Run the local bridge on its own, or stop it (internal)": "單獨執行本機 bridge，或停止它（內部用）",
+  "Runs the local bridge without a Companion. It is used internally; the Companion\nstarts the bridge for you and stops it when no Companion uses it any more.\n\"bridge stop\" stops a bridge that is still running. It refuses while a Companion\nuses the bridge, unless --force is given.": "在沒有 Companion 的情況下執行本機 bridge。此為內部用途；Companion 會替您啟動 bridge，並在沒有任何 Companion 使用它時將其停止。\n\"bridge stop\" 會停止仍在執行的 bridge。只要有 Companion 正在使用它，就會拒絕執行，除非加上 --force。",
+  "bridge stopped": "bridge 已停止"
 }

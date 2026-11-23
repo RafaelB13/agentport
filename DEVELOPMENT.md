@@ -53,6 +53,19 @@ a entrada MCP/extensão do agentport, use:
 `disconnect` é mantido como alias compatível de `uninstall`. Nenhum dos dois
 remove o binário ou desinstala o harness remoto.
 
+## Isolar diretórios em testes e manuais
+
+Para testes manuais, aponte os diretórios para temporários e não toque no
+perfil nem no cache reais:
+
+```bash
+export AGENTPORT_CONFIG_DIR="$(mktemp -d)" AGENTPORT_CACHE_DIR="$(mktemp -d)"
+```
+
+As variáveis estão descritas em [COMMANDS.md](COMMANDS.md#diretórios). Os
+testes de pacote usam `testenv`, que redireciona `HOME`, `XDG_*` e as duas
+variáveis `AGENTPORT_*` para um diretório temporário.
+
 ## Ciclo de vida do Companion
 
 `./agentport companion start m2` retorna ao terminal depois de iniciar o

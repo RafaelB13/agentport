@@ -2,8 +2,6 @@ package companion
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,6 +11,7 @@ import (
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/forward"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"github.com/rafaelb13/agentport/internal/ports"
 )
 
@@ -35,29 +34,8 @@ func ControlPath(profile string) (string, error) {
 	if !validProfileName(profile) {
 		return "", fmt.Errorf("invalid companion profile %q", profile)
 	}
-	cacheDir, err := os.UserCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("find agentport cache directory: %w", err)
-	}
-	sum := sha256.Sum256([]byte(profile))
-	name := hex.EncodeToString(sum[:6]) + ".sock"
-	dir := filepath.Join(cacheDir, "agentport", "cm")
-	// A long home directory can push the socket past the unix limit; then the
-	// socket goes to the short temporary directory instead.
-	if len(filepath.Join(dir, name)) > maxSocketPath {
-		dir = filepath.Join(os.TempDir(), "agentport-cm")
-	}
-	if err := os.MkdirAll(dir, 0700); err != nil {
-		return "", fmt.Errorf("create control socket directory: %w", err)
-	}
-	if err := os.Chmod(dir, 0700); err != nil {
-		return "", fmt.Errorf("secure control socket directory: %w", err)
-	}
-	return filepath.Join(dir, name), nil
+	return paths.ControlSocket(profile)
 }
-
-// maxSocketPath is a conservative limit for a unix socket path (104 on macOS).
-const maxSocketPath = 100
 
 // PortManager is the Companion's port layer for one profile: the state store,
 // the forwarder that talks to the tunnel's ControlMaster, and the persisted file.
@@ -108,7 +86,8 @@ func NewPortManager(profile Profile, onError func(error)) (*PortManager, error) 
 		}
 	}
 	store.Restore(records)
-	return &PortManager{Store: store, Handler: ports.NewHandler(store), ControlPath: controlPath, stateFile: stateFile}, nil
+	detector := &RemoteDetector{Destination: profile.Destination, ControlPath: controlPath, ExcludePorts: []int{profile.RemotePort}}
+	return &PortManager{Store: store, Handler: ports.NewHandlerWithDetector(store, detector), ControlPath: controlPath, stateFile: stateFile}, nil
 }
 
 // Start runs the time-based rules until ctx ends.
@@ -169,11 +148,11 @@ func portStatePath(profile string) (string, error) {
 	if !validProfileName(profile) {
 		return "", errors.New("companion profile name must be a simple filename")
 	}
-	cacheDir, err := os.UserCacheDir()
+	dir, err := paths.Dir("ports")
 	if err != nil {
-		return "", fmt.Errorf("find agentport cache directory: %w", err)
+		return "", err
 	}
-	return filepath.Join(cacheDir, "agentport", "ports", profile+".json"), nil
+	return filepath.Join(dir, profile+".json"), nil
 }
 
 func loadPortRecords(path string) ([]ports.Record, error) {

@@ -2,9 +2,11 @@ package companion
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/rafaelb13/agentport/internal/paths"
 	"io"
 	"net"
 	"net/http"
@@ -123,11 +125,11 @@ func runtimePath(name string) (string, error) {
 	if !validProfileName(name) {
 		return "", errors.New("companion profile name must be a simple filename")
 	}
-	cacheDir, err := os.UserCacheDir()
+	dir, err := paths.Dir("companions")
 	if err != nil {
-		return "", fmt.Errorf("find agentport cache directory: %w", err)
+		return "", err
 	}
-	return filepath.Join(cacheDir, "agentport", "companions", name+".json"), nil
+	return filepath.Join(dir, name+".json"), nil
 }
 
 func writePrivateJSON(path, temporaryPrefix string, value any) error {
@@ -180,3 +182,18 @@ func postJSON(url, token string, body []byte) (*http.Response, error) {
 	request.Header.Set("Authorization", "Bearer "+token)
 	return (&http.Client{Timeout: 3 * time.Second}).Do(request)
 }
+
+// shutdownServer stops srv. In-flight requests get a short grace period; the
+// rest are closed, so an open panel stream cannot keep a Companion running.
+func shutdownServer(srv *http.Server) error {
+	ctx, cancel := context.WithTimeout(context.Background(), serverShutdownGrace)
+	defer cancel()
+	err := srv.Shutdown(ctx)
+	if errors.Is(err, context.DeadlineExceeded) {
+		return srv.Close()
+	}
+	return err
+}
+
+// serverShutdownGrace bounds how long a stopping server waits for requests.
+const serverShutdownGrace = 2 * time.Second

@@ -3,9 +3,11 @@ package companion
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -38,6 +40,9 @@ func TunnelCommand(profile Profile, localPort int) (*exec.Cmd, error) {
 		"-N",
 		"-R", forward,
 		"-o", "ExitOnForwardFailure=yes",
+		// At this level ssh reports "remote forward success" once the server has
+		// accepted the forward; the tunnel reports "connected" only then.
+		"-o", "LogLevel=DEBUG1",
 		"-o", "ServerAliveInterval=30",
 		"-o", "ServerAliveCountMax=3",
 	)
@@ -112,8 +117,9 @@ func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, ob
 			notify(false, err)
 			return err
 		}
+		forwardConfirmed := make(chan struct{})
 		command.Stdout = loggerWriter{logger: logger}
-		command.Stderr = loggerWriter{logger: logger}
+		command.Stderr = io.MultiWriter(loggerWriter{logger: logger}, &forwardWatch{ready: forwardConfirmed})
 		clearStaleControlSocket(profile)
 		if err := command.Start(); err != nil {
 			err = fmt.Errorf("start companion SSH tunnel: %w", err)
@@ -122,24 +128,33 @@ func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, ob
 		}
 		logger.Debug("SSH tunnel started")
 		startedAt := time.Now()
-		notify(true, nil)
-		if onConnected != nil {
-			onConnected()
-		}
+		// The process runs, but the server has not accepted the reverse forward yet:
+		// that is "connecting", not "connected".
+		notify(false, nil)
 		result := make(chan error, 1)
 		go func() { result <- command.Wait() }()
-		select {
-		case <-ctx.Done():
-			_ = command.Process.Kill()
-			<-result
-			notify(false, nil)
-			return nil
-		case err = <-result:
-			if err != nil {
-				logger.Error("SSH tunnel exited: %v", err)
+	waiting:
+		for {
+			select {
+			case <-ctx.Done():
+				_ = command.Process.Kill()
+				<-result
+				notify(false, nil)
+				return nil
+			case <-forwardConfirmed:
+				forwardConfirmed = nil
+				notify(true, nil)
+				if onConnected != nil {
+					onConnected()
+				}
+			case err = <-result:
+				break waiting
 			}
-			notify(false, err)
 		}
+		if err != nil {
+			logger.Error("SSH tunnel exited: %v", err)
+		}
+		notify(false, err)
 		// A tunnel that stayed up earns a fresh start: only repeated quick exits
 		// should push the wait toward its maximum.
 		if time.Since(startedAt) >= tunnelTiming.stable {
@@ -164,6 +179,39 @@ func (w loggerWriter) Write(p []byte) (int, error) {
 				w.logger.Debug("SSH: %s", line)
 			}
 		}
+	}
+	return len(p), nil
+}
+
+// forwardSuccess is the line ssh writes at debug level once the server has
+// accepted a -R forward.
+const forwardSuccess = "remote forward success"
+
+// forwardWatch reads ssh's stderr line by line and closes ready on the first line
+// that reports the reverse forward. It keeps only an incomplete line in memory.
+type forwardWatch struct {
+	mu      sync.Mutex
+	partial string
+	ready   chan struct{}
+	once    sync.Once
+}
+
+func (w *forwardWatch) Write(p []byte) (int, error) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.partial += string(p)
+	for {
+		index := strings.IndexByte(w.partial, '\n')
+		if index < 0 {
+			break
+		}
+		if strings.Contains(w.partial[:index], forwardSuccess) {
+			w.once.Do(func() { close(w.ready) })
+		}
+		w.partial = w.partial[index+1:]
+	}
+	if len(w.partial) > 4096 {
+		w.partial = ""
 	}
 	return len(p), nil
 }
