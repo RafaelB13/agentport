@@ -336,8 +336,7 @@ func startCompanion(name string, verbose bool) error {
 	if verbose {
 		command.Env = append(os.Environ(), "AGENTPORT_LOG_LEVEL=debug")
 	}
-	command.Stdin, command.Stdout, command.Stderr = nil, io.Discard, io.Discard
-	if err := command.Start(); err != nil {
+	if err := startDetached(command); err != nil {
 		return fmt.Errorf("start Companion: %w", err)
 	}
 	pid := command.Process.Pid
@@ -832,8 +831,8 @@ func startBridge() (daemon.State, error) {
 		return daemon.State{}, fmt.Errorf("locate agentport executable: %w", err)
 	}
 	command := exec.Command(executable, "bridge")
-	command.Stdin, command.Stdout, command.Stderr = bytes.NewReader(payload), io.Discard, os.Stderr
-	if err := command.Start(); err != nil {
+	command.Stdin = bytes.NewReader(payload)
+	if err := startDetached(command); err != nil {
 		return daemon.State{}, fmt.Errorf("start local bridge process: %w", err)
 	}
 	pid := command.Process.Pid
