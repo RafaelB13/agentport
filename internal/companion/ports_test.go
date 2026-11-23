@@ -46,6 +46,9 @@ func TestControlPathIsPrivateAndShort(t *testing.T) {
 }
 
 func TestTunnelCommandIsAControlMasterOnTheProfileSocket(t *testing.T) {
+	if !controlMasterSupported {
+		t.Skip("OpenSSH on Windows has no unix-socket ControlMaster")
+	}
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("HOME", t.TempDir())
 	command, err := TunnelCommand(portProfile(), 45678)

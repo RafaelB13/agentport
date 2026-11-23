@@ -10,11 +10,16 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/forward"
 	"github.com/rafaelb13/agentport/internal/ports"
 )
+
+// controlMasterSupported is false where OpenSSH has no unix-socket ControlMaster
+// (Windows): forwards then run one ssh process each.
+var controlMasterSupported = runtime.GOOS != "windows"
 
 // sweepInterval is how often time-based port rules run (silent sessions, grace
 // periods, expiry).
@@ -70,15 +75,21 @@ func NewPortManager(profile Profile, onError func(error)) (*PortManager, error) 
 	if err := profile.Validate(); err != nil {
 		return nil, err
 	}
-	controlPath, err := ControlPath(profile.Name)
-	if err != nil {
-		return nil, err
-	}
 	stateFile, err := portStatePath(profile.Name)
 	if err != nil {
 		return nil, err
 	}
-	fwd := forward.NewControlMaster("ssh", controlPath, profile.Destination, nil)
+	var fwd forward.Forwarder
+	controlPath := ""
+	if controlMasterSupported {
+		controlPath, err = ControlPath(profile.Name)
+		if err != nil {
+			return nil, err
+		}
+		fwd = forward.NewControlMaster("ssh", controlPath, profile.Destination, nil)
+	} else {
+		fwd = forward.NewPerProcess("ssh", profile.Destination, nil)
+	}
 	store, err := ports.NewStore(ports.Options{
 		Profile:   profile.Name,
 		Forwarder: fwd,
@@ -122,11 +133,13 @@ func (m *PortManager) Start(ctx context.Context) {
 // restored ones. It runs in the background so the tunnel loop never blocks.
 func (m *PortManager) OnConnected(ctx context.Context, onError func(error)) {
 	go func() {
-		if err := waitForSocket(ctx, m.ControlPath, socketWait); err != nil {
-			if onError != nil {
-				onError(err)
+		if m.ControlPath != "" {
+			if err := waitForSocket(ctx, m.ControlPath, socketWait); err != nil {
+				if onError != nil {
+					onError(err)
+				}
+				return
 			}
-			return
 		}
 		if err := m.Store.Reapply(ctx); err != nil && onError != nil {
 			onError(fmt.Errorf("reapply forwards: %w", err))

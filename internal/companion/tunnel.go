@@ -29,26 +29,29 @@ func TunnelCommand(profile Profile, localPort int) (*exec.Cmd, error) {
 		return nil, fmt.Errorf("companion local port must be between 1 and 65535")
 	}
 	forward := fmt.Sprintf("127.0.0.1:%d:127.0.0.1:%d", profile.RemotePort, localPort)
-	controlPath, err := ControlPath(profile.Name)
-	if err != nil {
-		return nil, err
-	}
 	arguments := []string{}
 	if profile.SSHIdentityFile != "" {
 		arguments = append(arguments, "-i", profile.SSHIdentityFile, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 	}
-	// The tunnel process is also the ControlMaster: `ssh -O forward|cancel` adds
-	// and removes port forwards over this socket without a second connection.
 	arguments = append(arguments,
 		"-N",
 		"-R", forward,
 		"-o", "ExitOnForwardFailure=yes",
 		"-o", "ServerAliveInterval=30",
 		"-o", "ServerAliveCountMax=3",
-		"-o", "ControlMaster=auto",
-		"-o", "ControlPath="+controlPath,
-		profile.Destination,
 	)
+	// The tunnel process is also the ControlMaster: `ssh -O forward|cancel` adds
+	// and removes port forwards over this socket without a second connection.
+	// Windows OpenSSH has no unix-socket ControlMaster, so there the forwards
+	// use one ssh process each instead (see NewPortManager).
+	if controlMasterSupported {
+		controlPath, err := ControlPath(profile.Name)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, "-o", "ControlMaster=auto", "-o", "ControlPath="+controlPath)
+	}
+	arguments = append(arguments, profile.Destination)
 	return exec.Command("ssh", arguments...), nil
 }
 
