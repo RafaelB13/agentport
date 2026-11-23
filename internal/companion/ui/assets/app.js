@@ -5,8 +5,6 @@
 'use strict';
 
 const BASE = document.querySelector('meta[name="agentport-base"]').content;
-// The server terminal is F5b: it stays off until it ships.
-const FLAGS = {terminal: false};
 const LANGS = ['en', 'pt-BR', 'es', 'zh-Hant'];
 const LANG_SHORT = {en: 'EN', 'pt-BR': 'PT', es: 'ES', 'zh-Hant': '中文'};
 const CATALOGS = (() => {
@@ -438,7 +436,7 @@ async function denyRequest(req) {
 // --- tabs and lists -----------------------------------------------------------
 
 function renderTabs() {
-  for (const tab of ['open', 'det', 'closed', 'log']) {
+  for (const tab of ['open', 'det', 'closed', 'log', 'term']) {
     const button = $('t-' + tab);
     button.setAttribute('aria-selected', String(S.tab === tab));
   }
@@ -447,6 +445,7 @@ function renderTabs() {
   $('p-det').hidden = S.tab !== 'det';
   $('p-closed').hidden = S.tab !== 'closed';
   $('p-log').hidden = S.tab !== 'log';
+  $('p-term').hidden = S.tab !== 'term';
   $('c-open').textContent = String(S.forwards.length);
   $('c-closed').textContent = String(S.closed.length);
 }
@@ -455,6 +454,7 @@ function setTab(tab) {
   S.tab = tab;
   renderTabs();
   if (tab === 'det') loadDetected(true);
+  if (tab === 'term') termShown();
 }
 
 function visibleForwards() {
@@ -1269,6 +1269,149 @@ document.addEventListener('keydown', e => {
   }
 });
 
+// --- server terminal ----------------------------------------------------------
+// A WebSocket to this Companion's /api/terminal attaches a shell on the server.
+// Keystrokes go up as binary frames, output comes down as binary frames, and a
+// text frame carries a resize. Closing the socket ends the ssh process there.
+// xterm.js and its addons are vendored in assets/vendor: nothing comes from the
+// network.
+
+const TERM = {term: null, fit: null, socket: null, state: 'idle', failure: null, available: null, resizeTimer: 0};
+
+function termTheme() {
+  const css = getComputedStyle(document.documentElement);
+  const value = name => css.getPropertyValue(name).trim();
+  return {background: value('--bg'), foreground: value('--fg'), cursor: value('--fg'), cursorAccent: value('--bg'), selectionBackground: value('--line-strong')};
+}
+
+// termRefreshTheme follows the panel's light and dark theme.
+function termRefreshTheme() {
+  if (TERM.term) TERM.term.options.theme = termTheme();
+}
+
+// termRender shows the state, the buttons and the note in the current language.
+function termRender() {
+  const labels = {
+    idle: t('Closed'), connecting: t('Connecting'), open: t('Connected'), ended: t('Session ended'), unavailable: t('Unavailable'),
+  };
+  $('term-state').textContent = labels[TERM.state] || labels.idle;
+  $('term-state').dataset.state = TERM.state;
+  const canOpen = TERM.state === 'idle' || TERM.state === 'ended';
+  $('term-open').hidden = !canOpen;
+  $('term-open').disabled = TERM.state === 'unavailable';
+  $('term-open').textContent = TERM.state === 'ended' ? t('Reconnect') : t('Open terminal');
+  $('term-close').hidden = !(TERM.state === 'connecting' || TERM.state === 'open');
+  $('term-note').textContent = TERM.failure === 'unavailable' ? t('The server terminal is not available on this computer.')
+    : TERM.failure === 'failed' ? t('The server terminal could not start. Check that the server is connected.')
+      : t('Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.');
+}
+
+function termSetState(state, failure) {
+  TERM.state = state;
+  TERM.failure = failure || null;
+  termRender();
+}
+
+// termShown runs when the tab is selected: it asks the Companion whether a
+// terminal can run here, once.
+async function termShown() {
+  if (TERM.available !== null) return;
+  try {
+    const response = await fetch(BASE + '/api/terminal', {cache: 'no-store'});
+    const body = response.ok ? await response.json() : {};
+    TERM.available = Boolean(body.available);
+  } catch (_) {
+    TERM.available = false;
+  }
+  if (!TERM.available) termSetState('unavailable', 'unavailable');
+}
+
+// termCreate builds the screen on first use, when the tab is visible.
+function termCreate() {
+  if (TERM.term) return true;
+  if (typeof Terminal !== 'function' || typeof FitAddon === 'undefined') return false;
+  const term = new Terminal({
+    cursorBlink: true, fontSize: 13, scrollback: 5000, theme: termTheme(),
+    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+  });
+  const fit = new FitAddon.FitAddon();
+  term.loadAddon(fit);
+  term.open($('term-screen'));
+  // The WebGL renderer draws without injected <style> elements, which the strict
+  // panel CSP would block. Without WebGL, xterm falls back to its DOM renderer.
+  try {
+    if (typeof WebglAddon !== 'undefined') {
+      const gl = new WebglAddon.WebglAddon();
+      gl.onContextLoss(() => gl.dispose());
+      term.loadAddon(gl);
+    }
+  } catch (_) { /* no WebGL here: the DOM renderer draws the screen */ }
+  term.onData(data => termSend(new TextEncoder().encode(data)));
+  TERM.term = term;
+  TERM.fit = fit;
+  if (window.ResizeObserver) new ResizeObserver(() => termFit()).observe($('term-screen'));
+  return true;
+}
+
+function termFit() {
+  const screen = $('term-screen');
+  if (!TERM.fit || !TERM.term || screen.clientWidth === 0 || screen.clientHeight === 0) return;
+  try { TERM.fit.fit(); } catch (_) { return; }
+  clearTimeout(TERM.resizeTimer);
+  TERM.resizeTimer = setTimeout(termSendResize, 60);
+}
+
+function termSendResize() {
+  if (TERM.socket && TERM.socket.readyState === WebSocket.OPEN && TERM.term) {
+    TERM.socket.send(JSON.stringify({type: 'resize', cols: TERM.term.cols, rows: TERM.term.rows}));
+  }
+}
+
+function termSend(bytes) {
+  if (TERM.socket && TERM.socket.readyState === WebSocket.OPEN) TERM.socket.send(bytes);
+}
+
+function termOpen() {
+  if (TERM.socket || TERM.available !== true) return;
+  if (!termCreate()) { termSetState('idle', 'failed'); return; }
+  termFit();
+  termSetState('connecting');
+  const scheme = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const socket = new WebSocket(scheme + '//' + location.host + BASE + '/api/terminal?cols=' + TERM.term.cols + '&rows=' + TERM.term.rows);
+  socket.binaryType = 'arraybuffer';
+  TERM.socket = socket;
+  let opened = false;
+  socket.onopen = () => {
+    if (TERM.socket !== socket) return;
+    opened = true;
+    termSetState('open');
+    termSendResize();
+    TERM.term.focus();
+  };
+  socket.onmessage = event => {
+    if (TERM.socket === socket && event.data instanceof ArrayBuffer) TERM.term.write(new Uint8Array(event.data));
+  };
+  socket.onclose = () => {
+    if (TERM.socket !== socket) return;
+    TERM.socket = null;
+    if (opened) {
+      TERM.term.write('\r\n\x1b[2m' + t('Session ended') + '\x1b[0m\r\n');
+      termSetState('ended');
+    } else {
+      termSetState('idle', 'failed');
+    }
+  };
+}
+
+// termClose ends the session: closing the socket ends the ssh process on the server.
+function termClose() {
+  const socket = TERM.socket;
+  TERM.socket = null;
+  if (socket) socket.close(1000, 'closed by the panel');
+  if (TERM.term) TERM.term.write('\r\n\x1b[2m' + t('Session closed') + '\x1b[0m\r\n');
+  termSetState('idle');
+}
+
 // --- wiring -------------------------------------------------------------------
 
 function wire() {
@@ -1276,6 +1419,9 @@ function wire() {
   $('t-det').addEventListener('click', () => setTab('det'));
   $('t-closed').addEventListener('click', () => setTab('closed'));
   $('t-log').addEventListener('click', () => setTab('log'));
+  $('t-term').addEventListener('click', () => setTab('term'));
+  $('term-open').addEventListener('click', () => termOpen());
+  $('term-close').addEventListener('click', () => termClose());
   $('sess-f').addEventListener('change', e => { S.sess = e.target.value; renderOpen(); });
 
   $('prof').addEventListener('click', e => {
@@ -1309,6 +1455,7 @@ function wire() {
     renderPolicy();
     renderSettings();
     applyTheme(document.documentElement.dataset.theme || null);
+    termRender();
   }));
 
   $('theme').addEventListener('click', () => {
@@ -1368,6 +1515,8 @@ function start() {
   const savedTheme = store('agentport.theme');
   themeIndex = Math.max(0, THEMES.indexOf(savedTheme || null));
   applyTheme(THEMES[themeIndex]);
+  window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', termRefreshTheme);
+  termRender();
   renderPolicy();
   wire();
   loadStatus();

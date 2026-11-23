@@ -435,6 +435,10 @@ destino, el estado del túnel (`Conectado` o `Desconectado`) con el último erro
 aviso cuando existe un release estable más nuevo, y el botón **Parar Companion**,
 que equivale a `agentport companion stop m2`. No transfiere archivos.
 
+## Terminal
+
+El panel tiene una pestaña **Terminal** que abre una shell en el servidor conectado, para ejecutar un comando rápido sin salir del navegador. Reutiliza la conexión SSH del túnel (sin un segundo inicio de sesión), se sirve solo al panel en `127.0.0.1` y acepta conexiones únicamente desde la página propia del panel. Pueden estar abiertos hasta cuatro terminales a la vez. Cerrar el terminal, o detener el Companion, termina la sesión SSH en el servidor. El contenido del terminal nunca se escribe en los registros. En Windows, el terminal no está disponible en esta versión.
+
 ## Herramientas MCP
 
 El agente ve estas herramientas a través del servidor MCP en el servidor.

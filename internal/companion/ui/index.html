@@ -9,6 +9,7 @@
   <title>agentport</title>
   <link rel="icon" type="image/svg+xml" href="{{BASE}}/assets/favicon.svg">
   <link rel="stylesheet" href="{{BASE}}/assets/styles.css">
+  <link rel="stylesheet" href="{{BASE}}/assets/vendor/xterm.css">
 </head>
 <body>
 <script id="agentport-i18n" type="application/json">{{I18N}}</script>
@@ -30,7 +31,6 @@
     </div>
     <span class="spacer"></span>
     <div class="tools">
-      <button class="tbtn" type="button" id="term-btn" hidden aria-pressed="false" data-i18n-title="Server terminal" data-tip-flag="terminal"><span class="lbl" data-i18n="Terminal">Terminal</span></button>
       <div class="pop-wrap">
         <button class="tbtn" type="button" id="pol-btn" aria-haspopup="menu" aria-expanded="false" data-i18n-title="When to ask for approval"><svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.8 13 3.6v4c0 3.1-2.1 5.4-5 6.6-2.9-1.2-5-3.5-5-6.6v-4L8 1.8Z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><path d="m5.8 8 1.6 1.6L10.4 6.4" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="lbl" id="pol-lbl" data-i18n="Ask every time">Ask every time</span></button>
         <div class="pop" id="pol-pop" role="menu" hidden>
@@ -87,6 +87,7 @@
         <button class="tab" role="tab" id="t-det" aria-selected="false" data-tab="det"><span data-i18n="Detected on server">Detected on server</span> <span class="c" id="c-det">0</span></button>
         <button class="tab" role="tab" id="t-closed" aria-selected="false" data-tab="closed"><span data-i18n="Closed">Closed</span> <span class="c" id="c-closed">0</span></button>
         <button class="tab" role="tab" id="t-log" aria-selected="false" data-tab="log"><span data-i18n="Activity">Activity</span></button>
+        <button class="tab" role="tab" id="t-term" aria-selected="false" data-tab="term"><span data-i18n="Terminal">Terminal</span></button>
       </div>
       <label class="sr" for="sess-f" data-i18n="Filter by agent session">Filter by agent session</label><select id="sess-f" class="dur sessf"></select>
       <form class="cmdk" id="add-form" autocomplete="off">
@@ -103,6 +104,16 @@
       <div id="p-det" class="list det" hidden></div>
       <div id="p-closed" class="list closed" hidden></div>
       <ul id="p-log" class="list log" hidden></ul>
+      <section id="p-term" class="term" data-i18n-aria="Terminal" aria-label="Terminal" hidden>
+        <div class="term-bar">
+          <span class="term-state" id="term-state" role="status" aria-live="polite">Closed</span>
+          <span class="spacer"></span>
+          <button class="btn" type="button" id="term-open">Open terminal</button>
+          <button class="btn ghost" type="button" id="term-close" data-i18n="Close terminal" hidden>Close terminal</button>
+        </div>
+        <p class="term-note" id="term-note">Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.</p>
+        <div class="term-screen" id="term-screen"></div>
+      </section>
     </div>
   </section>
 
@@ -149,6 +160,9 @@
 <div class="overlay" id="add-ov" hidden></div>
 <div class="overlay" id="switch-ov" hidden></div>
 
+<script src="{{BASE}}/assets/vendor/xterm.js"></script>
+<script src="{{BASE}}/assets/vendor/addon-fit.js"></script>
+<script src="{{BASE}}/assets/vendor/addon-webgl.js"></script>
 <script src="{{BASE}}/assets/app.js"></script>
 </body>
 </html>

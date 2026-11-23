@@ -2,7 +2,11 @@ module github.com/rafaelb13/agentport
 
 go 1.27.0
 
-require github.com/modelcontextprotocol/go-sdk v1.8.0
+require (
+	github.com/coder/websocket v1.8.14
+	github.com/creack/pty v1.1.24
+	github.com/modelcontextprotocol/go-sdk v1.8.0
+)
 
 require (
 	github.com/google/jsonschema-go v0.4.3 // indirect

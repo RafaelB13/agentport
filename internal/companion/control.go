@@ -11,6 +11,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -29,6 +30,8 @@ type ControlServer struct {
 	listener net.Listener
 	// panelClients counts the panel tabs with an open event stream.
 	panelClients atomic.Int64
+	// terminals tracks the open server terminals, which end with the Companion.
+	terminals terminalRegistry
 }
 
 // ControlOptions configures the control server. Zero hooks get the defaults
@@ -47,6 +50,8 @@ type ControlOptions struct {
 	Profiles func() ([]ProfileEntry, error)
 	// CloseProfile closes every forward of another running profile.
 	CloseProfile func(profile string) (int, error)
+	// Terminal builds the command of a server terminal. Nil disables the terminal.
+	Terminal func() (*exec.Cmd, error)
 }
 
 // StartControl starts the loopback control server. An optional ports handler
@@ -220,6 +225,10 @@ func (c *ControlServer) viewHandler(prefix string, options ControlOptions) http.
 			writeJSON(w, map[string]int{"closed": closed})
 			return
 		}
+		if r.URL.Path == prefix+"/api/terminal" {
+			c.terminalAPI(w, r, options)
+			return
+		}
 		if r.URL.Path == prefix+"/api/status" && r.Method == http.MethodGet {
 			writeJSON(w, options.Status())
 			return
@@ -301,6 +310,7 @@ func (c *ControlServer) Close() error {
 	if c.server == nil {
 		return nil
 	}
+	c.terminals.stop()
 	err := shutdownServer(c.server)
 	RemoveRuntime(c.State)
 	return err

@@ -82,6 +82,9 @@ func withPanelDefaults(o ControlOptions) ControlOptions {
 	if o.CloseProfile == nil {
 		o.CloseProfile = CloseProfileForwards
 	}
+	if o.Terminal == nil {
+		o.Terminal = func() (*exec.Cmd, error) { return ServerTerminalCommand(profile) }
+	}
 	if o.Profiles == nil {
 		o.Profiles = func() ([]ProfileEntry, error) { return ListPanelProfiles(profile) }
 	}

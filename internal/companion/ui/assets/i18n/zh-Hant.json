@@ -139,7 +139,6 @@
   "Select :{port}": "選取 :{port}",
   "Select all": "全選",
   "Select group {name}": "選取群組 {name}",
-  "Server terminal": "伺服器終端機",
   "Servers on this computer": "這台電腦上的伺服器",
   "Session": "工作階段",
   "Set up a server once in a terminal with agentport setup. Then ask your agent to open a port, for example the database.": "請在終端機使用 agentport setup 設定一次伺服器，然後請代理程式開啟連接埠，例如資料庫的連接埠。",
@@ -233,5 +232,15 @@
   "Checking…": "檢查中…",
   "TCP ok": "TCP 正常",
   "TCP not reachable: {error}": "TCP 無法連線：{error}",
-  "HTTP status {status}, answered in {ms} ms": "HTTP 狀態 {status}，{ms} 毫秒內回應"
+  "HTTP status {status}, answered in {ms} ms": "HTTP 狀態 {status}，{ms} 毫秒內回應",
+  "Connecting": "連線中",
+  "Session ended": "工作階段已結束",
+  "Session closed": "工作階段已關閉",
+  "Unavailable": "無法使用",
+  "Reconnect": "重新連線",
+  "Open terminal": "開啟終端機",
+  "Close terminal": "關閉終端機",
+  "The server terminal is not available on this computer.": "這台電腦無法使用伺服器終端機。",
+  "The server terminal could not start. Check that the server is connected.": "伺服器終端機無法啟動。請確認伺服器已連線。",
+  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "在已連線的伺服器上開啟 shell。你輸入的內容都會在那裡執行。關閉終端機或停止 Companion 後，工作階段即結束。"
 }

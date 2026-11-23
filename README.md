@@ -428,6 +428,10 @@ error, a notice when a newer stable release exists, and a **Stop Companion**
 button, which is the same as `agentport companion stop m2`. It does not transfer
 files.
 
+## Terminal
+
+The panel has a **Terminal** tab that opens a shell on the connected server, so you can run a quick command without leaving the browser. It reuses the tunnel's SSH connection (no second login), is served only to the panel on `127.0.0.1`, and accepts connections only from the panel's own page. Up to four terminals can be open at once. Closing the tab's terminal, or stopping the Companion, ends the SSH session on the server. Terminal contents are never written to logs. On Windows the terminal is not available in this version.
+
 ## MCP tools
 
 The agent sees these tools through the MCP server on the server.
