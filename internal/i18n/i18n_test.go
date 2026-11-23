@@ -213,18 +213,20 @@ var verbPattern = regexp.MustCompile(`%[-+# 0-9.*]*[a-zA-Z]`)
 // A translation that drops or reorders a verb would print the wrong value or
 // panic at run time, so every one keeps the verbs of its English message, in order.
 func TestTranslationsKeepTheFormatVerbsOfTheirMessage(t *testing.T) {
-	for message, translated := range catalogs[Portuguese] {
-		if strings.TrimSpace(translated) == "" {
-			t.Errorf("empty translation for %q", message)
-			continue
-		}
-		want := verbPattern.FindAllString(strings.ReplaceAll(message, "%%", ""), -1)
-		got := verbPattern.FindAllString(strings.ReplaceAll(translated, "%%", ""), -1)
-		if strings.Join(want, " ") != strings.Join(got, " ") {
-			t.Errorf("%q has verbs %v but its translation %q has %v", message, want, translated, got)
-		}
-		if strings.HasSuffix(message, " ") != strings.HasSuffix(translated, " ") {
-			t.Errorf("%q and its translation differ in a trailing space, which the dashboard relies on", message)
+	for _, language := range catalogLanguages {
+		for message, translated := range catalogs[language] {
+			if strings.TrimSpace(translated) == "" {
+				t.Errorf("%s: empty translation for %q", language, message)
+				continue
+			}
+			want := verbPattern.FindAllString(strings.ReplaceAll(message, "%%", ""), -1)
+			got := verbPattern.FindAllString(strings.ReplaceAll(translated, "%%", ""), -1)
+			if strings.Join(want, " ") != strings.Join(got, " ") {
+				t.Errorf("%s: %q has verbs %v but its translation %q has %v", language, message, want, translated, got)
+			}
+			if strings.HasSuffix(message, " ") != strings.HasSuffix(translated, " ") {
+				t.Errorf("%s: %q and its translation differ in a trailing space, which the dashboard relies on", language, message)
+			}
 		}
 	}
 }
@@ -258,6 +260,12 @@ func TestDetectFollowsTheVariableOrder(t *testing.T) {
 		{"C locale is English", map[string]string{"LC_ALL": "C", "LANG": "pt_BR.UTF-8"}, English},
 		{"POSIX locale is English", map[string]string{"LANG": "POSIX"}, English},
 		{"C.UTF-8 is English", map[string]string{"LANG": "C.UTF-8"}, English},
+		{"Spanish from Mexico", map[string]string{"LANG": "es_MX.UTF-8"}, Spanish},
+		{"Spanish from Spain", map[string]string{"LC_ALL": "es_ES"}, Spanish},
+		{"Traditional Chinese from Taiwan", map[string]string{"LANG": "zh_TW.UTF-8"}, ChineseTraditional},
+		{"Traditional Chinese from Hong Kong", map[string]string{"LANG": "zh_HK"}, ChineseTraditional},
+		{"Simplified Chinese is English", map[string]string{"LANG": "zh_CN.UTF-8"}, English},
+		{"AGENTPORT_LANG accepts a Spanish tag", map[string]string{"AGENTPORT_LANG": "es"}, Spanish},
 	}
 	for _, c := range cases {
 		getenv := func(name string) string { return c.env[name] }
@@ -275,6 +283,7 @@ func TestSupportedMapsLocalesToLanguages(t *testing.T) {
 		"es": Spanish, "es_ES.UTF-8": Spanish, "es_MX": Spanish, "es-419": Spanish,
 		"zh_TW": ChineseTraditional, "zh_TW.UTF-8": ChineseTraditional, "zh_HK": ChineseTraditional, "zh_MO": ChineseTraditional,
 		"zh-Hant": ChineseTraditional, "zh-Hant-TW": ChineseTraditional, "zh_TW@stroke": ChineseTraditional,
+		"zh-TW": ChineseTraditional, "zh-HK": ChineseTraditional, "zh_Hant_TW.UTF-8": ChineseTraditional,
 	} {
 		if got, ok := Supported(tag); !ok || got != want {
 			t.Errorf("Supported(%q) = %q, %v; want %q", tag, got, ok, want)
@@ -305,15 +314,50 @@ func TestInitUsesTheDetectionOrder(t *testing.T) {
 	}
 }
 
-// A language without a catalog shows English for every message, so a
-// Spanish or Traditional Chinese reader gets readable text, never a gap.
-func TestLanguagesWithoutACatalogShowEnglish(t *testing.T) {
+// Every catalog has exactly the keys of the pt-BR catalog, so no language shows
+// an English line that the others translate.
+func TestEveryCatalogHasExactlyThePortugueseKeys(t *testing.T) {
+	for _, language := range catalogLanguages {
+		if language == Portuguese {
+			continue
+		}
+		var missing, extra []string
+		for key := range catalogs[Portuguese] {
+			if _, ok := catalogs[language][key]; !ok {
+				missing = append(missing, strconv.Quote(key))
+			}
+		}
+		for key := range catalogs[language] {
+			if _, ok := catalogs[Portuguese][key]; !ok {
+				extra = append(extra, strconv.Quote(key))
+			}
+		}
+		sort.Strings(missing)
+		sort.Strings(extra)
+		if len(missing) > 0 || len(extra) > 0 {
+			t.Errorf("%s: %d key(s) missing %v, %d extra %v", language, len(missing), missing, len(extra), extra)
+		}
+	}
+}
+
+// The Spanish and Traditional Chinese catalogs translate, and do not fall back.
+func TestSpanishAndTraditionalChineseTranslate(t *testing.T) {
 	for _, language := range []string{Spanish, ChineseTraditional} {
-		if got := Tr(language, "Stop Companion"); got != "Stop Companion" {
-			t.Errorf("Tr(%q) = %q, want the English message", language, got)
+		if len(Catalog(language)) != len(catalogs[Portuguese]) {
+			t.Errorf("%s has %d translations, want %d", language, len(Catalog(language)), len(catalogs[Portuguese]))
 		}
-		if len(Catalog(language)) != 0 {
-			t.Errorf("%s has a catalog, but the catalogs are not written yet", language)
-		}
+	}
+	if got := Tr(Spanish, "Also known as:"); got != "También conocido como:" {
+		t.Errorf("Tr(es) = %q", got)
+	}
+	if got := Tr(ChineseTraditional, "Also known as:"); got != "別名：" {
+		t.Errorf("Tr(zh-Hant) = %q", got)
+	}
+}
+
+// A message with no translation is still shown in English.
+func TestAMessageWithoutATranslationIsEnglish(t *testing.T) {
+	if got := Tr(Spanish, "no such message %d", 1); got != "no such message 1" {
+		t.Errorf("Tr(es) = %q", got)
 	}
 }
