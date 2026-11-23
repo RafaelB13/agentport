@@ -86,7 +86,8 @@ func NewPortManager(profile Profile, onError func(error)) (*PortManager, error) 
 		}
 	}
 	store.Restore(records)
-	return &PortManager{Store: store, Handler: ports.NewHandler(store), ControlPath: controlPath, stateFile: stateFile}, nil
+	detector := &RemoteDetector{Destination: profile.Destination, ControlPath: controlPath, ExcludePorts: []int{profile.RemotePort}}
+	return &PortManager{Store: store, Handler: ports.NewHandlerWithDetector(store, detector), ControlPath: controlPath, stateFile: stateFile}, nil
 }
 
 // Start runs the time-based rules until ctx ends.

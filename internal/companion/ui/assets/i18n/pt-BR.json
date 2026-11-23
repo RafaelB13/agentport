@@ -48,7 +48,6 @@
   "Deny the oldest request": "Recusar o pedido mais antigo",
   "Details": "Detalhes",
   "Detected on server": "Detectadas no servidor",
-  "Detection of server ports is not in this version yet. Open a port with /.": "A detecção de portas do servidor ainda não está nesta versão. Abra uma porta com /.",
   "Disconnected": "Desconectado",
   "Double-click a port's name to rename it.": "Dê dois cliques no nome de uma porta para renomeá-la.",
   "Double-click to rename": "Dê dois cliques para renomear",
@@ -220,5 +219,19 @@
   "{n} selected": "{n} selecionadas",
   "{process} (pid {pid})": "{process} (pid {pid})",
   "· profile {name} · {uptime}": "· perfil {name} · {uptime}",
-  "{n} ports could not be opened.": "{n} portas não puderam ser abertas."
+  "{n} ports could not be opened.": "{n} portas não puderam ser abertas.",
+  "Scanning the server…": "Lendo as portas do servidor…",
+  "The server could not be scanned: {error}": "Não foi possível ler as portas do servidor: {error}",
+  "No other listening ports were found on the server.": "Nenhuma outra porta em escuta foi encontrada no servidor.",
+  "Unknown process": "Processo desconhecido",
+  "Process": "Processo",
+  "PID": "PID",
+  "User": "Usuário",
+  "Bind": "Escuta em",
+  "Command line": "Linha de comando",
+  "Working directory": "Diretório de trabalho",
+  "Checking…": "Verificando…",
+  "TCP ok": "TCP ok",
+  "TCP not reachable: {error}": "TCP inacessível: {error}",
+  "HTTP status {status}, answered in {ms} ms": "HTTP {status}, respondeu em {ms} ms"
 }

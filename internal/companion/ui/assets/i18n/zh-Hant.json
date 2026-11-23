@@ -48,7 +48,6 @@
   "Deny the oldest request": "拒絕最早的請求",
   "Details": "詳細資料",
   "Detected on server": "伺服器偵測到",
-  "Detection of server ports is not in this version yet. Open a port with /.": "此版本尚未支援伺服器連接埠偵測。請按 / 開啟連接埠。",
   "Disconnected": "已中斷連線",
   "Double-click a port's name to rename it.": "在連接埠名稱上按兩下即可重新命名。",
   "Double-click to rename": "按兩下以重新命名",
@@ -220,5 +219,19 @@
   "{n} selected": "已選取 {n} 個",
   "{process} (pid {pid})": "{process}（pid {pid}）",
   "· profile {name} · {uptime}": "· 設定檔 {name} · {uptime}",
-  "{n} ports could not be opened.": "{n} 個連接埠無法開啟。"
+  "{n} ports could not be opened.": "{n} 個連接埠無法開啟。",
+  "Scanning the server…": "正在讀取伺服器的連接埠…",
+  "The server could not be scanned: {error}": "無法讀取伺服器的連接埠：{error}",
+  "No other listening ports were found on the server.": "伺服器上沒有找到其他正在監聽的連接埠。",
+  "Unknown process": "未知程序",
+  "Process": "程序",
+  "PID": "PID",
+  "User": "使用者",
+  "Bind": "監聽位址",
+  "Command line": "命令列",
+  "Working directory": "工作目錄",
+  "Checking…": "檢查中…",
+  "TCP ok": "TCP 正常",
+  "TCP not reachable: {error}": "TCP 無法連線：{error}",
+  "HTTP status {status}, answered in {ms} ms": "HTTP 狀態 {status}，{ms} 毫秒內回應"
 }

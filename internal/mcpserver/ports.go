@@ -102,6 +102,7 @@ type ListEntry struct {
 	Cmdline   string        `json:"cmdline,omitempty"`
 	User      string        `json:"user,omitempty"`
 	Container string        `json:"container,omitempty"`
+	Cwd       string        `json:"cwd,omitempty"`
 	Forwarded *ForwardedRef `json:"forwarded,omitempty"`
 }
 
@@ -130,7 +131,7 @@ func ListPorts(ctx context.Context, scan func(context.Context, portscan.Options)
 			continue
 		}
 		entries = append(entries, ListEntry{Port: l.Port, Bind: l.Bind, PID: l.PID, Process: l.Process,
-			Cmdline: shortCmdline(l.Cmdline), User: l.User, Container: l.Container})
+			Cmdline: shortCmdline(l.Cmdline), User: l.User, Container: l.Container, Cwd: l.Cwd})
 	}
 	return entries, nil
 }

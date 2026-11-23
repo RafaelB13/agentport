@@ -148,6 +148,13 @@ const S = {
   offline: false,
   live: false,
   checks: new Map(),
+  // Listening ports of the server, keyed by port, with the forwarded ones marked.
+  portInfo: new Map(),
+  detectedBusy: false,
+  detectedError: '',
+  detExpanded: new Set(),
+  health: new Map(),
+  menuOpen: false,
   stopArmed: null,
   policy: store('agentport.policy') === 'session' ? 'session' : 'ask',
 };
@@ -447,6 +454,7 @@ function renderTabs() {
 function setTab(tab) {
   S.tab = tab;
   renderTabs();
+  if (tab === 'det') loadDetected(true);
 }
 
 function visibleForwards() {
@@ -586,13 +594,16 @@ function detailsBox(f) {
     [t('Origin'), f.origin === 'manual' ? t('You opened it') : t('An agent asked for it')],
     [t('State'), f.state],
   ];
-  return el('dl', {class: 'dp'}, items.map(([k, v]) => el('div', null, el('dt', null, k), el('dd', null, v))),
-    el('p', {class: 'dp-empty'}, t('Process details appear once the port is detected on the server.')));
+  const info = S.portInfo.get(f.remote_port);
+  const process = info ? processBox(info) : el('p', {class: 'dp-empty'}, t('Process details appear once the port is detected on the server.'));
+  return el('div', {class: 'dp-wrap'}, el('dl', {class: 'dp'}, items.map(([k, v]) => el('div', null, el('dt', null, k), el('dd', null, v)))),
+    process, healthBox(f.local_port));
 }
 
 function toggleDetails(f) {
   S.expanded.has(f.remote_port) ? S.expanded.delete(f.remote_port) : S.expanded.add(f.remote_port);
   renderOpen();
+  if (S.expanded.has(f.remote_port)) loadDetected(false);
 }
 
 function startRename(f) {
@@ -639,10 +650,134 @@ function renderSelection() {
     el('button', {class: 'btn ghost', type: 'button', onclick: () => { S.selected.clear(); renderOpen(); renderSelection(); }}, t('Clear')));
 }
 
+// --- detected ports ----------------------------------------------------------
+
+// loadDetected scans the server through the Companion. refresh asks for a scan
+// now; without it the Companion answers from its short cache. One request also
+// carries the forwarded ports, so the open forwards get their process details.
+async function loadDetected(refresh) {
+  S.detectedBusy = true;
+  renderDetected();
+  try {
+    const data = await ports('GET', '/detected?all=1' + (refresh ? '&refresh=1' : ''));
+    S.portInfo = new Map((data.ports || []).map(p => [p.port, p]));
+    S.detectedError = data.error || '';
+  } catch (error) {
+    S.detectedError = error.message;
+  }
+  S.detectedBusy = false;
+  renderDetected();
+  renderOpen();
+  renderMenu();
+}
+
+// detectedList is the server's listening ports that no forward uses yet.
+function detectedList() {
+  return [...S.portInfo.values()].filter(p => !p.forwarded).sort((a, b) => a.port - b.port);
+}
+
 function renderDetected() {
   const box = $('p-det');
-  box.replaceChildren(el('div', {class: 'list-empty'}, t('Detection of server ports is not in this version yet. Open a port with /.')));
-  $('c-det').textContent = '0';
+  const list = detectedList();
+  $('c-det').textContent = String(list.length);
+  box.replaceChildren();
+  if (S.detectedBusy && !list.length) {
+    box.append(el('div', {class: 'list-empty'}, t('Scanning the server…')));
+    return;
+  }
+  if (S.detectedError) box.append(el('div', {class: 'list-empty'}, t('The server could not be scanned: {error}', {error: S.detectedError})));
+  else if (!list.length) box.append(el('div', {class: 'list-empty'}, t('No other listening ports were found on the server.')));
+  for (const p of list) box.append(detectedRow(p));
+}
+
+function detectedRow(p) {
+  const what = el('div', {class: 'what'}, el('b', null, p.process || t('Unknown process')), el('small', null, [p.bind, p.user].filter(Boolean).join(' · ')));
+  const row = el('div', {class: 'item', dataset: {port: String(p.port)}},
+    el('div', {class: 'r'}, ':' + p.port),
+    what,
+    el('div', {class: 'acts'},
+      el('button', {class: 'btn', type: 'button', onclick: () => openDetected(p)}, t('Open')),
+      el('button', {class: 'ibtn', type: 'button', 'aria-expanded': String(S.detExpanded.has(p.port)), 'data-tip': t('Details'), 'aria-label': t('Details'), onclick: () => toggleDetected(p)}, el('span', {class: 'chev'}, '▾'))));
+  const parts = [row];
+  if (S.detExpanded.has(p.port)) parts.push(processBox(p));
+  return el('div', {class: 'row-wrap'}, parts);
+}
+
+function toggleDetected(p) {
+  S.detExpanded.has(p.port) ? S.detExpanded.delete(p.port) : S.detExpanded.add(p.port);
+  renderDetected();
+}
+
+async function openDetected(p) {
+  try {
+    await ports('POST', '/forwards/open', {remote_port: p.port});
+    toast(t('Opened :{port}', {port: p.port}));
+  } catch (error) {
+    toast(error.message, true);
+  }
+  await loadState();
+  await loadDetected(true);
+}
+
+// processBox lists what the server knows about the process that listens on a port.
+function processBox(p) {
+  const items = [
+    [t('Process'), p.process || '-'],
+    [t('PID'), p.pid ? String(p.pid) : '-'],
+    [t('User'), p.user || '-'],
+    [t('Bind'), p.bind || '-'],
+    [t('Command line'), p.cmdline || '-'],
+    [t('Working directory'), p.cwd || '-'],
+  ];
+  return el('dl', {class: 'dp'}, items.map(([k, v]) => el('div', null, el('dt', null, k), el('dd', null, v))));
+}
+
+// healthBox shows whether the local end of a forward answers. The check is
+// cached for a few seconds on the Companion side and here.
+function healthBox(port) {
+  const box = el('div', {class: 'dp-health'}, t('Checking…'));
+  healthOf(port).then(h => {
+    const lines = [h.tcp ? t('TCP ok') : t('TCP not reachable: {error}', {error: h.tcp_error || '-'})];
+    if (h.http_status) lines.push(t('HTTP status {status}, answered in {ms} ms', {status: h.http_status, ms: h.http_latency_ms}));
+    box.replaceChildren(...lines.map(line => el('div', null, line)));
+  }).catch(error => box.replaceChildren(el('div', null, error.message)));
+  return box;
+}
+
+async function healthOf(port) {
+  const cached = S.health.get(port);
+  if (cached && Date.now() - cached.at < 3000) return cached.result;
+  const result = await ports('GET', '/local/health?port=' + encodeURIComponent(port));
+  S.health.set(port, {at: Date.now(), result});
+  return result;
+}
+
+// --- port box -----------------------------------------------------------------
+
+// renderMenu fills the list under the port box with the detected ports that
+// match what is typed. Choosing one puts its number in the box; Enter opens it.
+function renderMenu() {
+  const menu = $('menu');
+  const input = $('add-port');
+  const typed = input.value.trim();
+  const matches = detectedList().filter(p => !typed || String(p.port).startsWith(typed)).slice(0, 12);
+  menu.replaceChildren();
+  const show = S.menuOpen && matches.length > 0;
+  menu.hidden = !show;
+  input.setAttribute('aria-expanded', String(show));
+  for (const p of matches) {
+    menu.append(el('button', {class: 'mi', type: 'button', role: 'option', 'aria-selected': String(String(p.port) === typed),
+      onmousedown: e => e.preventDefault(), onclick: () => pickDetected(p)},
+      el('span', {class: 'mono'}, ':' + p.port),
+      el('span', null, p.process || t('Unknown process'))));
+  }
+}
+
+function pickDetected(p) {
+  S.menuOpen = false;
+  $('add-port').value = String(p.port);
+  renderMenu();
+  $('add-port').focus();
 }
 
 function reasonLabel(reason) {
@@ -1219,7 +1354,11 @@ function wire() {
     closePopovers();
     await loadState();
   });
-  $('add-port').addEventListener('focus', () => { $('menu').hidden = true; });
+  const openMenu = () => { S.menuOpen = true; renderMenu(); loadDetected(true); };
+  $('add-port').addEventListener('focus', openMenu);
+  $('add-port').addEventListener('input', openMenu);
+  $('add-port').addEventListener('keydown', e => { if (e.key === 'Escape') { S.menuOpen = false; renderMenu(); } });
+  $('add-port').addEventListener('blur', () => setTimeout(() => { S.menuOpen = false; renderMenu(); }, 150));
 }
 
 // --- start --------------------------------------------------------------------
