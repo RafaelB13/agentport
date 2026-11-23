@@ -455,31 +455,20 @@ func activeCompanions(profiles []companion.Profile) ([]string, error) {
 }
 
 func stopCompanions(names []string) error {
+	var failures []string
 	for _, name := range names {
 		state, err := companion.LoadRuntime(name)
 		if err != nil || !companion.RuntimeHealthy(state) {
 			continue
 		}
-		if err := companion.StopRuntime(state); err != nil {
-			return fmt.Errorf("stop active Companion %q: %w", name, err)
+		if _, err := stopCompanionProcess(state); err != nil {
+			failures = append(failures, fmt.Sprintf("%s: %v", name, err))
 		}
 	}
-	deadline := time.Now().Add(startupTimeout)
-	for time.Now().Before(deadline) {
-		stopped := true
-		for _, name := range names {
-			state, err := companion.LoadRuntime(name)
-			if err == nil && companion.RuntimeHealthy(state) {
-				stopped = false
-				break
-			}
-		}
-		if stopped {
-			return nil
-		}
-		time.Sleep(50 * time.Millisecond)
+	if len(failures) != 0 {
+		return fmt.Errorf("stop active Companion(s): %s", strings.Join(failures, "; "))
 	}
-	return errors.New("timed out stopping active Companions")
+	return nil
 }
 
 func restartCompanions(names []string) error {
@@ -538,15 +527,99 @@ func windowsReplacementScript() string {
 		"Remove-Item -Force -LiteralPath $PSCommandPath\n"
 }
 
+// Time limits of stopping a process. A Companion that is asked to stop closes
+// its tunnel and its state within the first; after that it is killed.
+const (
+	companionStopTimeout = 8 * time.Second
+	companionKillTimeout = 3 * time.Second
+	stopPollInterval     = 100 * time.Millisecond
+)
+
+// companionStopper stops one Companion process: a stop request, a wait for the
+// health check to fail, then a kill and a second wait. The hooks are fields so
+// the escalation can be tested without real processes.
+type companionStopper struct {
+	request   func() error
+	running   func() bool
+	kill      func() error
+	grace     time.Duration
+	forceWait time.Duration
+	poll      time.Duration
+}
+
+// stop reports whether the Companion had to be killed.
+func (s companionStopper) stop() (bool, error) {
+	requestErr := s.request()
+	grace := s.grace
+	if requestErr != nil {
+		// A Companion that refuses the request will not stop by waiting.
+		grace = 0
+	}
+	if s.waitStopped(grace) {
+		return false, nil
+	}
+	if err := s.kill(); err != nil {
+		return false, fmt.Errorf("kill the Companion after it did not stop: %w", err)
+	}
+	if s.waitStopped(s.forceWait) {
+		return true, nil
+	}
+	return true, errors.New("the Companion is still running after it was killed")
+}
+
+func (s companionStopper) waitStopped(limit time.Duration) bool {
+	deadline := time.Now().Add(limit)
+	for {
+		if !s.running() {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(s.poll)
+	}
+}
+
+// stopCompanionProcess stops a running Companion and reports whether it had to be
+// killed. A killed process cannot remove its runtime state, so this does.
+func stopCompanionProcess(state companion.RuntimeState) (bool, error) {
+	forced, err := companionStopper{
+		request:   func() error { return companion.StopRuntime(state) },
+		running:   func() bool { return companion.RuntimeHealthy(state) },
+		kill:      func() error { return killProcess(state.PID) },
+		grace:     companionStopTimeout,
+		forceWait: companionKillTimeout,
+		poll:      stopPollInterval,
+	}.stop()
+	companion.RemoveRuntime(state)
+	return forced, err
+}
+
+func killProcess(pid int) error {
+	if pid <= 0 {
+		return errors.New("the process id is unknown")
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return err
+	}
+	return process.Kill()
+}
+
 func stopCompanion(name string) error {
 	state, err := companion.LoadRuntime(name)
 	if err != nil || !companion.RuntimeHealthy(state) {
 		return fmt.Errorf("Companion %q is not running", name)
 	}
-	if err := companion.StopRuntime(state); err != nil {
+	forced, err := stopCompanionProcess(state)
+	if err != nil {
 		return fmt.Errorf("stop Companion %q: %w", name, err)
 	}
-	fmt.Println(i18n.T("Companion %q is stopping.", name))
+	if forced {
+		fmt.Println(i18n.T("Companion %q did not stop in time and was killed.", name))
+	} else {
+		fmt.Println(i18n.T("Companion %q stopped.", name))
+	}
 	return nil
 }
 
@@ -643,7 +716,7 @@ func runCompanionService(name string, announce bool) error {
 		return err
 	}
 	if started {
-		defer func() { _ = control.Shutdown(state) }()
+		defer shutdownBridgeIfUnused(state, name)
 	}
 	payload, err := json.Marshal(struct {
 		ID    string `json:"id"`
@@ -748,20 +821,21 @@ func runCompanionService(name string, announce bool) error {
 	if announce {
 		fmt.Println(i18n.T("Companion %q is running.", profile.Name))
 	}
+	// One goroutine, the tunnel, sends on errors. A stop or a signal leaves it
+	// running, so wait for its result; a tunnel that ended already has sent it.
 	var runErr error
-	received := 0
+	tunnelEnded := false
 	select {
 	case <-signals:
 	case <-stop:
 	case runErr = <-errors:
-		received = 1
+		tunnelEnded = true
 	}
 	cancel()
-	for received < 2 {
+	if !tunnelEnded {
 		if err := <-errors; runErr == nil && err != nil {
 			runErr = err
 		}
-		received++
 	}
 	if runErr != nil {
 		logger.Error("Companion stopped with error: %v", runErr)
@@ -769,6 +843,20 @@ func runCompanionService(name string, announce bool) error {
 		logger.Info("Companion stopped")
 	}
 	return runErr
+}
+
+// runBridgeCommand serves `agentport bridge` and `agentport bridge stop [--force]`.
+func runBridgeCommand(arguments []string) error {
+	switch {
+	case len(arguments) == 0:
+		return runBridge()
+	case arguments[0] == "stop" && len(arguments) == 1:
+		return runBridgeStop(false)
+	case arguments[0] == "stop" && len(arguments) == 2 && arguments[1] == "--force":
+		return runBridgeStop(true)
+	default:
+		return errors.New("usage: agentport bridge | agentport bridge stop [--force]")
+	}
 }
 
 func runBridge() error {
@@ -795,8 +883,64 @@ func runBridge() error {
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
-	<-signals
+	select {
+	case <-signals:
+	case <-d.Done():
+	}
 	return nil
+}
+
+// runBridgeStop asks the bridge to stop. It refuses while a Companion uses the
+// bridge, unless force is set, because that Companion would lose its port API.
+func runBridgeStop(force bool) error {
+	state, err := daemon.LoadState()
+	if err != nil || !control.Healthy(state) {
+		return errors.New("bridge is not running")
+	}
+	if !force {
+		profiles, err := companion.ListProfiles()
+		if err != nil {
+			return fmt.Errorf("list Companion profiles: %w", err)
+		}
+		if active, _ := activeCompanions(profiles); len(active) != 0 {
+			return fmt.Errorf("Companion(s) %s still use the bridge; stop them first, or run `agentport bridge stop --force`", strings.Join(active, ", "))
+		}
+	}
+	if err := stopBridgeProcess(state); err != nil {
+		return fmt.Errorf("stop bridge: %w", err)
+	}
+	fmt.Println(i18n.T("bridge stopped"))
+	return nil
+}
+
+// stopBridgeProcess asks the bridge to shut down and kills it when it does not
+// stop in time.
+func stopBridgeProcess(state daemon.State) error {
+	_, err := companionStopper{
+		request:   func() error { return control.Shutdown(state) },
+		running:   func() bool { return control.Healthy(state) },
+		kill:      func() error { return killProcess(state.PID) },
+		grace:     companionStopTimeout,
+		forceWait: companionKillTimeout,
+		poll:      stopPollInterval,
+	}.stop()
+	return err
+}
+
+// shutdownBridgeIfUnused stops the bridge that a Companion started, once no other
+// Companion is running. A bridge that another process started is left alone.
+func shutdownBridgeIfUnused(state daemon.State, name string) {
+	profiles, err := companion.ListProfiles()
+	if err != nil {
+		return
+	}
+	active, _ := activeCompanions(profiles)
+	for _, other := range active {
+		if other != name {
+			return
+		}
+	}
+	_ = stopBridgeProcess(state)
 }
 
 func runDoctor() error {

@@ -1,7 +1,6 @@
 package companion
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/subtle"
 	"embed"
@@ -302,7 +301,7 @@ func (c *ControlServer) Close() error {
 	if c.server == nil {
 		return nil
 	}
-	err := c.server.Shutdown(context.Background())
+	err := shutdownServer(c.server)
 	RemoveRuntime(c.State)
 	return err
 }

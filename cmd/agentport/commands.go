@@ -180,11 +180,13 @@ command of their own (AGY, OpenCode and Pi). Setup, pair and connect call it on
 the server; you rarely need to.`),
 		},
 		{
-			name: "bridge", group: groupAdvanced, run: func([]string) error { return runBridge() },
-			summary: i18n.T("Run the local bridge on its own (internal)"),
-			usage:   []string{"agentport bridge"},
+			name: "bridge", group: groupAdvanced, run: runBridgeCommand,
+			summary: i18n.T("Run the local bridge on its own, or stop it (internal)"),
+			usage:   []string{"agentport bridge", "agentport bridge stop [--force]"},
 			details: i18n.T(`Runs the local bridge without a Companion. It is used internally; the Companion
-starts the bridge for you.`),
+starts the bridge for you and stops it when no Companion uses it any more.
+"bridge stop" stops a bridge that is still running. It refuses while a Companion
+uses the bridge, unless --force is given.`),
 		},
 	}, portCommands()...)
 }
