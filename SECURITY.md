@@ -2,16 +2,16 @@
 
 **Português** · [English](#security-policy)
 
-O agentport move conteúdo privado (clipboard e arquivos) entre a máquina local e
-um servidor remoto. Levamos relatos de segurança a sério.
+O agentport conecta um agente remoto à máquina local por um túnel autenticado.
+Esse canal precisa ser seguro. Levamos relatos de segurança a sério.
 
 ## Como reportar uma vulnerabilidade
 
 Use o reporte privado de vulnerabilidades do GitHub:
 <https://github.com/rafaelb13/agentport/security/advisories/new>
 
-Não abra issues públicas, nem inclua tokens, conteúdo de clipboard ou arquivos
-de servidores reais no relato. Descreva o impacto, os passos para reproduzir e
+Não abra issues públicas, nem inclua tokens ou dados de servidores reais no
+relato. Descreva o impacto, os passos para reproduzir e
 a versão afetada (`agentport --version`).
 
 Você pode esperar uma confirmação de recebimento em alguns dias. As correções
@@ -36,24 +36,24 @@ assinar e é interrompido se encontrar uma vulnerabilidade conhecida.
 
 ## Escopo
 
-Estão no escopo: autenticação do bridge e do Companion, túnel SSH, inbox de
-arquivos recebidos, instaladores e o processo de upgrade. Consulte também as
+Estão no escopo: autenticação do bridge e do Companion, túnel SSH, instaladores
+e o processo de upgrade. Consulte também as
 áreas sensíveis em [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
 # Security policy
 
-agentport moves private content (the clipboard and files) between the local
-machine and a remote server. We take security reports seriously.
+agentport connects a remote agent to the local machine through an authenticated
+tunnel, and that channel must stay secure. We take security reports seriously.
 
 ## How to report a vulnerability
 
 Use GitHub's private vulnerability reporting:
 <https://github.com/rafaelb13/agentport/security/advisories/new>
 
-Please do not open public issues, and do not include tokens, clipboard content
-or files from real servers in your report. Describe the impact, the steps to
+Please do not open public issues, and do not include tokens or data from real
+servers in your report. Describe the impact, the steps to
 reproduce and the affected version (`agentport --version`).
 
 You can expect an acknowledgement within a few days. Fixes are published in a
@@ -80,5 +80,5 @@ before signing and stops if it finds a known vulnerability.
 ## Scope
 
 In scope: authentication of the bridge and the Companion, the SSH tunnel, the
-inbox of received files, the installers and the upgrade process. See also the
+installers and the upgrade process. See also the
 sensitive areas in [CONTRIBUTING.md](CONTRIBUTING.md) (in Portuguese).

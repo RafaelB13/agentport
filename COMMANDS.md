@@ -15,7 +15,7 @@ codex
 
 `setup` cria o perfil, configura os harnesses suportados que já existirem no
 servidor e inicia o Companion. Depois disso, use o SSH normalmente e peça ao
-agente para examinar o clipboard.
+agente para verificar o status com `agentport_status`.
 
 ## Comandos do usuário
 
@@ -87,25 +87,20 @@ CLI do harness, o binário remoto, o perfil local ou o Companion em execução.
 ### `companion`
 
 ```text
-agentport companion <start|stop|status|open|view|run|inbox> <profile>
-agentport companion <accept|reject> <profile> <offer-id>
+agentport companion <start|stop|status|open|view|run> <profile>
 agentport companion autostart <enable|disable|status> <profile>
 ```
 
 Gerencia a parte local persistente do agentport.
 
-- `start`: inicia o Companion em background. Ele acompanha alterações no
-  clipboard, mantém o bridge local e abre o túnel SSH reverso.
+- `start`: inicia o Companion em background. Ele mantém o bridge local e abre
+  o túnel SSH reverso.
 - `stop`: pede uma parada limpa do Companion e encerra o túnel.
-- `status`: imprime em JSON o perfil, o destino, o estado do túnel e os itens
-  atualmente armados no clipboard.
+- `status`: imprime em JSON o perfil, o destino, o estado do túnel e o aviso de
+  versão.
 - `open` ou `view`: abre a página web local do Companion no navegador padrão.
 - `run`: executa o Companion em primeiro plano; use para diagnóstico. `start`
   é preferível no uso normal.
-- `inbox`: mostra o estado do Companion, incluindo arquivos oferecidos pelo
-  servidor e os recebimentos recentes.
-- `accept` e `reject`: aprovam ou recusam uma oferta pendente sem abrir o
-  navegador. O ID aparece em `inbox`, `status` ou na página web.
 - `autostart enable`: faz o Companion do perfil subir quando você entra na
   sessão, com o que cada sistema já tem: um LaunchAgent em
   `~/Library/LaunchAgents` no macOS, uma unidade de usuário do systemd em
@@ -181,33 +176,10 @@ A página atualiza a cada dois segundos e mostra:
 - perfil e destino SSH;
 - estado do túnel (`Conectado` ou `Desconectado`; em inglês, `Connected` ou
   `Disconnected`) e o último erro, quando há;
-- clipboard armado, quantidade, nomes/tipos dos itens e horário de expiração;
 - aviso de release estável nova, com a versão e `agentport upgrade`;
 - botão **Parar Companion** (*Stop Companion*), equivalente ao comando `companion stop`.
 
-Ela é uma visão operacional; não transfere o conteúdo do clipboard ao
-servidor. A transferência acontece apenas quando o harness remoto chama uma
-ferramenta MCP após um pedido explícito do usuário.
-
-Quando um agente remoto oferece um arquivo para o host, esta página mostra a
-seção **Arquivos recebidos** (*Received files*). As ofertas pendentes e os arquivos já recebidos
-são exibidos separadamente, cada grupo ordenado do mais recente para o menos
-recente. A oferta mostra data e hora de recebimento, tamanho e expiração; use
-**Aceitar** (*Accept*) para liberar a entrega ou **Recusar** (*Reject*) para cancelá-la. Ao
-aceitar ou recusar, a oferta sai imediatamente da lista e a chamada MCP remota
-que a criou recebe a decisão (ela espera por até 10 minutos). O remoto não
-consegue enviar bytes nem escolher o destino local antes desse aceite. Um
-recebimento validado fica em `~/.cache/agentport/received/` (ou cache
-equivalente) e é removido automaticamente após 30 minutos. Os recebidos exibem
-também a data e hora em que a transferência foi concluída.
-
-Arquivos recebidos de texto, código e dados tabulares exibem **Abrir conteúdo** (*Open content*)
-e **Copiar conteúdo** (*Copy content*). Abrir conteúdo mostra o texto bruto numa nova aba local;
-Copiar conteúdo copia esse texto para a área de transferência. As ações servem
-para CSV, TSV, SQL, JSON, YAML e fontes, não executam HTML e não são exibidas
-para formatos binários, como imagens e planilhas `.xlsx`. Todos os arquivos
-recebidos exibem ainda **Baixar** (*Download*), que baixa o original pelo endereço privado
-local, e **Copiar caminho** (*Copy path*), para copiar sua localização na inbox do agentport.
+Ela é uma visão operacional: não transfere arquivos ao servidor.
 
 ### `doctor`
 
@@ -217,7 +189,7 @@ agentport doctor
 
 Verifica se há um bridge local saudável e informa endereço e PID. Para o fluxo
 com Companion, prefira `agentport companion status <perfil>`, que também inclui
-o estado do túnel e do clipboard.
+o estado do túnel.
 
 ### `logs`
 
@@ -235,13 +207,13 @@ agentport companion stop <profile>
 agentport companion start <profile> --verbose
 ```
 
-O modo verbose registra eventos de clipboard e do túnel SSH, além de mensagens
-de erro. Ele não registra tokens, bytes nem o conteúdo do clipboard.
+O modo verbose registra eventos do túnel SSH, além de mensagens
+de erro. Ele não registra tokens nem conteúdo.
 
 O Companion consulta a release estável no início e no máximo uma vez a cada 24
 horas, compartilhando um cache privado entre perfis. O status também está na
-ferramenta MCP `agentport_update_status`; ela nunca exige que o clipboard esteja
-armado e recomenda `agentport upgrade` quando necessário.
+ferramenta MCP `agentport_status`, que recomenda `agentport upgrade` quando há uma versão
+nova.
 
 ### `help`
 
@@ -287,29 +259,6 @@ Traduzem-se o que a pessoa lê: o `help`, as mensagens de resultado e de estado,
 avisos e a página. As mensagens de erro técnicas ficam em inglês de propósito, para
 poderem ser pesquisadas. O que faltar em um catálogo aparece em inglês.
 
-## Fluxo avulso legado
-
-### `arm`
-
-```text
-agentport arm
-```
-
-Captura uma imagem do clipboard e a arma no bridge local por 90 segundos. É
-destinado ao fluxo avulso com `agentport ssh`; o Companion é o caminho moderno
-para imagens, texto e arquivos.
-
-### `ssh`
-
-```text
-agentport ssh <ssh-destination> [-- <ssh arguments>]
-```
-
-Abre uma sessão SSH temporária para a imagem previamente armada por `arm` e
-cria um encaminhamento reverso somente durante essa sessão. Os argumentos após
-`--` são repassados ao SSH. Não substitui `setup` + Companion para o uso
-cotidiano.
-
 ## Comandos de integração e internos
 
 ### `harness`
@@ -341,7 +290,7 @@ agentport bridge
 ```
 
 Processo interno que recebe a inicialização pelo `stdin` e mantém o bridge HTTP
-local. É iniciado por `arm` ou pelo Companion; não deve ser executado
+local. É iniciado pelo Companion; não deve ser executado
 manualmente.
 
 ## Após reinicializações

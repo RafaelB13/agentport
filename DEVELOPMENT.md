@@ -56,7 +56,7 @@ remove o binário ou desinstala o harness remoto.
 ## Ciclo de vida do Companion
 
 `./agentport companion start m2` retorna ao terminal depois de iniciar o
-processo local em background. Esse processo acompanha o clipboard, mantém o
+processo local em background. Esse processo mantém o
 bridge e reconecta o túnel SSH quando o servidor remoto ou a conexão cai,
 usando espera progressiva de 1 a 30 segundos. Inspecione ou pare-o com:
 
@@ -82,17 +82,15 @@ que ainda estiver rodando tentará abrir novamente o mesmo túnel reverso.
    ./agentport companion status m2
    ```
 
-3. Abra uma sessão no servidor, inicie o Codex e peça: `Analise o arquivo CSV
-   que está no meu clipboard.`
-4. O agente deve chamar `clipboard_status` e
-   `materialize_clipboard_files`. O arquivo aparecerá em
-   `~/.cache/agentport/inbox/` no servidor.
+3. Abra uma sessão no servidor, inicie o Codex e peça: `Verifique o status do
+   agentport.`
+4. O agente deve chamar `agentport_status` e receber `"tunnel": "connected"`.
 
 ## Estrutura do código
 
 - `cmd/agentport`: CLI e orquestração dos comandos.
-- `internal/bridge`, `internal/daemon`: bridge HTTP local, sessões, itens do
-  clipboard e inbox de arquivos recebidos.
+- `internal/bridge`, `internal/daemon`: bridge HTTP local, sessões e a
+  comunicação de controle.
 - `internal/companion`: perfis, túnel SSH, servidor de controle e página web.
 - `internal/mcpserver`: servidor MCP por `stdio` e cliente HTTP do bridge.
 - `internal/agents`: adaptadores que registram o MCP em cada agente remoto.

@@ -2,12 +2,15 @@
 
 [Português](README.md) · **English**
 
-agentport makes images, text and files from the host's clipboard available,
-with explicit authorization, to a coding agent running on an SSH server.
+agentport will let a coding agent running on an SSH server use the ports of your
+machine, with your authorization: see what is listening and open or close
+forwards through the SSH tunnel that already exists. It runs a local HTTP bridge,
+a reverse SSH tunnel and an MCP server over `stdio`, registered automatically in
+the agents.
 
-It runs a local HTTP bridge, a reverse SSH tunnel and an MCP server over
-`stdio`. The everyday flow stays simple: `ssh server`, open Codex and ask it to
-look at what is on your clipboard.
+> **Work in progress.** The project still carries the AgentClip base: the
+> Companion, the tunnel, the agent registration and the releases work, but the
+> port tools do not exist yet. The MCP server exposes only `agentport_status`.
 
 > The rest of the documentation (commands, development, contributing) is in
 > Portuguese for now. The commands and options themselves are the same.
@@ -125,37 +128,15 @@ ssh bastion-m2
 codex
 ```
 
-In the agent, ask for example: `Analyze the CSV file on my clipboard.`
-
-The Companion follows images, text and files copied from the file manager. The
-content leaves the host only when an MCP tool is called.
-
-It can also receive a file created on the server. Ask the agent to offer the
-file to the host; the Companion page shows its name, size and expiry for you to
-accept or refuse. The agent's call waits for that decision for up to 10 minutes
-and, once accepted, resumes so the agent can deliver the file through the
-tunnel. The file is saved in a private local inbox. The server never chooses,
-nor is it told, the absolute destination path on the host.
-
-In the **Received files** section, use **Open content** to review text, code or
-tabular files you received, such as `.csv`, `.tsv`, `.sql`, `.json`, `.yaml` and
-source code. **Copy content** copies the text of those files to the clipboard.
-The page is local and private; content is served as plain text, without running
-HTML. Binary formats, such as `.xlsx` and images, show **Download** and **Copy
-path**, but not the text content actions.
-
-After updating to a version with this feature, pair the profile again to
-propagate the upload capability to the remote harnesses:
-
-```bash
-agentport setup bastion-m2 --profile m2
-```
+In the agent, ask for example: `Check the agentport status.` The agent calls the
+`agentport_status` tool, which reports whether the tunnel to the Companion is
+connected and whether a newer version is available.
 
 ## Companion, background and restarts
 
 `agentport setup` starts the local Companion in the background (unless you pass
 `--no-start`); `agentport companion start <profile>` does the same by hand. The
-process follows the clipboard, keeps the local bridge running and opens the
+process keeps the local bridge running and opens the
 reverse SSH tunnel to the destination saved in the profile. The view and the
 current state can be queried without tying up the terminal:
 
@@ -178,7 +159,7 @@ attestation, keeps stopped the profiles that were already stopped and restarts
 only the Companions that were active.
 
 `agentport companion open m2` opens a local, token-protected web page with the
-tunnel state, the clipboard items and their expiry, the last error and a button
+tunnel state, the update notice, the last error and a button
 to stop the Companion. It listens on `127.0.0.1` only. See all the details in the
 [Command reference](COMMANDS.md#página-web-do-companion) (in Portuguese).
 
@@ -256,18 +237,8 @@ installed; `--agent` lets you choose one of them.
 
 - The bridge listens on `127.0.0.1` only; the server reaches it only through the
   active SSH tunnel.
-- Image and text expire after 90 seconds; files after 10 minutes. All are
-  single-use.
-- Up to 5 regular files are accepted, 50 MiB each and 100 MiB per
-  materialization. Directories and symlinks are rejected.
-- Files sent from the server to the host require local approval, accept one
-  regular file of up to 50 MiB at a time, have their SHA-256 verified and are
-  written atomically to `~/.cache/agentport/received/` (or the platform's
-  equivalent cache). Offers expire after 10 minutes and the Companion forgets them
-  30 minutes after that; delivered files stay in that folder until you delete
-  them.
-- The remote server must be trusted: it receives the content only after an
-  explicit call to an MCP tool.
+- The remote server must be trusted: the agent there reaches the bridge only
+  with the session token that the Companion registers.
 
 ## Language
 
@@ -293,11 +264,15 @@ AGENTPORT_LANG=pt-BR agentport help
 
 ## Current state
 
-The MVP includes image, text and regular-file snapshots, an authenticated local
-bridge, a persistent reverse SSH session, a paired profile, the Companion
-dashboard and MCP tools for status, image, text and file materialization. The
+agentport is a work in progress. Ready today: the authenticated local bridge, the
+persistent reverse SSH session, the paired profile, the Companion dashboard and
+the `agentport_status` MCP tool. The port tools come in the next steps. The
 current automatic adapters are Codex, Claude Code, Gemini CLI, AGY / Antigravity
 CLI, OpenCode and Pi Coding Agent.
+
+## Credits
+
+agentport started as a fork of [AgentClip](https://github.com/wendellrocha/agentclip), by [Wendell Rocha](https://github.com/wendellrocha), distributed under the MIT license. We reuse the Companion base, the reverse SSH tunnel, the MCP server over stdio, the automatic registration in the agents and the verifiable release pipeline. Thanks to the original project. 💙
 
 ## License
 

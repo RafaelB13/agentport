@@ -20,8 +20,8 @@ Obrigado pelo interesse em contribuir.
 ## Pull requests
 
 Explique o problema resolvido, a abordagem e como validou a alteração. Não
-inclua segredos, tokens de sessão, conteúdo de clipboard ou arquivos obtidos de
-servidores remotos nos commits ou nas descrições.
+inclua segredos, tokens de sessão ou dados obtidos de servidores remotos nos
+commits ou nas descrições.
 
 Use labels para que as notas de release sejam organizadas corretamente:
 
@@ -38,4 +38,4 @@ Use labels para que as notas de release sejam organizadas corretamente:
 agentport move conteúdo privado entre máquina local e servidor remoto. Mudanças
 em autenticação, permissões de arquivos, túnel SSH, paths, limpeza de arquivos
 temporários ou comportamento automático devem preservar o princípio de acesso
-explícito ao clipboard e ser revisadas com atenção extra.
+explícito à máquina do usuário e ser revisadas com atenção extra.
