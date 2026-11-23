@@ -292,8 +292,10 @@ main() {
     abort "docker build falhou" "$(tail -n 40 "$TMP/build.log")"
   fi
 
+  # SYS_PTRACE: um root de servidor real tem essa capability; sem ela o Docker não deixa
+  # ler /proc/<pid>/fd de outro usuário, e o portscan como root não veria o dono de 5432.
   CONTAINER_CREATED=1
-  docker run -d --name "$NAME" -p 127.0.0.1::22 -e "AUTHORIZED_KEY=$(cat "$KEY.pub")" "$IMAGE" >/dev/null \
+  docker run -d --name "$NAME" --cap-add SYS_PTRACE -p 127.0.0.1::22 -e "AUTHORIZED_KEY=$(cat "$KEY.pub")" "$IMAGE" >/dev/null \
     || abort "docker run falhou"
   SSH_PORT="$(docker port "$NAME" 22/tcp | awk -F: 'NR==1{print $NF}')"
   [[ -n "$SSH_PORT" ]] || abort "o container não publicou a porta 22"
