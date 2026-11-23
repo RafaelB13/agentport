@@ -45,10 +45,14 @@ func runFakeSSH() int {
 	dropAfter, _ := time.ParseDuration(os.Getenv("AGENTPORT_TEST_FAKE_SSH_DROP_AFTER"))
 	switch {
 	case number <= failures:
+		fmt.Fprintln(os.Stderr, "Error: remote port forwarding failed for listen port 39123")
 		return 255
 	case dropAt > 0 && number == dropAt:
 		time.Sleep(dropAfter)
 		return 255
+	}
+	if os.Getenv("AGENTPORT_TEST_FAKE_SSH_NO_CONFIRM") != "1" {
+		fmt.Fprintln(os.Stderr, "debug1: remote forward success for: listen 39123, connect 127.0.0.1:45678")
 	}
 	time.Sleep(time.Minute)
 	return 0
