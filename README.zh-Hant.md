@@ -27,11 +27,12 @@ agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支�
 | F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
 | F3 | 轉發引擎（`internal/forward`），以及查出誰佔用主機連接埠的功能（`internal/hostport`） | ✓ 程式碼已完成；目前尚無指令使用它 |
 | F1b | 由發行流程產生的 Homebrew 公式、能辨識 Homebrew 的 `agentport upgrade`，以及這四份 README | 進行中 |
-| F2 | 伺服器端的連接埠掃描器（`agentport ports`），支援 Linux 與 macOS | 進行中 |
+| F2 | 伺服器端連接埠掃描器（`internal/portscan`），支援 Linux 與 macOS，並可過濾系統常駐程式 | ✓ 程式碼已完成；`agentport ports` 指令為規劃中 |
 | F4 | MCP 連接埠工具（`ports_list`、`ports_forward`、`ports_unforward`、`forwards_list`）、橋接器端點、核准、工作階段 | 規劃中 |
 | F5 | 面板、連線時自動啟動（`LocalCommand`）、通知、連接埠被占用的對話框 | 規劃中 |
 | F5b | 面板中連到伺服器的網頁終端機 | 規劃中 |
 | F6 | Windows 主機：不使用 ControlMaster 的轉發 | 規劃中 |
+| 測試 | `test/e2e` 的 Docker 測試環境：真實的 sshd、經由 ControlMaster 的轉發、連接埠衝突與 Linux 上的掃描器 | ✓ 完成 |
 | F7 | 在真實伺服器上做端到端驗證，發行 `v0.1.0` | 規劃中 |
 
 標示為*規劃中*的項目不在目前版本內，請暫時不要依賴它們。
@@ -362,14 +363,20 @@ agentport companion status m2
 
 agentport 支援四種語言：English（預設）、Português（Brasil）、Español，以及繁體中文（台灣用語）。
 
-**目前**，命令列、`help`、安裝程式與 Companion 網頁預設為英文，而 Português（Brasil）的翻譯目錄已完整。另外兩種語言仍在規劃中。
+命令列、`help`、安裝程式與 Companion 會依下列順序，從環境中選擇語言：
 
-- **命令列與安裝程式**：設定 `AGENTPORT_LANG`，例如 `AGENTPORT_LANG=pt-BR agentport help`。它接受 `pt`、`pt-BR`、`pt_BR.UTF-8` 及類似的值；其他任何值或未設定時都是英文。系統語言**不會**被讀取，這是刻意的設計：除非你指定其他語言，否則同一道指令在任何電腦上都會印出相同的文字。
-- **Companion 網頁**：依序為網址中的 `?lang=pt-BR`、瀏覽器偏好的語言、Companion 程序的 `AGENTPORT_LANG`，最後才是英文。
+1. `AGENTPORT_LANG`
+2. `LC_ALL`
+3. `LC_MESSAGES`
+4. `LANG`
 
-技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
+第一個有設定的變數決定語言，與 C 函式庫的做法相同。`pt`、`pt_BR`、`pt_PT` 等值使用 Português（Brasil）；`es` 與 `es_*` 使用 Español；`zh_TW`、`zh_HK`、`zh_MO` 與 `zh-Hant` 使用繁體中文。`C`、`POSIX` 以及其他任何值，包括 `zh_CN` 與 `zh-Hans`，都使用英文。因此 `LANG=pt_BR.UTF-8 agentport help` 會印出葡萄牙文，而 `AGENTPORT_LANG=en` 會強制使用英文。
 
-**規劃中：** 面板與命令列採用相同的順序，命令列會讀取 `LC_ALL`/`LANG`，並提供 `es` 與 `zh-Hant` 的目錄。非台灣或香港的中文變體，在簡體目錄建立之前會退回英文。
+Companion 網頁依序使用：網址中的 `?lang=pt-BR`、瀏覽器偏好的語言、Companion 程序依上述方式偵測到的語言，最後才是英文。
+
+**目前**只有 Português（Brasil）有翻譯目錄。當環境要求時，Español 與繁體中文會被選用，但在它們的目錄寫好之前，訊息仍會以英文顯示（規劃中）。技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
+
+**規劃中：** 面板（F5）採用相同的順序，並提供 `es` 與 `zh-Hant` 的目錄。
 
 ## 安全性
 
@@ -389,11 +396,7 @@ agentport 支援四種語言：English（預設）、Português（Brasil）、Es
 
 ## 更新
 
-```bash
-agentport upgrade
-```
-
-`upgrade` 會下載適用於這台電腦的最新穩定發行版本，檢查其 SHA-256 與建置證明，然後替換這個執行檔。接著會依下列順序更新所有已儲存的伺服器。
+`agentport upgrade` 會下載適用於這台電腦的最新穩定發行版本，檢查其 SHA-256 與建置證明，然後替換這個執行檔。接著會依下列順序更新所有已儲存的伺服器。
 
 1. 這台電腦下載並驗證二進位檔（這是最慢的步驟；輸出會說明）。
 2. 逐一更新各伺服器。某台伺服器失敗不會阻止其他伺服器，摘要會列出每個失敗的設定檔。
@@ -401,7 +404,7 @@ agentport upgrade
 
 若這台電腦已經是最新的發行版本，這裡不會下載或替換任何東西；只會更新落後的伺服器。
 
-使用 Homebrew 安裝時，`agentport upgrade` 只會印出 `brew upgrade agentport` 並結束。在這種情況下，此指令不會更新伺服器；請為該設定檔重新執行 `setup`，讓它的伺服器更新到目前版本。
+**使用 Homebrew 時**，二進位檔屬於 Homebrew 的 keg，因此 `agentport upgrade` 不會替換它。它會印出 `agentport was installed with Homebrew. Run: brew upgrade agentport`，然後把所有已儲存的伺服器更新到這個二進位檔的版本，與任何安裝方式相同。若要讓這台電腦升級到較新的發行版本，請執行 `brew upgrade agentport`；下一次 `agentport upgrade` 會把伺服器更新到該版本。
 
 只有在你願意僅以 SHA-256 檢查時，才設定 `AGENTPORT_SKIP_ATTESTATION=1`。
 
@@ -465,7 +468,16 @@ agentport companion start m2 --verbose
 
 建置、測試、發行流程與訊息目錄都在 [DEVELOPMENT.md](DEVELOPMENT.md)。貢獻規範在 [CONTRIBUTING.md](CONTRIBUTING.md)，安全政策在 [SECURITY.md](SECURITY.md)。指令參考請見 [COMMANDS.md](COMMANDS.md)。
 
-**規劃中（F7）：** `test/e2e` 中的端到端測試，會在 Docker 中啟動真實的 `sshd`，並對它執行 `setup`、通道與連接埠工具。
+**端到端測試環境。** `test/e2e` 會在 Docker 中啟動一台一次性的 `sshd`，並針對它檢查經由真實 ControlMaster 的轉發、連接埠衝突，以及 Linux 內的連接埠掃描器。它需要 Docker 正在執行，且不會動到你的 `~/.ssh`：
+
+```bash
+test/e2e/run.sh
+go test -tags e2e -v -count=1 ./test/e2e/
+```
+
+一般的 `go test ./...` 不會執行這個測試環境。
+
+**規劃中（F7）：** 整合完成後，同一個測試環境會端到端地執行 `setup` 與連接埠工具。
 
 ## 致謝
 

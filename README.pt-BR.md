@@ -43,11 +43,12 @@ que faz o caminho contrário (da sua máquina para o servidor). Veja
 | F1 | Base do projeto: fork do AgentClip, renomeado, clipboard removido. CLI, Companion, `setup`, servidor MCP com `agentport_status`, releases | ✓ Pronto |
 | F3 | Motor de forward (`internal/forward`) e identificação de quem ocupa uma porta do host (`internal/hostport`) | ✓ Pronto no código; nenhum comando o usa ainda |
 | F1b | Fórmula do Homebrew gerada pelo workflow de release, `agentport upgrade` ciente do Homebrew, estes quatro READMEs | Em andamento |
-| F2 | Scanner de portas no servidor (`agentport ports`), Linux e macOS | Em andamento |
+| F2 | Scanner de portas do servidor (`internal/portscan`), Linux e macOS, com filtros para daemons do sistema | ✓ Pronto no código; o comando `agentport ports` é planejado |
 | F4 | Ferramentas MCP de portas (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`), endpoints do bridge, aprovações, sessões | Planejado |
 | F5 | Painel, início automático ao conectar (`LocalCommand`), notificações, diálogo de porta ocupada | Planejado |
 | F5b | Terminal web para o servidor, no painel | Planejado |
 | F6 | Host Windows: forwards sem ControlMaster | Planejado |
+| Testes | Harness em Docker em `test/e2e`: um sshd real, forwards pelo ControlMaster, conflito de portas e o scanner no Linux | ✓ Pronto |
 | F7 | Validação ponta a ponta em servidores reais, release `v0.1.0` | Planejado |
 
 O que está marcado como *planejado* não existe na versão atual. Não conte com
@@ -514,26 +515,31 @@ ver se a chave autentica, se pede senha e se o agentport já está instalado) e
 O agentport tem quatro idiomas: inglês (padrão), português (Brasil), espanhol e
 繁體中文 (chinês tradicional, como usado em Taiwan).
 
-**Hoje**, a linha de comando, o `help`, os instaladores e a página do Companion
-estão em inglês por padrão, e o catálogo em português (Brasil) está completo. Os
-outros dois idiomas são planejados.
+A linha de comando, o `help`, os instaladores e o Companion escolhem o idioma pelo
+ambiente, nesta ordem:
 
-- **Linha de comando e instaladores**: defina `AGENTPORT_LANG`, por exemplo
-  `AGENTPORT_LANG=pt-BR agentport help`. Aceita `pt`, `pt-BR`, `pt_BR.UTF-8` e
-  valores parecidos; qualquer outro valor, ou nenhum, significa inglês. O idioma
-  do sistema **não** é lido, de propósito: o mesmo comando imprime as mesmas
-  palavras em qualquer máquina, a menos que você peça outro idioma.
-- **Página do Companion**: `?lang=pt-BR` no endereço, depois o idioma preferido do
-  navegador, depois o `AGENTPORT_LANG` do processo do Companion e, por fim, o
-  inglês.
+1. `AGENTPORT_LANG`
+2. `LC_ALL`
+3. `LC_MESSAGES`
+4. `LANG`
 
-As mensagens de erro técnicas ficam em inglês de propósito, para poderem ser
-pesquisadas. Nomes de comandos, caminhos e nomes de processos não são traduzidos.
+A primeira variável definida decide, como na biblioteca C. `pt`, `pt_BR`, `pt_PT` e
+valores parecidos dão português (Brasil); `es` e `es_*` dão espanhol; `zh_TW`,
+`zh_HK`, `zh_MO` e `zh-Hant` dão chinês tradicional. `C`, `POSIX` e qualquer outro
+valor, inclusive `zh_CN` e `zh-Hans`, dão inglês. Assim, `LANG=pt_BR.UTF-8
+agentport help` imprime em português, e `AGENTPORT_LANG=en` força o inglês.
 
-**Planejado:** a mesma ordem para o painel e para a linha de comando, com a linha
-de comando lendo `LC_ALL`/`LANG`, e os catálogos de `es` e `zh-Hant`. As variantes
-chinesas que não são de Taiwan nem de Hong Kong usam o inglês até existir um
-catálogo simplificado.
+A página do Companion usa, nesta ordem: `?lang=pt-BR` no endereço, o idioma
+preferido do navegador, o idioma que o processo do Companion detectou como acima e,
+por fim, o inglês.
+
+**Hoje** só o português (Brasil) tem catálogo. Espanhol e chinês tradicional são
+escolhidos quando o ambiente pede, mas as mensagens continuam em inglês até que os
+catálogos sejam escritos (planejado). As mensagens de erro técnicas ficam em inglês
+de propósito, para poderem ser pesquisadas. Nomes de comandos, caminhos e nomes de
+processos não são traduzidos.
+
+**Planejado:** a mesma ordem no painel (F5), e os catálogos de `es` e `zh-Hant`.
 
 ## Segurança
 
@@ -562,13 +568,9 @@ catálogo simplificado.
 
 ## Atualização
 
-```bash
-agentport upgrade
-```
-
-O `upgrade` baixa o release estável mais recente para esta máquina, confere o
-SHA-256 e o atestado, e substitui este executável. Depois atualiza todos os
-servidores salvos, na ordem abaixo.
+O `agentport upgrade` baixa o release estável mais recente para esta máquina,
+confere o SHA-256 e o atestado, e substitui este executável. Depois atualiza todos
+os servidores salvos, na ordem abaixo.
 
 1. Esta máquina baixa e verifica o binário (a etapa mais lenta; a saída avisa).
 2. Cada servidor é atualizado. Uma falha em um servidor não interrompe os demais,
@@ -580,9 +582,12 @@ servidores salvos, na ordem abaixo.
 Se esta máquina já está na release mais recente, nada é baixado nem substituído
 aqui; só os servidores que estiverem atrás são atualizados.
 
-Com o Homebrew, o `agentport upgrade` só imprime `brew upgrade agentport` e
-termina. Nesse caso, este comando não atualiza os servidores; execute o `setup`
-de novo para um perfil, para trazer o servidor dele para a versão atual.
+**Com o Homebrew**, o binário pertence ao keg do Homebrew, então o `agentport
+upgrade` não o substitui. Ele imprime `agentport foi instalado com o Homebrew.
+Execute: brew upgrade agentport` e depois atualiza todos os servidores salvos para
+a versão deste binário, como em qualquer instalação. Para levar esta máquina a um
+release mais novo, execute `brew upgrade agentport`; o próximo `agentport upgrade`
+traz os servidores para essa versão.
 
 Defina `AGENTPORT_SKIP_ATTESTATION=1` somente se você aceitar apenas a checagem de
 SHA-256.
@@ -674,8 +679,19 @@ Build, testes, processo de release e catálogos de mensagens estão em
 [CONTRIBUTING.md](CONTRIBUTING.md), e a política de segurança em
 [SECURITY.md](SECURITY.md). A referência de comandos é o [COMMANDS.md](COMMANDS.md).
 
-**Planejado (F7):** testes ponta a ponta em `test/e2e`, que sobem um `sshd` real em
-Docker e executam `setup`, o túnel e as ferramentas de portas contra ele.
+**Harness ponta a ponta.** `test/e2e` sobe um `sshd` descartável no Docker e verifica,
+contra ele, os forwards por um ControlMaster real, os conflitos de porta e o scanner
+de portas dentro do Linux. Precisa do Docker rodando e não toca no seu `~/.ssh`:
+
+```bash
+test/e2e/run.sh
+go test -tags e2e -v -count=1 ./test/e2e/
+```
+
+Um `go test ./...` comum não executa o harness.
+
+**Planejado (F7):** o mesmo harness vai executar o `setup` e as ferramentas de portas
+de ponta a ponta, quando forem integrados.
 
 ## Créditos
 

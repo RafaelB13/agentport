@@ -45,11 +45,12 @@ que va en el sentido contrario (de tu máquina al servidor). Consulta
 | F1 | Base del proyecto: bifurcación de AgentClip, renombrado, clipboard eliminado. CLI, Companion, `setup`, servidor MCP con `agentport_status`, releases | ✓ Listo |
 | F3 | Motor de forward (`internal/forward`) y revisión de quién ocupa un puerto del host (`internal/hostport`) | ✓ Listo en el código; ningún comando lo usa todavía |
 | F1b | Fórmula de Homebrew generada por el workflow de release, `agentport upgrade` consciente de Homebrew, estos cuatro READMEs | En curso |
-| F2 | Escáner de puertos en el servidor (`agentport ports`), Linux y macOS | En curso |
+| F2 | Escáner de puertos del servidor (`internal/portscan`), Linux y macOS, con filtros para demonios del sistema | ✓ Listo en el código; el comando `agentport ports` está planificado |
 | F4 | Herramientas MCP de puertos (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`), endpoints del puente, aprobaciones, sesiones | Planificado |
 | F5 | Panel, inicio automático al conectar (`LocalCommand`), notificaciones, diálogo de puerto ocupado | Planificado |
 | F5b | Terminal web hacia el servidor, en el panel | Planificado |
 | F6 | Host Windows: forwards sin ControlMaster | Planificado |
+| Pruebas | Harness con Docker en `test/e2e`: un sshd real, forwards por ControlMaster, conflictos de puertos y el escáner en Linux | ✓ Listo |
 | F7 | Validación de extremo a extremo en servidores reales, release `v0.1.0` | Planificado |
 
 Lo que está marcado como *planificado* no está en la versión actual. No cuentes
@@ -513,27 +514,31 @@ está instalado) y **Configurar** (el mismo flujo de `setup`). También puedes e
 agentport tiene cuatro idiomas: inglés (predeterminado), português (Brasil), español
 y 繁體中文 (chino tradicional, como se usa en Taiwán).
 
-**Hoy**, la línea de comandos, `help`, los instaladores y la página del Companion
-están en inglés por defecto, y el catálogo en português (Brasil) está completo. Los
-otros dos idiomas están planificados.
+La línea de comandos, `help`, los instaladores y el Companion eligen el idioma según
+el entorno, en este orden:
 
-- **Línea de comandos e instaladores**: define `AGENTPORT_LANG`, por ejemplo
-  `AGENTPORT_LANG=pt-BR agentport help`. Acepta `pt`, `pt-BR`, `pt_BR.UTF-8` y
-  valores parecidos; cualquier otro valor, o ninguno, significa inglés. El idioma
-  del sistema **no** se lee, a propósito: el mismo comando imprime las mismas
-  palabras en cualquier máquina, a menos que pidas otro idioma.
-- **Página del Companion**: `?lang=pt-BR` en la dirección, luego el idioma preferido
-  del navegador, luego el `AGENTPORT_LANG` del proceso del Companion y, por último, el
-  inglés.
+1. `AGENTPORT_LANG`
+2. `LC_ALL`
+3. `LC_MESSAGES`
+4. `LANG`
 
-Los mensajes de error técnicos se quedan en inglés a propósito, para poder
-buscarlos. Los nombres de comandos, las rutas y los nombres de procesos no se
-traducen.
+Decide la primera variable definida, como en la biblioteca C. `pt`, `pt_BR`, `pt_PT`
+y valores parecidos dan português (Brasil); `es` y `es_*` dan español; `zh_TW`,
+`zh_HK`, `zh_MO` y `zh-Hant` dan chino tradicional. `C`, `POSIX` y cualquier otro
+valor, incluidos `zh_CN` y `zh-Hans`, dan inglés. Así, `LANG=pt_BR.UTF-8 agentport
+help` imprime en português, y `AGENTPORT_LANG=en` fuerza el inglés.
 
-**Planificado:** el mismo orden para el panel y la línea de comandos, con la línea de
-comandos leyendo `LC_ALL`/`LANG`, y los catálogos de `es` y `zh-Hant`. Las variantes
-chinas que no son de Taiwán ni de Hong Kong usan inglés hasta que exista un catálogo
-simplificado.
+La página del Companion usa, en este orden: `?lang=pt-BR` en la dirección, el idioma
+preferido del navegador, el idioma que detectó el proceso del Companion como arriba y,
+por último, el inglés.
+
+**Hoy** solo português (Brasil) tiene catálogo. El español y el chino tradicional se
+eligen cuando el entorno lo pide, pero sus mensajes siguen en inglés hasta que se
+escriban sus catálogos (planificado). Los mensajes de error técnicos se quedan en
+inglés a propósito, para poder buscarlos. Los nombres de comandos, las rutas y los
+nombres de procesos no se traducen.
+
+**Planificado:** el mismo orden en el panel (F5), y los catálogos de `es` y `zh-Hant`.
 
 ## Seguridad
 
@@ -562,13 +567,9 @@ simplificado.
 
 ## Actualización
 
-```bash
-agentport upgrade
-```
-
-`upgrade` descarga el release estable más reciente para esta máquina, comprueba su
-SHA-256 y su atestado, y reemplaza este ejecutable. Después actualiza todos los
-servidores guardados, en el orden de abajo.
+`agentport upgrade` descarga el release estable más reciente para esta máquina,
+comprueba su SHA-256 y su atestado, y reemplaza este ejecutable. Después actualiza
+todos los servidores guardados, en el orden de abajo.
 
 1. Esta máquina descarga y verifica el binario (el paso más lento; la salida lo
    indica).
@@ -581,9 +582,12 @@ servidores guardados, en el orden de abajo.
 Si esta máquina ya tiene el release más reciente, aquí no se descarga ni reemplaza
 nada; solo se actualizan los servidores que están atrasados.
 
-Con Homebrew, `agentport upgrade` solo imprime `brew upgrade agentport` y termina.
-En ese caso, este comando no actualiza los servidores; vuelve a ejecutar `setup`
-para un perfil y así actualizas su servidor.
+**Con Homebrew**, el binario pertenece al keg de Homebrew, así que `agentport upgrade`
+no lo reemplaza. Imprime `agentport was installed with Homebrew. Run: brew upgrade
+agentport` y después actualiza todos los servidores guardados a la versión de este
+binario, igual que en cualquier instalación. Para llevar esta máquina a un release
+más nuevo, ejecuta `brew upgrade agentport`; el siguiente `agentport upgrade` lleva
+los servidores a esa versión.
 
 Define `AGENTPORT_SKIP_ATTESTATION=1` solo si aceptas la comprobación de SHA-256 por
 sí sola.
@@ -675,9 +679,20 @@ El build, las pruebas, el proceso de release y los catálogos de mensajes están
 [CONTRIBUTING.md](CONTRIBUTING.md), y la política de seguridad en
 [SECURITY.md](SECURITY.md). La referencia de comandos es [COMMANDS.md](COMMANDS.md).
 
-**Planificado (F7):** pruebas de extremo a extremo en `test/e2e`, que levantan un
-`sshd` real en Docker y ejecutan `setup`, el túnel y las herramientas de puertos
-contra él.
+**Harness de extremo a extremo.** `test/e2e` levanta un `sshd` desechable en Docker y
+comprueba contra él los forwards por un ControlMaster real, los conflictos de puertos y
+el escáner de puertos dentro de Linux. Necesita Docker en ejecución y no toca tu
+`~/.ssh`:
+
+```bash
+test/e2e/run.sh
+go test -tags e2e -v -count=1 ./test/e2e/
+```
+
+Un `go test ./...` normal no ejecuta el harness.
+
+**Planificado (F7):** el mismo harness ejecutará `setup` y las herramientas de puertos
+de extremo a extremo, cuando se integren.
 
 ## Créditos
 
