@@ -94,3 +94,27 @@ falha. Um `[SKIP]` não é falha: por exemplo, o container pode não ter IPv6.
   publicação em `127.0.0.1` usa o `docker-proxy` ou o iptables do daemon.
 - O sshd roda como PID 1 e não há init que colete zumbis. Os processos de dev têm
   vida curta e isso não afeta os checks.
+
+## Testes Go (fase B)
+
+Com `go test -tags e2e -v -count=1 ./test/e2e/` rodam também:
+
+- `TestPortscanInContainer`: cross-compila `cmd/scan` para Linux (CGO_ENABLED=0),
+  copia para o container e roda como `dev` e como root. Como dev: 3000, 5173,
+  8080 e 9229 com pid e processo `python3`; 5432 sem pid (outro usuário); 22
+  filtrado. Como root: 5432 com pid e usuário `other`.
+- `TestPortscanLinuxUnit`: roda `go test ./internal/portscan/` em um
+  `golang:1.27` descartável (`--rm`), com o repo montado somente leitura.
+- `TestForwardsRealSSH`: `forward.NewControlMaster` com `Add`, `List`, `Remove`
+  (a porta para de responder), e `Reapply` depois de derrubar e recriar o
+  ControlMaster. Também confere com `lsof` que cada listener local é só
+  `127.0.0.1`.
+- `TestConflictLocalPort`: ocupa uma porta com `net.Listen`; `AllocLocal` pula
+  essa porta, e `hostport.Lookup` devolve `KindProc` com o pid deste processo.
+
+O container dos testes Go é um só por execução de `go test` (fixture no
+`TestMain`). `TestE2E` (run.sh) cria o próprio container, separado.
+
+O container recebe `--cap-add SYS_PTRACE`. Um root de servidor real tem essa
+capability. Sem ela, o Docker não deixa ler `/proc/<pid>/fd` de outro usuário,
+e o portscan como root não acharia o dono de 5432.
