@@ -24,7 +24,7 @@ func (f fakeProvider) Status(context.Context) (Status, error) { return f.status,
 func connect(t *testing.T, provider StatusProvider) *mcp.ClientSession {
 	t.Helper()
 	ctx := context.Background()
-	server := New(provider)
+	server := New(provider, nil)
 	client := mcp.NewClient(&mcp.Implementation{Name: "test-client", Version: "0.1.0"}, nil)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {

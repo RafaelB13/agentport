@@ -49,7 +49,7 @@ func groupTitle(group string) string {
 // commandTable builds the commands in the language of the process. It is built
 // when help or a dispatch needs it, after i18n.Init has run.
 func commandTable() []command {
-	return []command{
+	return append([]command{
 		{
 			name: "setup", group: groupSetup, run: runSetup,
 			summary: i18n.T("Install and configure a server in one step"),
@@ -185,6 +185,58 @@ the server; you rarely need to.`),
 			usage:   []string{"agentport bridge"},
 			details: i18n.T(`Runs the local bridge without a Companion. It is used internally; the Companion
 starts the bridge for you.`),
+		},
+	}, portCommands()...)
+}
+
+// portCommands are the commands for the ports of a server: list them, decide
+// the agent's requests and close forwards. They talk to the local Companion.
+func portCommands() []command {
+	return []command{
+		{
+			name: "ports", group: groupCompanion, run: runPorts,
+			summary: i18n.T("List the listening ports of a server"),
+			usage:   []string{"agentport ports [profile] [--json] [--all]"},
+			details: i18n.T(`Lists the TCP ports the server listens on, with the process, user and whether
+the port is already forwarded to this machine. Without a profile it scans the
+machine it runs on; with a profile it runs the scan on that server over SSH.
+
+  --json   print JSON
+  --all    include system services`),
+		},
+		{
+			name: "requests", group: groupCompanion, run: runRequests,
+			summary: i18n.T("List the port requests waiting for your decision"),
+			usage:   []string{"agentport requests [--profile NAME]"},
+			details: i18n.T(`Lists the requests an agent sent with ports_forward that you have not decided yet.`),
+		},
+		{
+			name: "approve", group: groupCompanion, run: runApprove,
+			summary: i18n.T("Approve a port request, all of it or one port"),
+			usage:   []string{"agentport approve <request-id> (--all | --port N) [--local N] [--duration session|1h|pin] [--profile NAME]"},
+			details: i18n.T(`Approves a request. --all approves every port; --port N approves only that port and
+skips the others. --local sets the local port of that one port. If the local port is
+busy, another free one is used and the result says so. The duration is session (the
+default), 1h, or pin (kept until you close it).`),
+		},
+		{
+			name: "deny", group: groupCompanion, run: runDeny,
+			summary: i18n.T("Refuse a port request"),
+			usage:   []string{"agentport deny <request-id> [--profile NAME]"},
+			details: i18n.T(`Refuses every port of a request. The agent is told the ports were denied.`),
+		},
+		{
+			name: "forwards", group: groupCompanion, run: runForwards,
+			summary: i18n.T("List the ports forwarded to this machine"),
+			usage:   []string{"agentport forwards [--profile NAME] [--json]"},
+			details: i18n.T(`Lists the forwarded ports of a server, with the local port, state, origin and owners.`),
+		},
+		{
+			name: "unforward", group: groupCompanion, run: runUnforward,
+			summary: i18n.T("Close forwarded ports, whoever opened them"),
+			usage:   []string{"agentport unforward <remote-port...> [--profile NAME]", "agentport unforward --all [--profile NAME]"},
+			details: i18n.T(`Closes forwarded ports from this machine, whatever their owners are. Agents only
+release their own use of a port (ports_unforward); this command is the user's way to close one.`),
 		},
 	}
 }

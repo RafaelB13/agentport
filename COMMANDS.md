@@ -327,3 +327,34 @@ Para dispensar isso, ative `agentport companion autostart enable m2`.
 Se apenas o servidor remoto reiniciar, um Companion que permaneça vivo no host
 tentará restabelecer automaticamente o mesmo túnel, com espera progressiva de
 1 a 30 segundos.
+
+## Portas do servidor
+
+O agente pede portas pelas ferramentas MCP `ports_forward`, `ports_unforward`,
+`ports_list` e `forwards_list`. Cada pedido aparece no Companion como um pedido
+pendente, e só o que você aprovar vira uma porta local. Os comandos abaixo são
+a mesma decisão feita pelo terminal, sem o painel.
+
+```text
+agentport ports [perfil] [--json] [--all]
+agentport requests [--profile NOME]
+agentport approve <request-id> (--all | --port N) [--local N] [--duration session|1h|pin] [--profile NOME]
+agentport deny <request-id> [--profile NOME]
+agentport forwards [--profile NOME] [--json]
+agentport unforward <porta...> [--profile NOME]
+agentport unforward --all [--profile NOME]
+```
+
+- `ports` sem perfil lista as portas da máquina em que roda (o servidor, quando
+  executado lá). Com perfil, roda a listagem no servidor por SSH e marca as
+  portas que este Companion já encaminha.
+- `approve --all` aprova todas as portas do pedido; `--port N` aprova só essa e
+  pula as demais. Se a porta local estiver ocupada, outra livre é usada e o
+  resultado diz qual.
+- `--duration session` (padrão) vale enquanto a sessão do agente durar; `1h` fecha
+  sozinho depois de uma hora; `pin` fica aberta até você fechar.
+- `unforward` fecha a porta mesmo que outro agente ou o painel a use. Um agente
+  só solta o próprio uso dela (`ports_unforward`).
+
+O Companion do perfil precisa estar rodando (`agentport companion start NOME`).
+Sem ele, os comandos dizem como iniciá-lo.

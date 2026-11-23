@@ -54,6 +54,7 @@ func Start(controlToken string) (*Daemon, error) {
 	d.State = State{Address: l.Addr().String(), ControlToken: controlToken, PID: os.Getpid(), UpdatedAt: time.Now().UTC()}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/v1/control/persistent-session", d.persistentSession)
+	mux.HandleFunc("/v1/control/upstream", d.upstream)
 	mux.HandleFunc("/v1/control/release", d.release)
 	mux.HandleFunc("/v1/control/shutdown", d.shutdown)
 	mux.Handle("/", b.Handler())
@@ -123,6 +124,28 @@ func (d *Daemon) persistentSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := d.Bridge.RegisterPersistentSession(request.ID, request.Token); err != nil {
+		http.Error(w, bridge.Reason(err), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]bool{"registered": true})
+}
+
+// upstreamRequest tells the bridge where a Companion serves its port protocol.
+type upstreamRequest struct {
+	ID      string `json:"id"`
+	Address string `json:"address"`
+	Token   string `json:"token"`
+}
+
+func (d *Daemon) upstream(w http.ResponseWriter, r *http.Request) {
+	if !requireMethod(w, r, http.MethodPost) {
+		return
+	}
+	var request upstreamRequest
+	if !decodeJSON(w, r, 4*1024, &request) {
+		return
+	}
+	if err := d.Bridge.SetUpstream(request.ID, request.Address, request.Token); err != nil {
 		http.Error(w, bridge.Reason(err), http.StatusBadRequest)
 		return
 	}

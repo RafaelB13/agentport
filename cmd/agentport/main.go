@@ -111,11 +111,19 @@ func runMCP() error {
 	if err != nil {
 		return fmt.Errorf("read AGENTPORT_BRIDGE_PORT: %w", err)
 	}
-	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTPORT_SESSION_TOKEN"))
+	token := os.Getenv("AGENTPORT_SESSION_TOKEN")
+	provider, err := mcpserver.NewHTTPProvider(port, token)
 	if err != nil {
 		return err
 	}
-	return mcpserver.New(provider).Run(context.Background(), &mcp.StdioTransport{})
+	client, err := mcpserver.NewBridgeClient(port, token, mcpserver.AgentFromEnv())
+	if err != nil {
+		return err
+	}
+	// Closing the client when stdio ends unregisters this agent session.
+	defer client.Close()
+	tools := &mcpserver.PortTools{Bridge: client, ExcludePorts: []int{port}}
+	return mcpserver.New(provider, tools).Run(context.Background(), &mcp.StdioTransport{})
 }
 
 func runHarness(arguments []string) error {
@@ -653,6 +661,12 @@ func runCompanionService(name string, announce bool) error {
 	var tunnelMu sync.RWMutex
 	tunnel := companion.TunnelStatus{UpdatedAt: time.Now().UTC()}
 	stop := make(chan struct{}, 1)
+	portErrors := func(err error) { logger.Error("ports: %v", err) }
+	portManager, err := companion.NewPortManager(profile, portErrors)
+	if err != nil {
+		logger.Error("start port manager: %v", err)
+		return fmt.Errorf("start port manager: %w", err)
+	}
 	controlServer, err := companion.StartControl(profile.Name, func() any {
 		tunnelMu.RLock()
 		currentTunnel := tunnel
@@ -670,11 +684,24 @@ func runCompanionService(name string, announce bool) error {
 		case stop <- struct{}{}:
 		default:
 		}
-	})
+	}, portManager.Handler)
 	if err != nil {
 		logger.Error("start Companion control server: %v", err)
 		return fmt.Errorf("start Companion control server: %w", err)
 	}
+	// The bridge relays /v1/sessions and /v1/forwards to this Companion's port API.
+	upstreamPayload, err := json.Marshal(struct {
+		ID      string `json:"id"`
+		Address string `json:"address"`
+		Token   string `json:"token"`
+	}{ID: "companion:" + profile.Name, Address: controlServer.State.Address, Token: controlServer.State.ControlToken})
+	if err != nil {
+		return err
+	}
+	if err := control.Post(state, "/v1/control/upstream", upstreamPayload, nil); err != nil {
+		logger.Error("register port API with the bridge: %v", err)
+	}
+	portManager.Start(ctx)
 	// The runtime state is written: a later start sees this Companion as running.
 	startReleased = true
 	releaseStart()
@@ -689,11 +716,11 @@ func runCompanionService(name string, announce bool) error {
 	defer signal.Stop(signals)
 	errors := make(chan error, 2)
 	go func() {
-		errors <- companion.RunTunnelWithLogger(ctx, profile, control.Port(state), func(status companion.TunnelStatus) {
+		errors <- companion.RunTunnelWithHooks(ctx, profile, control.Port(state), func(status companion.TunnelStatus) {
 			tunnelMu.Lock()
 			tunnel = status
 			tunnelMu.Unlock()
-		}, logger)
+		}, logger, func() { portManager.OnConnected(ctx, portErrors) })
 	}()
 	if announce {
 		fmt.Println(i18n.T("Companion %q is running.", profile.Name))

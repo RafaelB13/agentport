@@ -43,7 +43,7 @@ func TestStatusToolReachesTheBridgeThroughItsSession(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		server := mcpserver.New(provider)
+		server := mcpserver.New(provider, nil)
 		client := mcp.NewClient(&mcp.Implementation{Name: "harness", Version: "0.1.0"}, nil)
 		serverTransport, clientTransport := mcp.NewInMemoryTransports()
 		if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
