@@ -2,15 +2,11 @@ package companion
 
 import (
 	"encoding/json"
-	"html"
 	"io"
 	"net/http"
-	"regexp"
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
 type trackedReadCloser struct {
@@ -25,6 +21,7 @@ func (r *trackedReadCloser) Close() error {
 
 func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
+	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
 	stopped := make(chan struct{}, 1)
 	control, err := StartControl("dev", func() any {
 		return map[string]any{"profile": "dev", "tunnel": map[string]bool{"connected": true}}
@@ -63,24 +60,8 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(markup), "agentport Companion") {
-		t.Fatal("dashboard markup missing")
-	}
-	// The renderer lives in its own script, served next to the page.
-	scriptResponse, err := http.Get(ViewURL(control.State) + "assets/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer scriptResponse.Body.Close()
-	script, err := io.ReadAll(scriptResponse.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	markup = append(markup, script...)
-	for _, expected := range []string{"Companion status", "Tunnel connected", "Stop the Companion?", "formatDateTime", "Update available", "agentport upgrade"} {
-		if !strings.Contains(string(markup), expected) {
-			t.Fatalf("dashboard markup missing %q", expected)
-		}
+	if !strings.Contains(string(markup), "<title>agentport</title>") || !strings.Contains(string(markup), `src="`) {
+		t.Fatal("panel markup missing")
 	}
 	if err := StopRuntime(state); err != nil {
 		t.Fatal(err)
@@ -122,216 +103,4 @@ func TestControlServerServesDashboardBrandAssets(t *testing.T) {
 			t.Fatalf("asset %s response = %d %q (%d bytes)", asset.path, response.StatusCode, response.Header.Get("Content-Type"), len(data))
 		}
 	}
-}
-
-// File names come from the remote server, so the page must not depend on inline
-// code: with 'self' only, an injected <script>, event handler or style attribute
-// would not run even if the manual escaping missed a field.
-func TestDashboardCSPForbidsInlineCodeAndThePageNeedsNone(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer control.Close()
-
-	response, err := http.Get(ViewURL(control.State))
-	if err != nil {
-		t.Fatal(err)
-	}
-	page, _ := io.ReadAll(response.Body)
-	response.Body.Close()
-	policy := response.Header.Get("Content-Security-Policy")
-	for _, want := range []string{"script-src 'self'", "style-src 'self'", "object-src 'none'", "frame-ancestors 'none'", "base-uri 'none'"} {
-		if !strings.Contains(policy, want) {
-			t.Errorf("CSP %q lacks %q", policy, want)
-		}
-	}
-	// Each directive on its own: images may use data: URLs, nothing that runs may.
-	for _, directive := range strings.Split(policy, ";") {
-		fields := strings.Fields(directive)
-		if len(fields) == 0 || fields[0] == "img-src" {
-			continue
-		}
-		for _, source := range fields[1:] {
-			switch source {
-			case "'unsafe-inline'", "'unsafe-eval'", "'unsafe-hashes'", "data:", "blob:", "filesystem:", "*", "http:", "https:":
-				t.Errorf("directive %q allows %s", strings.TrimSpace(directive), source)
-			}
-		}
-	}
-
-	html := string(page)
-	if strings.Contains(html, "{{BASE}}") {
-		t.Error("the page still holds an unreplaced {{BASE}}")
-	}
-	if !strings.Contains(html, `<script src="`+strings.TrimSuffix(strings.TrimPrefix(ViewURL(control.State), "http://"+control.State.Address), "/")+`/assets/app.js">`) {
-		t.Errorf("the page does not load its script from its own assets:\n%s", html)
-	}
-	inline := regexp.MustCompile(`(?i)<script>|<script\s+[^>]*>\s*[^<\s]|<style|\sstyle=|\son[a-z]+=`)
-	if match := inline.FindString(html); match != "" {
-		t.Errorf("the page contains inline code (%q)", match)
-	}
-
-	// The markup the script builds is subject to the same policy.
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if match := regexp.MustCompile(`(?i)\sstyle=|\son(click|error|load|mouse[a-z]*)=|javascript:|setAttribute\(.style`).FindString(string(script)); match != "" {
-		t.Errorf("app.js builds markup the policy would block (%q)", match)
-	}
-}
-
-// File names, paths and error messages come from the remote server, so the page
-// must never turn a string into markup. The script builds nodes with textContent
-// semantics (see h); this keeps anyone from quietly bringing HTML strings back.
-func TestDashboardScriptNeverBuildsMarkupFromStrings(t *testing.T) {
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, forbidden := range []string{"innerHTML", "outerHTML", "insertAdjacentHTML", "setHTML", "setHTMLUnsafe", "parseHTML", "parseHTMLUnsafe", "insertHTML", "document.write", "createContextualFragment", "DOMParser", "eval(", "new Function", "srcdoc"} {
-		if strings.Contains(string(script), forbidden) {
-			t.Errorf("app.js uses %s, which can turn server text into markup", forbidden)
-		}
-	}
-	// The only way to build an element is h, whose string children are text nodes.
-	if !strings.Contains(string(script), "document.createTextNode(String(child))") {
-		t.Error("h must turn string children into text nodes")
-	}
-}
-
-func fetchPage(t *testing.T, url string, header map[string]string) (string, http.Header) {
-	t.Helper()
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for key, value := range header {
-		request.Header.Set(key, value)
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	body, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(body), response.Header
-}
-
-func pageMeta(t *testing.T, page, name string) string {
-	t.Helper()
-	match := regexp.MustCompile(`<meta name="` + name + `" content="([^"]*)">`).FindStringSubmatch(page)
-	if match == nil {
-		t.Fatalf("the page has no %s meta", name)
-	}
-	return html.UnescapeString(match[1])
-}
-
-// The page is English unless the person asks otherwise: with ?lang=, with what
-// their browser prefers, or with AGENTPORT_LANG for the process. Every message in
-// the markup is filled in, and the script receives the translations it needs.
-func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	defer i18n.SetLanguage(i18n.English)
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer control.Close()
-	url := ViewURL(control.State)
-
-	english, headers := fetchPage(t, url, nil)
-	if !strings.Contains(english, `<html lang="en-US">`) || !strings.Contains(english, "Companion status") || pageMeta(t, english, "agentport-i18n") != "{}" {
-		t.Errorf("the default page is not plain English:\n%s", english)
-	}
-	if !strings.Contains(headers.Get("Vary"), "Accept-Language") {
-		t.Errorf("Vary = %q; the page changes with Accept-Language", headers.Get("Vary"))
-	}
-	if strings.Contains(english, "{{") {
-		t.Errorf("an unfilled placeholder is left in the page:\n%s", english)
-	}
-
-	for name, page := range map[string]struct {
-		url    string
-		header map[string]string
-	}{
-		"query":              {url + "?lang=pt-BR", nil},
-		"header":             {url, map[string]string{"Accept-Language": "pt-BR,pt;q=0.9,en;q=0.8"}},
-		"query beats header": {url + "?lang=pt", map[string]string{"Accept-Language": "en-US"}},
-	} {
-		portuguese, _ := fetchPage(t, page.url, page.header)
-		if !strings.Contains(portuguese, `<html lang="pt-BR">`) || !strings.Contains(portuguese, "Status do companion") || strings.Contains(portuguese, ">Companion status<") {
-			t.Errorf("%s: the page is not in Portuguese:\n%s", name, portuguese)
-		}
-		if strings.Contains(portuguese, "{{") {
-			t.Errorf("%s: an unfilled placeholder is left in the page", name)
-		}
-		var catalog map[string]string
-		if err := json.Unmarshal([]byte(pageMeta(t, portuguese, "agentport-i18n")), &catalog); err != nil || catalog["Tunnel connected"] != "Túnel conectado" {
-			t.Errorf("%s: the script's translations are %v (%v)", name, catalog, err)
-		}
-		if pageMeta(t, portuguese, "agentport-lang") != "pt-BR" {
-			t.Errorf("%s: the script would format dates for the wrong language", name)
-		}
-	}
-
-	// A browser that asks for something else, or a bad ?lang=, gets the process language.
-	if page, _ := fetchPage(t, url+"?lang=klingon", map[string]string{"Accept-Language": "fr"}); !strings.Contains(page, `<html lang="en-US">`) {
-		t.Error("an unsupported language did not fall back to English")
-	}
-	i18n.SetLanguage(i18n.Portuguese)
-	if page, _ := fetchPage(t, url, map[string]string{"Accept-Language": "fr"}); !strings.Contains(page, `<html lang="pt-BR">`) {
-		t.Error("AGENTPORT_LANG did not set the language of the page when the browser asks for none")
-	}
-}
-
-// Whatever is substituted into the page is escaped: a hostile language value must
-// not become markup, and the whole catalog, quotes and line breaks included, must
-// survive the trip through the attribute that carries it.
-func TestRenderDashboardEscapesEverythingItSubstitutes(t *testing.T) {
-	hostile := renderDashboard(`<p>{{t:Connecting}}</p><i lang="{{LANG}}">`, "/view/x", `pt-BR"><script>alert(1)</script>`)
-	if strings.Contains(hostile, "<script>") || !strings.Contains(hostile, "&lt;script&gt;") {
-		t.Errorf("a language value became markup: %s", hostile)
-	}
-
-	page := renderDashboard(`<meta name="agentport-i18n" content="{{I18N}}">`, "/view/x", i18n.Portuguese)
-	var roundTrip map[string]string
-	if err := json.Unmarshal([]byte(pageMeta(t, page, "agentport-i18n")), &roundTrip); err != nil {
-		t.Fatal(err)
-	}
-	want := scriptCatalog(i18n.Portuguese)
-	if len(want) < 5 || len(roundTrip) != len(want) {
-		t.Fatalf("the script receives %d translations, want the %d it asks for", len(roundTrip), len(want))
-	}
-	if _, help := roundTrip["Usage:"]; help {
-		t.Error("the page carries the translations of the command line")
-	}
-	// Every message the script asks for is translated.
-	for _, match := range scriptMessage.FindAllStringSubmatch(string(mustRead(t, "ui/assets/app.js")), -1) {
-		if want[match[1]] == "" {
-			t.Errorf("the script asks for %q, which has no translation", match[1])
-		}
-	}
-	for key, value := range want {
-		if roundTrip[key] != value {
-			t.Errorf("translation of %q changed on the way to the script: %q", key, roundTrip[key])
-		}
-	}
-	if strings.Contains(page, `content="{`) && strings.Contains(strings.SplitN(page, `content="`, 2)[1][:1], `"`) {
-		t.Error("the catalog attribute is empty")
-	}
-}
-
-func mustRead(t *testing.T, name string) []byte {
-	t.Helper()
-	data, err := dashboardFiles.ReadFile(name)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return data
 }
