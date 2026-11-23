@@ -24,6 +24,8 @@ const (
 	MaxLabelLength   = 64
 	MaxPathLength    = 256
 	MaxGroupLength   = 64
+	// MaxReclaimPorts bounds the ports a session reclaims on registration.
+	MaxReclaimPorts = 256
 )
 
 // Port states reported per requested port.
@@ -61,6 +63,14 @@ type RegisterSessionRequest struct {
 	Agent string `json:"agent"`
 	PID   int    `json:"pid"`
 	Cwd   string `json:"cwd"`
+	// Reclaim lists the remote ports this session used before it lost its
+	// registration, for example because the Companion restarted. The Companion
+	// adds the new session as an owner of each one it still forwards.
+	Reclaim []int `json:"reclaim,omitempty"`
+	// Previous is the session ID this client held before. When it is still alive
+	// and belongs to the same agent and folder, the Companion ends it, so one
+	// client never counts twice among the owners of a forward.
+	Previous string `json:"previous,omitempty"`
 }
 
 // RegisterSessionResponse carries the session ID and the heartbeat cadence.
@@ -68,8 +78,12 @@ type RegisterSessionResponse struct {
 	ID               string `json:"id"`
 	HeartbeatSeconds int    `json:"heartbeat_seconds"`
 	// Resumed is true when a session of the same agent and folder came back
-	// within the grace period and took over its still-open forwards.
+	// within the grace period and took over its still-open forwards, or when a
+	// reclaimed forward was waiting without owners.
 	Resumed bool `json:"resumed"`
+	// Reclaimed lists the ports of the request's Reclaim that the session owns
+	// now. A port that is no longer forwarded is left out.
+	Reclaimed []int `json:"reclaimed,omitempty"`
 }
 
 // PortRequest asks for one remote port.
@@ -160,6 +174,17 @@ func (r RegisterSessionRequest) Validate() error {
 	}
 	if len(r.Cwd) > 1024 {
 		return errors.New("cwd is too long")
+	}
+	if len(r.Previous) > 64 {
+		return errors.New("previous session ID is too long")
+	}
+	if len(r.Reclaim) > MaxReclaimPorts {
+		return fmt.Errorf("at most %d ports to reclaim", MaxReclaimPorts)
+	}
+	for _, p := range r.Reclaim {
+		if !ValidPort(p) {
+			return fmt.Errorf("reclaim port %d must be between 1 and 65535", p)
+		}
 	}
 	return nil
 }

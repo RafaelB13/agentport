@@ -121,7 +121,12 @@ func (h *handler) listForwards(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	writeJSON(w, http.StatusOK, portsproto.ForwardsResponse{Forwards: h.store.Forwards(session)})
+	forwards, err := h.store.ForwardsOf(session)
+	if err != nil {
+		fail(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, portsproto.ForwardsResponse{Forwards: forwards})
 }
 
 func (h *handler) unforward(w http.ResponseWriter, r *http.Request) {
