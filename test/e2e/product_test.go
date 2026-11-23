@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/rafaelb13/agentport/internal/forward"
 )
 
 // TestProductFlow dirige o produto real de ponta a ponta: Companion, bridge,
@@ -52,6 +54,11 @@ func TestProductFlow(t *testing.T) {
 	}
 	defer busy.Close()
 
+	// A porta local do forward não é fixa: o host pode ter qualquer coisa em 3000
+	// (ex.: um dev server em *:3000). Registra antes do forward se 3000 já está
+	// tomada, e a asserção abaixo confere a porta que o forward devolveu.
+	taken3000 := !forward.CanListen(3000)
+
 	var api, web forwardResult
 	t.Run("forward com aprovação e conflito", func(t *testing.T) {
 		pending := s1.callAsync("ports_forward", map[string]any{
@@ -92,9 +99,13 @@ func TestProductFlow(t *testing.T) {
 				web = x
 			}
 		}
-		if api.LocalPort != 3000 {
-			t.Errorf("api local = %d; quero 3000 (livre)", api.LocalPort)
+		if api.LocalPort == 0 {
+			t.Errorf("api local = 0; o forward de 3000 não devolveu porta local")
 		}
+		if taken3000 && api.LocalPort == 3000 {
+			t.Errorf("api local = 3000, mas 3000 já estava ocupada no host; o forward tinha que pular")
+		}
+		t.Logf("forward 3000 -> local %d", api.LocalPort)
 		if web.LocalPort == 5173 || web.LocalPort == 0 {
 			t.Errorf("web local = %d; a porta 5173 estava ocupada e não pode ser usada", web.LocalPort)
 		}
@@ -171,7 +182,7 @@ func TestProductFlow(t *testing.T) {
 			t.Fatalf("ports_unforward s2: %v", err)
 		}
 		t.Logf("unforward s2: %s", text)
-		waitFor(t, 10*time.Second, "porta 3000 parar de responder", func() bool {
+		waitFor(t, 10*time.Second, "porta local do forward 3000 parar de responder", func() bool {
 			_, err := httpGet(api.LocalPort)
 			return err != nil
 		})

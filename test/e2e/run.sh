@@ -62,22 +62,49 @@ abort() { # abort "motivo" ["detalhe"]: registra falha e encerra (o trap imprime
 
 # ---------- utilitários de porta e HTTP (host) ----------
 
-pick_port() { # pick_port INICIO: primeira porta >= INICIO que 127.0.0.1 consegue bindar agora
+pick_port() { # pick_port INICIO: primeira porta >= INICIO livre em 127.0.0.1, 0.0.0.0, ::1 e :: (espelha forward.CanListen)
   python3 -c '
 import socket, sys
-start = int(sys.argv[1])
-for port in range(start, start + 200):
-    s = socket.socket()
+
+def served(port):
+    # Algo aceita TCP em loopback: pega listeners de wildcard que um bind não vê no macOS/BSD.
+    for host in ("127.0.0.1", "::1"):
+        try:
+            socket.create_connection((host, port), timeout=0.2).close()
+            return True
+        except OSError:
+            pass
+    return False
+
+def bindable(port, host, family):
+    s = socket.socket(family)
     # Igual ao listener do ssh: SO_REUSEADDR deixa bindar porta com TIME_WAIT (ex.: de curls recentes).
     s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     try:
-        s.bind(("127.0.0.1", port))
+        s.bind((host, port))
+        return True
     except OSError:
-        continue
+        return False
     finally:
         s.close()
-    print(port)
-    break
+
+def ipv6_ok():
+    try:
+        return bindable(0, "::1", socket.AF_INET6)
+    except OSError:
+        return False
+
+hosts = [("127.0.0.1", socket.AF_INET), ("0.0.0.0", socket.AF_INET)]
+if ipv6_ok():
+    hosts += [("::1", socket.AF_INET6), ("::", socket.AF_INET6)]
+
+start = int(sys.argv[1])
+for port in range(start, start + 200):
+    if served(port):
+        continue
+    if all(bindable(port, h, f) for h, f in hosts):
+        print(port)
+        break
 else:
     sys.exit(1)
 ' "$1"
