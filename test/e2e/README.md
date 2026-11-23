@@ -32,7 +32,7 @@ O `go test` sem a tag `e2e` não roda nada disso.
 3. Espera o sshd aceitar a chave usando um `ssh -F` isolado. A configuração e o
    `known_hosts` ficam no diretório temporário.
 4. Confere a configuração efetiva do sshd (`sshd -T`): sem senha, sem root,
-   `AllowTcpForwarding local`. Confere também que só a porta 22 é publicada.
+   `AllowTcpForwarding yes` (o tunnel do agentport usa `-R`). Confere também que só a porta 22 é publicada.
 5. Abre o ControlMaster (`ssh -M -N -f -S <ctl> -o ControlPersist=yes`).
 6. **Conflito:** ocupa a primeira porta livre a partir de 3000 com um processo
    local. O forward de 3000 precisa ser remapeado para a próxima livre, e

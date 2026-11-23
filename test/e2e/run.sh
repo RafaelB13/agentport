@@ -313,7 +313,7 @@ main() {
   check "sshd efetivo: KbdInteractiveAuthentication no" sshd_setting "kbdinteractiveauthentication no"
   check "sshd efetivo: PubkeyAuthentication yes" sshd_setting "pubkeyauthentication yes"
   check "sshd efetivo: PermitRootLogin no" sshd_setting "permitrootlogin no"
-  check "sshd efetivo: AllowTcpForwarding local" sshd_setting "allowtcpforwarding local"
+  check "sshd efetivo: AllowTcpForwarding yes (tunnel -R do agentport)" sshd_setting "allowtcpforwarding yes"
   check "login de root recusado pelo sshd" root_refused
   check "só a porta 22 é publicada (nada além do sshd)" only_sshd_published
 

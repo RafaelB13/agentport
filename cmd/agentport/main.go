@@ -749,27 +749,28 @@ func runCompanionService(name string, announce bool) error {
 	if announce {
 		fmt.Println(i18n.T("Companion %q is running.", profile.Name))
 	}
-	var runErr error
-	received := 0
-	select {
-	case <-signals:
-	case <-stop:
-	case runErr = <-errors:
-		received = 1
-	}
-	cancel()
-	for received < 2 {
-		if err := <-errors; runErr == nil && err != nil {
-			runErr = err
-		}
-		received++
-	}
+	runErr := waitTunnelStop(signals, stop, errors, cancel)
 	if runErr != nil {
 		logger.Error("Companion stopped with error: %v", runErr)
 	} else {
 		logger.Info("Companion stopped")
 	}
 	return runErr
+}
+
+// waitTunnelStop blocks until a signal, a control stop or the tunnel ending on its
+// own, then cancels the tunnel and returns its error. The tunnel is the only
+// sender on tunnel, so it is read at most once: a second read would block forever.
+func waitTunnelStop(signals <-chan os.Signal, stop <-chan struct{}, tunnel <-chan error, cancel context.CancelFunc) error {
+	select {
+	case <-signals:
+	case <-stop:
+	case err := <-tunnel:
+		cancel()
+		return err
+	}
+	cancel()
+	return <-tunnel
 }
 
 func runBridge() error {
