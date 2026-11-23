@@ -43,11 +43,12 @@ which sends the other way (from your machine to the server). See
 | F1 | Project base: fork of AgentClip, renamed, clipboard removed. CLI, Companion, `setup`, MCP server with `agentport_status`, releases | ✓ Done |
 | F3 | Forward engine (`internal/forward`) and inspection of what holds a busy host port (`internal/hostport`) | ✓ Done in code, no command uses it yet |
 | F1b | Homebrew formula rendered by the release workflow, Homebrew-aware `agentport upgrade`, these four READMEs | In progress |
-| F2 | Port scanner on the server (`agentport ports`), Linux and macOS | In progress |
+| F2 | Port scanner for the server (`internal/portscan`), Linux and macOS, with filters for system daemons | ✓ Done in code; the `agentport ports` command is planned |
 | F4 | MCP port tools (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`), bridge endpoints, approvals, sessions | Planned |
 | F5 | Panel, automatic start on connect (`LocalCommand`), notifications, busy-port dialog | Planned |
 | F5b | Web terminal to the server in the panel | Planned |
 | F6 | Windows host: forwards without ControlMaster | Planned |
+| Tests | Docker harness in `test/e2e`: a real sshd, forwards over ControlMaster, port conflicts and the port scanner in Linux | ✓ Done |
 | F7 | End-to-end validation on real servers, release `v0.1.0` | Planned |
 
 Things marked *planned* are not in the current version. Do not rely on them yet.
@@ -506,25 +507,32 @@ installed) and **Configure** (the same flow as `setup`). You can also type
 agentport has four languages: English (default), Português (Brasil), Español and
 繁體中文 (Traditional Chinese, as used in Taiwan).
 
-**Today** the command line, `help`, the installers and the Companion page are in
-English by default, and the catalog for Português (Brasil) is complete. The
-other two languages are planned.
+The command line, `help`, the installers and the Companion choose their language
+from the environment, in this order:
 
-- **Command line and installers**: set `AGENTPORT_LANG`, for example
-  `AGENTPORT_LANG=pt-BR agentport help`. It accepts `pt`, `pt-BR`,
-  `pt_BR.UTF-8` and similar values; any other value, or none, means English. The
-  system language is **not** read on purpose, so the same command prints the
-  same words on every machine unless you ask for another language.
-- **Companion page**: `?lang=pt-BR` in the address, then the browser's preferred
-  language, then `AGENTPORT_LANG` of the Companion process, then English.
+1. `AGENTPORT_LANG`
+2. `LC_ALL`
+3. `LC_MESSAGES`
+4. `LANG`
 
-Technical error messages stay in English on purpose, so they can be searched for.
-Command names, paths and process names are not translated.
+The first one that is set decides, as it does for the C library. `pt`, `pt_BR`,
+`pt_PT` and similar values give Português (Brasil); `es` and `es_*` give Español;
+`zh_TW`, `zh_HK`, `zh_MO` and `zh-Hant` give 繁體中文. `C`, `POSIX` and anything
+else, including `zh_CN` and `zh-Hans`, give English. So `LANG=pt_BR.UTF-8
+agentport help` prints Portuguese, and `AGENTPORT_LANG=en` forces English.
 
-**Planned:** the same order for the panel and the command line, with
-`LC_ALL`/`LANG` read by the command line, and the catalogs for `es` and
-`zh-Hant`. Chinese variants other than Taiwan and Hong Kong fall back to English
-until a Simplified catalog exists.
+The Companion page takes `?lang=pt-BR` in the address first, then the browser's
+preferred language, then the language the Companion process detected as above,
+then English.
+
+**Today** only Português (Brasil) has a catalog. Español and 繁體中文 are chosen
+when the environment asks for them, but their messages still show in English until
+their catalogs are written (planned). Technical error messages stay in English on
+purpose, so they can be searched for. Command names, paths and process names are
+not translated.
+
+**Planned:** the same order in the panel (F5), and the catalogs for `es` and
+`zh-Hant`.
 
 ## Security
 
@@ -553,11 +561,7 @@ until a Simplified catalog exists.
 
 ## Updating
 
-```bash
-agentport upgrade
-```
-
-`upgrade` downloads the latest stable release for this machine, checks its
+`agentport upgrade` downloads the latest stable release for this machine, checks its
 SHA-256 and its attestation, and replaces this executable. It then updates every
 saved server, in the order below.
 
@@ -572,9 +576,12 @@ saved server, in the order below.
 If this machine already runs the latest release, nothing is downloaded or
 replaced here; only servers that are behind are updated.
 
-With Homebrew, `agentport upgrade` only prints `brew upgrade agentport` and
-exits. In that case the servers are not updated by this command; run `setup`
-again for a profile to bring its server up to date.
+**With Homebrew**, the binary belongs to the Homebrew keg, so `agentport upgrade`
+does not replace it. It prints `agentport was installed with Homebrew. Run: brew
+upgrade agentport` and then updates every saved server to the version of this
+binary, the same as on any install. To move this machine to a newer release, run
+`brew upgrade agentport`; the next `agentport upgrade` brings the servers to that
+version.
 
 Set `AGENTPORT_SKIP_ATTESTATION=1` only if you accept the SHA-256 check alone.
 
@@ -663,8 +670,19 @@ Build, tests, the release process and the message catalogs are in
 [CONTRIBUTING.md](CONTRIBUTING.md), and the security policy is in
 [SECURITY.md](SECURITY.md). The command reference is [COMMANDS.md](COMMANDS.md).
 
-**Planned (F7):** end-to-end tests in `test/e2e`, which run a real `sshd` in
-Docker and drive `setup`, the tunnel and the port tools against it.
+**End-to-end harness.** `test/e2e` starts a disposable `sshd` in Docker and checks,
+against it, the forwards over a real ControlMaster, the port conflicts and the port
+scanner inside Linux. It needs Docker running and does not touch your `~/.ssh`:
+
+```bash
+test/e2e/run.sh
+go test -tags e2e -v -count=1 ./test/e2e/
+```
+
+A plain `go test ./...` does not run it.
+
+**Planned (F7):** the same harness will drive `setup` and the port tools end to end
+once they are merged.
 
 ## Credits
 

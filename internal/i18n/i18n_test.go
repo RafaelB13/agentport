@@ -252,3 +252,81 @@ func lineOf(t *testing.T, path string, line int) bool {
 	lines := strings.Split(string(data), "\n")
 	return line >= 1 && line <= len(lines) && strings.Contains(lines[line-1], "i18n:dynamic")
 }
+
+// Detect follows the order AGENTPORT_LANG, LC_ALL, LC_MESSAGES, LANG. The first
+// variable that is set decides; an unsupported value means English.
+func TestDetectFollowsTheVariableOrder(t *testing.T) {
+	cases := []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"nothing set", nil, English},
+		{"AGENTPORT_LANG wins over everything", map[string]string{"AGENTPORT_LANG": "pt-BR", "LC_ALL": "es_ES.UTF-8", "LANG": "zh_TW.UTF-8"}, Portuguese},
+		{"LC_ALL wins over LC_MESSAGES and LANG", map[string]string{"LC_ALL": "es_ES.UTF-8", "LC_MESSAGES": "pt_BR", "LANG": "zh_TW"}, Spanish},
+		{"LC_MESSAGES wins over LANG", map[string]string{"LC_MESSAGES": "zh_HK.UTF-8", "LANG": "pt_BR"}, ChineseTraditional},
+		{"LANG is the last", map[string]string{"LANG": "pt_PT.UTF-8"}, Portuguese},
+		{"first set value decides even if unsupported", map[string]string{"AGENTPORT_LANG": "fr", "LANG": "pt_BR"}, English},
+		{"empty values are unset", map[string]string{"AGENTPORT_LANG": "  ", "LC_ALL": "", "LANG": "es_MX"}, Spanish},
+		{"C locale is English", map[string]string{"LC_ALL": "C", "LANG": "pt_BR.UTF-8"}, English},
+		{"POSIX locale is English", map[string]string{"LANG": "POSIX"}, English},
+		{"C.UTF-8 is English", map[string]string{"LANG": "C.UTF-8"}, English},
+	}
+	for _, c := range cases {
+		getenv := func(name string) string { return c.env[name] }
+		if got := Detect(getenv); got != c.want {
+			t.Errorf("%s: Detect = %q, want %q", c.name, got, c.want)
+		}
+	}
+}
+
+// The mapping of locale tags to languages. zh-CN and zh-Hans have no catalog and
+// are not supported, so they are English.
+func TestSupportedMapsLocalesToLanguages(t *testing.T) {
+	for tag, want := range map[string]string{
+		"pt": Portuguese, "pt_BR": Portuguese, "pt_BR.UTF-8": Portuguese, "pt_PT": Portuguese, "pt-BR": Portuguese,
+		"es": Spanish, "es_ES.UTF-8": Spanish, "es_MX": Spanish, "es-419": Spanish,
+		"zh_TW": ChineseTraditional, "zh_TW.UTF-8": ChineseTraditional, "zh_HK": ChineseTraditional, "zh_MO": ChineseTraditional,
+		"zh-Hant": ChineseTraditional, "zh-Hant-TW": ChineseTraditional, "zh_TW@stroke": ChineseTraditional,
+	} {
+		if got, ok := Supported(tag); !ok || got != want {
+			t.Errorf("Supported(%q) = %q, %v; want %q", tag, got, ok, want)
+		}
+	}
+	for _, tag := range []string{"zh_CN", "zh-CN", "zh-Hans", "zh", "zh_CN.UTF-8", "esperanto", "espanol", "fr_FR", "C", "POSIX", ""} {
+		if got, ok := Supported(tag); ok {
+			t.Errorf("Supported(%q) = %q, want English (no language)", tag, got)
+		}
+	}
+}
+
+// Init reads the environment, so the Companion and the CLI agree on a language.
+func TestInitUsesTheDetectionOrder(t *testing.T) {
+	defer SetLanguage(English)
+	t.Setenv(Env, "")
+	t.Setenv("LC_ALL", "")
+	t.Setenv("LC_MESSAGES", "")
+	t.Setenv("LANG", "pt_BR.UTF-8")
+	Init()
+	if Language() != Portuguese {
+		t.Fatalf("Init with LANG=pt_BR.UTF-8 chose %q", Language())
+	}
+	t.Setenv("LC_ALL", "C")
+	Init()
+	if Language() != English {
+		t.Fatalf("Init with LC_ALL=C chose %q", Language())
+	}
+}
+
+// A language without a catalog shows English for every message, so a
+// Spanish or Traditional Chinese reader gets readable text, never a gap.
+func TestLanguagesWithoutACatalogShowEnglish(t *testing.T) {
+	for _, language := range []string{Spanish, ChineseTraditional} {
+		if got := Tr(language, "Stop Companion"); got != "Stop Companion" {
+			t.Errorf("Tr(%q) = %q, want the English message", language, got)
+		}
+		if len(Catalog(language)) != 0 {
+			t.Errorf("%s has a catalog, but the catalogs are not written yet", language)
+		}
+	}
+}

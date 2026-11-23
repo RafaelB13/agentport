@@ -394,17 +394,22 @@ func runUpgrade(arguments []string) error {
 	if len(arguments) != 0 {
 		return errors.New("usage: agentport upgrade")
 	}
-	// Homebrew owns the files of its keg: replacing them here would leave the
-	// formula's record out of step. If the check itself fails, the normal upgrade
-	// runs, as it did before this check existed.
-	if executable, err := os.Executable(); err == nil {
-		if brew, err := selfupgrade.InstalledWithHomebrew(executable, os.Getenv); err == nil && brew {
-			fmt.Println(i18n.T("agentport was installed with Homebrew. Run: brew upgrade agentport"))
-			return nil
-		}
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
+	runner := upgradeRunner()
+	// Homebrew owns the files of its keg: this process must not replace them. The
+	// saved servers are still updated to this binary's version. If the check
+	// itself fails, the normal upgrade runs.
+	if executable, err := os.Executable(); err == nil {
+		if brew, err := selfupgrade.InstalledWithHomebrew(executable, os.Getenv); err == nil && brew {
+			return runner.RunHomebrew(ctx)
+		}
+	}
+	return runner.Run(ctx)
+}
+
+// upgradeRunner wires the upgrade to the real release, SSH and process steps.
+func upgradeRunner() selfupgrade.Runner {
 	checker := release.NewChecker()
 	return selfupgrade.Runner{
 		GOOS:           runtime.GOOS,
@@ -425,7 +430,7 @@ func runUpgrade(arguments []string) error {
 		RestartCompanions:        restartCompanions,
 		Replace:                  os.Rename,
 		LaunchWindowsReplacement: launchWindowsReplacement,
-	}.Run(ctx)
+	}
 }
 
 func activeCompanions(profiles []companion.Profile) ([]string, error) {

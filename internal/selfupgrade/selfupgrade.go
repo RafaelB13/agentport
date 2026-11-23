@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"regexp"
 
 	"github.com/rafaelb13/agentport/internal/companion"
 	"github.com/rafaelb13/agentport/internal/i18n"
@@ -204,4 +205,42 @@ func HasFailure(results []RemoteResult) bool {
 		}
 	}
 	return false
+}
+
+// releaseVersion matches the tags a server can be installed from. A source
+// build reports "dev" or a pseudo-version, which no server can receive.
+var releaseVersion = regexp.MustCompile(`^v\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$`)
+
+// RunHomebrew is the upgrade of an install that Homebrew owns. This process
+// does not replace its executable, which the keg owns, and does not download a
+// release: `brew upgrade agentport` does that. The saved servers are still
+// brought to this executable's version, so they keep matching the local binary.
+func (r Runner) RunHomebrew(ctx context.Context) error {
+	stdout, stderr := r.Stdout, r.Stderr
+	if stdout == nil {
+		stdout = io.Discard
+	}
+	if stderr == nil {
+		stderr = io.Discard
+	}
+	fmt.Fprintln(stdout, i18n.T("agentport was installed with Homebrew. Run: brew upgrade agentport"))
+	if !releaseVersion.MatchString(r.CurrentVersion) {
+		fmt.Fprintln(stderr, i18n.T("warning:"), i18n.T("this build (%s) is not a release, so the saved servers were not updated.", r.CurrentVersion))
+		return nil
+	}
+	profiles, err := r.Profiles()
+	if err != nil {
+		return err
+	}
+	results := make([]RemoteResult, 0, len(profiles))
+	for _, profile := range profiles {
+		fmt.Fprintln(stdout, i18n.T("Updating %q on %s...", profile.Name, profile.Destination))
+		updated, err := r.InstallRemote(profile, r.CurrentVersion)
+		results = append(results, RemoteResult{Profile: profile.Name, Updated: updated, Err: err})
+	}
+	PrintSummary(stdout, results)
+	if HasFailure(results) {
+		return errors.New("one or more remote hosts could not be updated")
+	}
+	return nil
 }

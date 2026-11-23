@@ -160,13 +160,14 @@ PowerShell depois que o comando termina, porque o `.exe` em execução fica
 bloqueado pelo sistema.
 
 Se o agentport foi instalado com o Homebrew, o comando não substitui o
-executável. Ele detecta a instalação pelo caminho real do executável (com os
-links simbólicos resolvidos): um caminho dentro de `Cellar/agentport/`, ou dentro
-de `HOMEBREW_PREFIX/Cellar/agentport/`. Nesse caso imprime
-`agentport foi instalado com o Homebrew. Execute: brew upgrade agentport` e sai
-com código 0, sem baixar nada e sem atualizar os servidores; a atualização
-passa a ser feita pelo `brew upgrade agentport`. Se a detecção falhar, o
-comando segue o caminho normal.
+executável, porque o keg pertence ao Homebrew. Ele detecta a instalação pelo
+caminho real do executável (com os links simbólicos resolvidos): um caminho dentro
+de `Cellar/agentport/`, ou dentro de `HOMEBREW_PREFIX/Cellar/agentport/`. Nesse
+caso imprime `agentport foi instalado com o Homebrew. Execute: brew upgrade agentport`, e então atualiza os servidores salvos para a versão deste binário,
+como faz em qualquer instalação. Para avançar o executável, use `brew upgrade agentport`; o próximo `agentport upgrade` atualiza os servidores para essa versão.
+Se a detecção falhar, o comando segue o caminho normal. Um executável de build de
+desenvolvimento (que não é uma release) não atualiza servidores; o comando só
+imprime a instrução.
 
 ### Página web do Companion
 
@@ -252,21 +253,31 @@ uma atualização é necessária.
 ## Idioma
 
 A saída da linha de comando, o `help`, as mensagens dos instaladores e a página
-web do Companion estão em inglês (en-US) por padrão, e existe um catálogo em
-português do Brasil (pt-BR). A escolha:
+web do Companion usam o idioma escolhido pelo ambiente, nesta ordem:
 
-- **CLI e instaladores** (`install.sh`, `install.ps1`): a variável
-  `AGENTPORT_LANG`, por exemplo `AGENTPORT_LANG=pt-BR agentport help`. Aceita
-  `pt`, `pt-BR`, `pt_BR.UTF-8` e variantes; qualquer outro valor, ou nenhum, é
-  inglês. O idioma do sistema **não** é consultado, então o mesmo comando imprime
-  as mesmas palavras em qualquer máquina, a menos que você peça outro idioma.
+1. `AGENTPORT_LANG`
+2. `LC_ALL`
+3. `LC_MESSAGES`
+4. `LANG`
+
+A primeira variável definida decide, como na biblioteca C. Valores que começam
+com `pt` (`pt`, `pt_BR`, `pt_PT`, `pt_BR.UTF-8`) dão português (Brasil); `es` e
+`es_*` dão espanhol; `zh_TW`, `zh_HK`, `zh_MO` e `zh-Hant` dão chinês tradicional
+(繁體中文). `C`, `POSIX`, `zh_CN`, `zh-Hans` e qualquer outro valor dão inglês
+(en-US), que é o idioma-fonte.
+
+- **CLI e instaladores** (`install.sh`, `install.ps1`): a mesma ordem. Exemplo:
+  `LANG=pt_BR.UTF-8 agentport help`, ou `AGENTPORT_LANG=en agentport help` para
+  forçar o inglês em um sistema em português.
 - **Página do Companion**: `?lang=pt-BR` no endereço, depois o idioma que o
-  navegador prefere (`Accept-Language`), depois `AGENTPORT_LANG` do processo do
-  Companion e, por fim, inglês.
+  navegador prefere (`Accept-Language`), depois o idioma detectado pelo processo do
+  Companion, e por fim inglês.
 
-Traduzem-se o que a pessoa lê: o `help`, as mensagens de resultado e de estado, os
-avisos e a página. As mensagens de erro técnicas ficam em inglês de propósito, para
-poderem ser pesquisadas. O que faltar em um catálogo aparece em inglês.
+Hoje só o português (Brasil) tem catálogo. Espanhol e chinês tradicional são
+escolhidos quando o ambiente pede, mas as mensagens continuam em inglês até que os
+catálogos existam (planejado). As mensagens de erro técnicas ficam em inglês de
+propósito, para poderem ser pesquisadas. O que faltar em um catálogo aparece em
+inglês.
 
 ## Comandos de integração e internos
 
