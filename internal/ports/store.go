@@ -234,7 +234,10 @@ func NewStore(opts Options) (*Store, error) {
 }
 
 // RegisterSession creates an agent session. A session of the same agent and
-// folder that ended within the grace period takes its forwards back.
+// folder that ended within the grace period takes its forwards back. The ports
+// in req.Reclaim are also taken back when they are still forwarded, which is how
+// a session recovers after the Companion restarted and forgot it: the forwards
+// it used come back as active, with it as owner, and the answer lists them.
 func (s *Store) RegisterSession(req portsproto.RegisterSessionRequest) (portsproto.RegisterSessionResponse, error) {
 	if err := req.Validate(); err != nil {
 		return portsproto.RegisterSessionResponse{}, &InvalidError{err}
@@ -261,10 +264,30 @@ func (s *Store) RegisterSession(req portsproto.RegisterSessionRequest) (portspro
 		}
 		delete(s.sessions, oldID)
 	}
+	if old := s.sessions[req.Previous]; req.Previous != "" && old != nil && !old.ended && old.agent == req.Agent && old.cwd == req.Cwd {
+		s.endSessionLocked(old, now)
+	}
+	var reclaimed []int
+	for _, remote := range req.Reclaim {
+		f := s.forwards[remote]
+		if f == nil || s.blocked[remote] {
+			continue
+		}
+		if !f.endedAt.IsZero() {
+			resumed = true
+		}
+		f.owners[id] = true
+		f.endedAt = time.Time{}
+		reclaimed = append(reclaimed, remote)
+	}
+	sort.Ints(reclaimed)
 	s.sessions[id] = &session{id: id, agent: req.Agent, cwd: req.Cwd, pid: req.PID, startedAt: now, lastSeen: now}
+	if len(reclaimed) > 0 {
+		s.logLocked(ActivityInfo, fmt.Sprintf("%s reconnected and kept %d forward(s)", req.Agent, len(reclaimed)))
+	}
 	s.saveLocked()
 	return portsproto.RegisterSessionResponse{
-		ID: id, HeartbeatSeconds: int(s.opts.Heartbeat / time.Second), Resumed: resumed,
+		ID: id, HeartbeatSeconds: int(s.opts.Heartbeat / time.Second), Resumed: resumed, Reclaimed: reclaimed,
 	}, nil
 }
 
@@ -558,6 +581,29 @@ func (s *Store) Forwards(sessionID string) []portsproto.ForwardInfo {
 	if s.sweepLocked(s.opts.Now()) {
 		s.saveLocked()
 	}
+	return s.forwardsLocked(sessionID)
+}
+
+// ForwardsOf is Forwards for a remote session. An unknown or ended session gets
+// ErrUnknownSession, so the agent registers again (and reclaims its ports) instead
+// of reading a list in which it owns nothing.
+func (s *Store) ForwardsOf(sessionID string) ([]portsproto.ForwardInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	now := s.opts.Now()
+	if s.sweepLocked(now) {
+		s.saveLocked()
+	}
+	sess := s.sessions[sessionID]
+	if sess == nil || sess.ended {
+		return nil, ErrUnknownSession
+	}
+	sess.lastSeen = now
+	return s.forwardsLocked(sessionID), nil
+}
+
+// forwardsLocked lists the forwards from the point of view of sessionID; callers hold s.mu.
+func (s *Store) forwardsLocked(sessionID string) []portsproto.ForwardInfo {
 	remotes := make([]int, 0, len(s.forwards))
 	for remote := range s.forwards {
 		remotes = append(remotes, remote)

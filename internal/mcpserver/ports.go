@@ -208,9 +208,19 @@ func (t *PortTools) listForwards(ctx context.Context) (*mcp.CallToolResult, any,
 	return jsonResult(map[string]any{"forwards": forwards})
 }
 
+// requestLostText is the answer when the Companion went away while a forward
+// request waited for approval. The request is not re-sent, because the user may
+// already have seen it and gone away; the agent calls again instead.
+const requestLostText = "companion_restarted: the Companion stopped or restarted while this request waited for approval, " +
+	"so the request was not kept. Call ports_forward again for these ports. Ports this session already uses come back " +
+	"on their own once the Companion is running."
+
 // toolFailure turns a bridge error into a tool error. An offline Companion gets
 // the code agents are told to pass on, with the instruction for the user.
 func toolFailure(err error) (*mcp.CallToolResult, any, error) {
+	if errors.Is(err, ErrRequestLost) {
+		return toolError(errors.New(requestLostText))
+	}
 	if CompanionOffline(err) {
 		return toolError(errors.New(offlineText(err)))
 	}

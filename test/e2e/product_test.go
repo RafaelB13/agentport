@@ -3,6 +3,7 @@
 package e2e
 
 import (
+	"encoding/json"
 	"net"
 	"strconv"
 	"strings"
@@ -48,11 +49,15 @@ func TestProductFlow(t *testing.T) {
 	})
 
 	// Passo 5 (conflito): ocupa 5173 no host ANTES do forward.
+	// Se outro processo do host já ocupa 5173 (um dev server, por exemplo), o
+	// conflito já existe e este bind é desnecessário: a asserção abaixo vale igual.
 	busy, err := net.Listen("tcp", "127.0.0.1:5173")
 	if err != nil {
-		t.Fatalf("ocupar 127.0.0.1:5173 para o caso de conflito: %v", err)
+		t.Logf("5173 já ocupada no host (%v): o conflito já existe", err)
+		busy = nil
+	} else {
+		defer busy.Close()
 	}
-	defer busy.Close()
 
 	// A porta local do forward não é fixa: o host pode ter qualquer coisa em 3000
 	// (ex.: um dev server em *:3000). Registra antes do forward se 3000 já está
@@ -232,7 +237,43 @@ func TestProductFlow(t *testing.T) {
 		t.Logf("forwards após restart:\n%s", out)
 	})
 
+	// Passo 9: a sessão do agente (s1) não faz nenhuma chamada depois do restart.
+	// O heartbeat falha, a sessão registra de novo e reclama a web: o forward volta
+	// active, com s1 como único dono, e a URL responde.
+	t.Run("agente recupera o forward após o restart sem nova chamada", func(t *testing.T) {
+		var last string
+		waitFor(t, 70*time.Second, "forward da web de volta ao agente s1", func() bool {
+			text, err := s1.call("forwards_list", map[string]any{})
+			last = text
+			return err == nil && agentOwnsForward(text, web.RemotePort)
+		})
+		t.Logf("forwards_list de s1 após restart: %s", last)
+		expectURLBody(t, web.URL, "web-5173")
+	})
+
 	_ = busy
+}
+
+// agentOwnsForward reports whether a forwards_list answer shows remote active and
+// owned by exactly one session: the calling one (mine).
+func agentOwnsForward(text string, remote int) bool {
+	var out struct {
+		Forwards []struct {
+			RemotePort int      `json:"remote_port"`
+			State      string   `json:"state"`
+			Mine       bool     `json:"mine"`
+			Owners     []string `json:"owners"`
+		} `json:"forwards"`
+	}
+	if err := json.Unmarshal([]byte(text), &out); err != nil {
+		return false
+	}
+	for _, f := range out.Forwards {
+		if f.RemotePort == remote && f.State == "active" && f.Mine && len(f.Owners) == 1 {
+			return true
+		}
+	}
+	return false
 }
 
 // expectURLBody faz GET na URL do forward e exige o corpo esperado.
