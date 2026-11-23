@@ -22,8 +22,9 @@ const (
 	English = "en-US"
 	// Portuguese is the Brazilian Portuguese catalog.
 	Portuguese = "pt-BR"
-	// Spanish and ChineseTraditional are chosen by detection and by browsers.
-	// Until their catalogs exist, every message of them is shown in English.
+	// Spanish is the neutral Spanish catalog. ChineseTraditional is the Traditional
+	// Chinese catalog, written for Taiwan. Both are chosen by detection and by
+	// browsers. A language without a catalog shows every message in English.
 	Spanish            = "es"
 	ChineseTraditional = "zh-Hant"
 	// Env selects the language of the command line and the installers.
@@ -33,10 +34,13 @@ const (
 //go:embed catalogs/*.json
 var catalogFiles embed.FS
 
+// catalogLanguages are the languages that have a catalog file. English needs none.
+var catalogLanguages = []string{Portuguese, Spanish, ChineseTraditional}
+
 var catalogs = map[string]map[string]string{}
 
 func init() {
-	for _, language := range []string{Portuguese} {
+	for _, language := range catalogLanguages {
 		data, err := catalogFiles.ReadFile("catalogs/" + language + ".json")
 		if err != nil {
 			panic("i18n: " + err.Error())

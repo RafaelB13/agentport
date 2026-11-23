@@ -17,7 +17,8 @@ type controlMaster struct {
 }
 
 // NewControlMaster returns a Forwarder that uses the ControlMaster socket at
-// controlPath. A nil run uses os/exec.
+// controlPath. A nil run uses os/exec. Windows OpenSSH has no such socket: use
+// NewForwarder there, which never returns this strategy on Windows.
 func NewControlMaster(sshPath, controlPath, host string, run Runner) Forwarder {
 	if run == nil {
 		run = execRunner

@@ -821,22 +821,7 @@ func runCompanionService(name string, announce bool) error {
 	if announce {
 		fmt.Println(i18n.T("Companion %q is running.", profile.Name))
 	}
-	// One goroutine, the tunnel, sends on errors. A stop or a signal leaves it
-	// running, so wait for its result; a tunnel that ended already has sent it.
-	var runErr error
-	tunnelEnded := false
-	select {
-	case <-signals:
-	case <-stop:
-	case runErr = <-errors:
-		tunnelEnded = true
-	}
-	cancel()
-	if !tunnelEnded {
-		if err := <-errors; runErr == nil && err != nil {
-			runErr = err
-		}
-	}
+	runErr := waitTunnelStop(signals, stop, errors, cancel)
 	if runErr != nil {
 		logger.Error("Companion stopped with error: %v", runErr)
 	} else {
@@ -857,6 +842,21 @@ func runBridgeCommand(arguments []string) error {
 	default:
 		return errors.New("usage: agentport bridge | agentport bridge stop [--force]")
 	}
+}
+
+// waitTunnelStop blocks until a signal, a control stop or the tunnel ending on its
+// own, then cancels the tunnel and returns its error. The tunnel is the only
+// sender on tunnel, so it is read at most once: a second read would block forever.
+func waitTunnelStop(signals <-chan os.Signal, stop <-chan struct{}, tunnel <-chan error, cancel context.CancelFunc) error {
+	select {
+	case <-signals:
+	case <-stop:
+	case err := <-tunnel:
+		cancel()
+		return err
+	}
+	cancel()
+	return <-tunnel
 }
 
 func runBridge() error {

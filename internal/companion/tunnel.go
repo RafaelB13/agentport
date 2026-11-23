@@ -3,6 +3,7 @@ package companion
 import (
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -55,6 +56,21 @@ func TunnelCommand(profile Profile, localPort int) (*exec.Cmd, error) {
 	return exec.Command("ssh", arguments...), nil
 }
 
+// clearStaleControlSocket removes the ControlMaster socket left by a tunnel that
+// was killed (SIGKILL does not let ssh remove it). Nothing else can own the socket
+// when a new tunnel starts, so a leftover file is always stale. Keeping it would
+// make waitForSocket return at once, before the new master exists, and the port
+// forwards would fail with "Control socket connect". Errors are ignored: a missing
+// socket is the normal case.
+func clearStaleControlSocket(profile Profile) {
+	if !controlMasterSupported {
+		return
+	}
+	if path, err := ControlPath(profile.Name); err == nil {
+		_ = os.Remove(path)
+	}
+}
+
 // RunTunnel reconnects after unexpected SSH exits. Cancellation stops the
 // current child process and terminates the retry loop.
 func RunTunnel(ctx context.Context, profile Profile, localPort int) error {
@@ -98,6 +114,7 @@ func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, ob
 		}
 		command.Stdout = loggerWriter{logger: logger}
 		command.Stderr = loggerWriter{logger: logger}
+		clearStaleControlSocket(profile)
 		if err := command.Start(); err != nil {
 			err = fmt.Errorf("start companion SSH tunnel: %w", err)
 			notify(false, err)
