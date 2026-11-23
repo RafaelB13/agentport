@@ -133,6 +133,17 @@ func TestPanelPageSendsNoStoreAndStaysOnLoopbackAddress(t *testing.T) {
 	}
 }
 
+// The page's CSP forbids inline style attributes, so the markup must not use any.
+func TestPanelMarkupHasNoInlineStyles(t *testing.T) {
+	page, err := dashboardFiles.ReadFile("ui/index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(page), " style=") {
+		t.Fatal("index.html has an inline style attribute, which the panel CSP blocks")
+	}
+}
+
 func TestPanelScriptNeverBuildsMarkupFromStrings(t *testing.T) {
 	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
 	if err != nil {

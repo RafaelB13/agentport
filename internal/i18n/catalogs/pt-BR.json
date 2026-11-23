@@ -107,6 +107,5 @@
   "session, 1h or pin": "session, 1h ou pin",
   "several server profiles exist; pass --profile NAME": "há vários perfis de servidor; passe --profile NOME",
   "%s asks for port %s": "%s pede a porta %s",
-  "Companion %q is already running.": "O Companion %q já está em execução.",
-  "Companion %q started.": "Companion %q iniciado."
+  "Companion %q is already running.": "O Companion %q já está em execução."
 }

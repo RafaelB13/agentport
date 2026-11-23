@@ -49,7 +49,7 @@ func TestEnsureStartsAStoppedCompanionOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(calls) != 1 || calls[0] != "ensure" || !strings.Contains(out.String(), "started") {
+	if len(calls) != 1 || calls[0] != "ensure" || out.Len() != 0 {
 		t.Fatalf("calls=%v out=%q", calls, out.String())
 	}
 }

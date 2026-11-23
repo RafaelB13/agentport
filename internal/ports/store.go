@@ -424,6 +424,7 @@ func (s *Store) Approve(ctx context.Context, requestID string, a Approval) ([]po
 		f, msg, err := s.openLocked(ctx, it.remote, d.LocalPort)
 		if err != nil {
 			req.outcomes[it.remote] = portsproto.PortResult{RemotePort: it.remote, State: portsproto.StateError, Message: err.Error()}
+			s.logLocked(ActivityDenied, fmt.Sprintf("Could not open :%d for %s: %v", it.remote, agentName(s.sessions[req.session]), err))
 			continue
 		}
 		f.label, f.path, f.group = it.label, it.path, req.group

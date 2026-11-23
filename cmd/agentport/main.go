@@ -589,11 +589,8 @@ func ensureCompanion(name string, stdout io.Writer, start func(name string, verb
 		fmt.Fprintln(stdout, i18n.T("Companion %q is already running.", name))
 		return nil
 	}
-	if err := start(name, false); err != nil {
-		return err
-	}
-	fmt.Fprintln(stdout, i18n.T("Companion %q started.", name))
-	return nil
+	// start prints where the Companion runs and where its log is.
+	return start(name, false)
 }
 
 type companionDashboardStatus struct {

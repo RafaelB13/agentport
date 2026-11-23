@@ -406,8 +406,11 @@ async function approveRequest(req, selected, duration) {
     };
     const result = await ports('POST', '/requests/' + encodeURIComponent(req.id) + '/approve', body);
     for (const p of req.ports) CONFIG.delete(req.id + ':' + p.remote_port);
-    const opened = (result.results || []).filter(r => r.state === 'active').length;
-    toast(t('{n} ports approved', {n: opened}));
+    const results = result.results || [];
+    const opened = results.filter(r => r.state === 'active').length;
+    const failed = results.filter(r => r.state === 'error');
+    if (failed.length) toast(t('{n} ports could not be opened.', {n: failed.length}) + ' ' + failed[0].message, true);
+    else toast(t('{n} ports approved', {n: opened}));
     S.checks.clear();
   } catch (error) {
     toast(error.message, true);

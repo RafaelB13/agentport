@@ -341,3 +341,19 @@ func TestEventsStreamSendsTheVersion(t *testing.T) {
 		t.Fatalf("no state event: %q", rec.Body.String())
 	}
 }
+
+func TestForwarderFailureOnApprovalIsRecordedInActivity(t *testing.T) {
+	h := newHarness(t, nil)
+	h.fwd.addErr = errors.New("tunnel is down")
+	session := h.register("claude", "/work")
+	ch := h.requestAsync(session, batch("db", 5432))
+	p := h.firstPending()
+	if _, err := h.store.Approve(context.Background(), p.ID, Approval{Duration: DurationSession, Ports: []PortDecision{{RemotePort: 5432}}}); err != nil {
+		t.Fatal(err)
+	}
+	<-ch
+	acts := h.store.Activity()
+	if len(acts) == 0 || acts[len(acts)-1].Kind != ActivityDenied || !strings.Contains(acts[len(acts)-1].Text, "tunnel is down") {
+		t.Fatalf("failure not recorded: %+v", acts)
+	}
+}

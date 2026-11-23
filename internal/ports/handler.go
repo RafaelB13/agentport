@@ -138,12 +138,15 @@ func (h *handler) state(w http.ResponseWriter, _ *http.Request) {
 	if len(closed) > 50 {
 		closed = closed[len(closed)-50:]
 	}
+	if closed == nil {
+		closed = []ClosedForward{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"version":  h.store.Version(),
 		"pending":  h.store.Pending(),
 		"forwards": h.store.Forwards(""),
 		"closed":   closed,
-		"activity": h.store.Activity(),
+		"activity": nonNilActivity(h.store.Activity()),
 	})
 }
 
@@ -291,4 +294,12 @@ func writeJSON(w http.ResponseWriter, status int, value any) {
 // timeout. Servers that do not support it keep their default.
 func extendWriteDeadline(w http.ResponseWriter) {
 	_ = http.NewResponseController(w).SetWriteDeadline(time.Now().Add(writeDeadline))
+}
+
+// nonNilActivity keeps an empty log an empty JSON array, not null.
+func nonNilActivity(a []Activity) []Activity {
+	if a == nil {
+		return []Activity{}
+	}
+	return a
 }
