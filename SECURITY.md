@@ -27,7 +27,7 @@ Apenas a release mais recente recebe correções de segurança. Atualize com
 Os releases têm `checksums.txt` assinado com cosign e atestado de proveniência.
 Os instaladores e o `agentport upgrade` confirmam automaticamente o atestado a
 partir da `v0.7.1-rc.1`. Veja "Verificar a autenticidade de um release" no
-[README](README.md), que também descreve os limites dessa verificação.
+[README](README.pt-BR.md), que também descreve os limites dessa verificação.
 
 Cada release também publica um SBOM CycloneDX por plataforma
 (`agentport_vX.Y.Z_<os>_<arch>.cdx.json`) com os módulos compilados naquele
@@ -69,7 +69,7 @@ Only the latest release receives security fixes. Update with
 Releases carry a `checksums.txt` signed with cosign and a provenance
 attestation. The installers and `agentport upgrade` confirm the attestation
 automatically from `v0.7.1-rc.1` on. See "Verifying the authenticity of a
-release" in the [English README](README.en.md), which also describes the limits
+release" in the [English README](README.md), which also describes the limits
 of that verification.
 
 Each release also publishes one CycloneDX SBOM per platform
