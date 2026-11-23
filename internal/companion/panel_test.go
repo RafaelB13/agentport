@@ -98,8 +98,24 @@ func TestPanelPageLoadsWithoutExternalURLsAndSetsCSP(t *testing.T) {
 			t.Fatalf("CSP %q lacks %q", csp, want)
 		}
 	}
-	if strings.Contains(csp, "unsafe") {
-		t.Fatalf("CSP allows unsafe code: %q", csp)
+	// Scripts must never run inline or through eval; only style-src may allow inline styles.
+	directives := map[string]string{}
+	for _, part := range strings.Split(csp, ";") {
+		fields := strings.Fields(part)
+		if len(fields) > 0 {
+			directives[fields[0]] = strings.Join(fields[1:], " ")
+		}
+	}
+	if script := directives["script-src"]; strings.Contains(script, "unsafe-inline") || strings.Contains(script, "unsafe-eval") {
+		t.Fatalf("script-src allows inline or eval code: %q", script)
+	}
+	for name, sources := range directives {
+		if name != "style-src" && strings.Contains(sources, "unsafe-") {
+			t.Fatalf("%s allows unsafe sources: %q", name, sources)
+		}
+	}
+	if style := directives["style-src"]; style != "'self' 'unsafe-inline'" {
+		t.Fatalf("style-src = %q, want 'self' 'unsafe-inline' (xterm.js needs inline styles)", style)
 	}
 	for _, name := range []string{"index.html", "assets/app.js", "assets/styles.css"} {
 		var body string
