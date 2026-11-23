@@ -72,6 +72,9 @@ type Options struct {
 	Save func([]Record) error
 	// OnError receives background failures (persistence, closing forwards).
 	OnError func(error)
+	// StopOwner stops the process or service that holds a busy local port. Nil
+	// means hostport.Stop; tests inject a fake.
+	StopOwner func(ctx context.Context, o *hostport.Owner) error
 }
 
 // Record is the persisted shape of one forward.
@@ -181,6 +184,11 @@ type Store struct {
 	requests map[string]*request
 	queue    []string // pending request IDs, oldest first
 	closed   []ClosedForward
+	// version counts every change a panel must refresh for; activity is the
+	// user-facing log shown in the panel's Activity tab (newest last).
+	version   uint64
+	activity  []Activity
+	onPending func(PendingRequest)
 }
 
 // NewStore builds an empty Store with defaults applied.
@@ -196,6 +204,9 @@ func NewStore(opts Options) (*Store, error) {
 	}
 	if opts.Owner == nil {
 		opts.Owner = hostport.Lookup
+	}
+	if opts.StopOwner == nil {
+		opts.StopOwner = hostport.Stop
 	}
 	if opts.MaxForwards <= 0 {
 		opts.MaxForwards = 20
@@ -328,7 +339,12 @@ func (s *Store) Request(ctx context.Context, sessionID string, in portsproto.For
 		createdAt: now, done: make(chan struct{}), outcomes: map[int]portsproto.PortResult{}}
 	s.requests[id] = req
 	s.queue = append(s.queue, id)
+	s.logLocked(ActivityAsk, fmt.Sprintf("%s asks for port %s", agentName(s.sessions[sessionID]), portList(items)))
+	hook, view := s.onPending, s.pendingViewLocked(req)
 	s.mu.Unlock()
+	if hook != nil {
+		go hook(view)
+	}
 
 	select {
 	case <-req.done:
@@ -421,6 +437,7 @@ func (s *Store) Approve(ctx context.Context, requestID string, a Approval) ([]po
 		res := activeResult(f)
 		res.Message = msg
 		req.outcomes[it.remote] = res
+		s.logLocked(ActivityOK, fmt.Sprintf("Opened :%d for %s → localhost:%d", it.remote, agentName(s.sessions[req.session]), f.local))
 	}
 	s.finishLocked(req)
 	return ordered(itemPorts(req.items), req.outcomes), nil
@@ -436,6 +453,7 @@ func (s *Store) Deny(requestID string) error {
 	}
 	for _, it := range req.items {
 		req.outcomes[it.remote] = portsproto.PortResult{RemotePort: it.remote, State: portsproto.StateDenied, Message: "denied by the user"}
+		s.logLocked(ActivityDenied, fmt.Sprintf("Denied :%d for %s", it.remote, agentName(s.sessions[req.session])))
 	}
 	s.finishLocked(req)
 	return nil
@@ -467,6 +485,7 @@ func (s *Store) OpenByUser(ctx context.Context, remote, local int) (portsproto.F
 	f.origin = OriginManual
 	f.owners[UserOwner] = true
 	f.createdAt = now
+	s.logLocked(ActivityOK, fmt.Sprintf("Opened :%d → localhost:%d by you", remote, f.local))
 	s.saveLocked()
 	return s.infoLocked(f, ""), nil
 }
@@ -523,6 +542,9 @@ func (s *Store) CloseByUser(remote int) error {
 		return ErrNotFound
 	}
 	err := s.closeLocked(f, ReasonUser, s.opts.Now())
+	if err == nil {
+		s.logLocked(ActivityInfo, fmt.Sprintf("Closed :%d", remote))
+	}
 	s.saveLocked()
 	return err
 }
@@ -794,6 +816,7 @@ func (s *Store) snapshotLocked() []Record {
 }
 
 func (s *Store) saveLocked() {
+	s.version++
 	if s.opts.Save == nil {
 		return
 	}

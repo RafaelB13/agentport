@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/rafaelb13/agentport/internal/hostport"
 	"github.com/rafaelb13/agentport/internal/portsproto"
 )
 
@@ -43,6 +44,15 @@ func NewHandler(store *Store) http.Handler {
 	mux.HandleFunc("POST /v1/ports/requests/{id}/deny", h.deny)
 	mux.HandleFunc("POST /v1/ports/forwards/open", h.open)
 	mux.HandleFunc("POST /v1/ports/forwards/close", h.closeForwards)
+	mux.HandleFunc("GET /v1/ports/events", h.events)
+	mux.HandleFunc("POST /v1/ports/forwards/close-all", h.closeAll)
+	mux.HandleFunc("POST /v1/ports/forwards/stop-owner", h.stopOwner)
+	mux.HandleFunc("POST /v1/ports/forwards/{remote}/edit", h.editForward)
+	mux.HandleFunc("POST /v1/ports/forwards/{remote}/rename", h.renameForward)
+	mux.HandleFunc("POST /v1/ports/forwards/{remote}/pin", h.pinForward)
+	mux.HandleFunc("POST /v1/ports/closed/reopen", h.reopenClosed)
+	mux.HandleFunc("POST /v1/ports/closed/forget", h.forgetClosed)
+	mux.HandleFunc("GET /v1/ports/local/check", h.checkLocal)
 	return mux
 }
 
@@ -129,9 +139,11 @@ func (h *handler) state(w http.ResponseWriter, _ *http.Request) {
 		closed = closed[len(closed)-50:]
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
+		"version":  h.store.Version(),
 		"pending":  h.store.Pending(),
 		"forwards": h.store.Forwards(""),
 		"closed":   closed,
+		"activity": h.store.Activity(),
 	})
 }
 
@@ -253,7 +265,7 @@ func fail(w http.ResponseWriter, err error) {
 		writeError(w, http.StatusNotFound, portsproto.CodeUnknownSession, err.Error())
 	case errors.Is(err, ErrNotFound):
 		writeError(w, http.StatusNotFound, portsproto.CodeNotFound, err.Error())
-	case errors.Is(err, ErrNotPending):
+	case errors.Is(err, ErrNotPending), errors.Is(err, ErrAlreadyOpen), errors.Is(err, hostport.ErrNotStoppable), errors.Is(err, hostport.ErrStillBusy):
 		writeError(w, http.StatusConflict, portsproto.CodeConflict, err.Error())
 	case errors.Is(err, ErrLimitReached):
 		writeError(w, http.StatusConflict, portsproto.CodeLimitReached, err.Error())
