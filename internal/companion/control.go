@@ -288,9 +288,15 @@ func panelRequestAllowed(r *http.Request) bool {
 	return strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
 }
 
-// panelCSP lets the page run only its own script and style: no inline code and
-// no network other than this Companion.
-const panelCSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+// panelCSP lets the page run only its own script and no network other than this
+// Companion. script-src stays 'self' with no 'unsafe-inline' and no 'unsafe-eval'.
+// style-src allows 'unsafe-inline' because the vendored xterm.js injects a <style>
+// element and style attributes to measure and lay out the server terminal; without
+// it the terminal renders with a wrong character size. That is safe here: a style
+// cannot run script under script-src 'self', the panel loads no third-party
+// stylesheets, and img-src, connect-src and form-action still confine what CSS
+// could reach.
+const panelCSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
 func assetContentType(name string) string {
 	switch {

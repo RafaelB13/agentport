@@ -270,8 +270,13 @@ function renderPending() {
   for (const req of S.pending) fillConflicts(req);
 }
 
+// requestWho names the agent and the folder that asked, showing only what is
+// known: the generic "agent" name and a bare "/" folder are placeholders the
+// Companion sends when the client did not say more.
 function requestWho(req) {
-  return [req.agent || t('an agent'), req.cwd].filter(Boolean).join(' · ');
+  const agent = req.agent && req.agent !== 'agent' ? req.agent : '';
+  const cwd = req.cwd && req.cwd !== '/' ? req.cwd : '';
+  return [agent || t('an agent'), cwd].filter(Boolean).join(' · ');
 }
 
 function singleCard(req) {
@@ -541,7 +546,7 @@ function forwardRow(f) {
     renderSelection();
     row.classList.toggle('sel', box.checked);
   });
-  const name = el('span', {class: 'name', title: t('Double-click to rename'), dataset: {tip: t('Double-click to rename')}, ondblclick: () => startRename(f)}, f.label || t('No name'));
+  const name = el('span', {class: 'name', title: t('Double-click to rename'), dataset: {tip: t('Double-click to rename')}, ondblclick: () => startRename(f)}, f.label || remoteName(f.remote_port) || t('No name'));
   if (S.renaming === f.remote_port) {
     const input = el('input', {class: 'rename', value: f.label || '', 'aria-label': t('Rename :{port}', {port: f.remote_port})});
     input.addEventListener('keydown', e => { if (e.key === 'Enter') commitRename(f, input.value); if (e.key === 'Escape') { S.renaming = null; renderOpen(); } });
@@ -581,6 +586,17 @@ function pinIcon() {
 }
 function editIcon() {
   return el('svg', {width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': 'true'}, el('path', {d: 'M3 13l.6-2.6L10.8 3.2l2 2L5.6 12.4ZM9.8 4.2l2 2', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round'}));
+}
+
+// remoteName is what runs on the server behind a forwarded port, for a forward
+// with no label: the process name, else the first word of its command line.
+// Empty when the server has not reported it.
+function remoteName(port) {
+  const info = S.portInfo.get(port);
+  if (!info) return '';
+  if (info.process) return info.process;
+  const first = (info.cmdline || '').trim().split(/\s+/)[0] || '';
+  return first.split('/').pop().slice(0, 32);
 }
 
 function detailsBox(f) {
@@ -1178,6 +1194,7 @@ function applyTheme(theme) {
   button.textContent = theme === 'dark' ? '☾' : theme === 'light' ? '☀' : '◐';
   button.dataset.tip = t('Theme: {theme}', {theme: theme === 'dark' ? t('dark') : theme === 'light' ? t('light') : t('system')});
   button.removeAttribute('title');
+  termRefreshTheme();
 }
 
 let stopTimer = null;
@@ -1523,11 +1540,14 @@ function start() {
   loadSettings();
   loadProfiles();
   loadState();
+  // The detected list feeds the Detected badge and the process names of forwards,
+  // so it loads with the panel and again on every state update, not only on the tab.
+  loadDetected(false);
   setInterval(loadStatus, 5000);
   setInterval(loadProfiles, 15000);
   if (window.EventSource) {
     const events = new EventSource(BASE + '/api/ports/events');
-    events.addEventListener('state', () => loadState());
+    events.addEventListener('state', () => { loadState(); loadDetected(false); });
     events.onopen = () => { S.live = true; renderHostState(); };
     events.onerror = () => { S.live = false; renderHostState(); };
   }
