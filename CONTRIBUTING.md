@@ -1,4 +1,4 @@
-# Contribuindo para o AgentClip
+# Contribuindo para o agentport
 
 Obrigado pelo interesse em contribuir.
 
@@ -35,7 +35,7 @@ Use labels para que as notas de release sejam organizadas corretamente:
 
 ## Áreas sensíveis
 
-AgentClip move conteúdo privado entre máquina local e servidor remoto. Mudanças
+agentport move conteúdo privado entre máquina local e servidor remoto. Mudanças
 em autenticação, permissões de arquivos, túnel SSH, paths, limpeza de arquivos
 temporários ou comportamento automático devem preservar o princípio de acesso
 explícito ao clipboard e ser revisadas com atenção extra.

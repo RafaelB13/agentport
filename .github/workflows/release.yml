@@ -65,15 +65,15 @@ jobs:
             local arch="$2"
             local extension="$3"
             local archive_format="$4"
-            local base="agentclip_${VERSION}_${os}_${arch}"
+            local base="agentport_${VERSION}_${os}_${arch}"
             local directory="dist/${base}"
 
             mkdir -p "$directory"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" go build \
               -trimpath \
-              -ldflags="-s -w -X github.com/wendellrocha/agentclip/internal/buildinfo.Version=${VERSION}" \
-              -o "${directory}/agentclip${extension}" \
-              ./cmd/agentclip
+              -ldflags="-s -w -X github.com/rafaelb13/agentport/internal/buildinfo.Version=${VERSION}" \
+              -o "${directory}/agentport${extension}" \
+              ./cmd/agentport
             cp README.md "$directory/"
 
             if [[ "$archive_format" == "zip" ]]; then
@@ -96,7 +96,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for binary in dist/agentclip_*/agentclip dist/agentclip_*/agentclip.exe; do
+          for binary in dist/agentport_*/agentport dist/agentport_*/agentport.exe; do
             [[ -f "$binary" ]] || continue
             echo "== $binary"
             go run golang.org/x/vuln/cmd/govulncheck@v1.8.0 -mode=binary "$binary"
@@ -117,8 +117,8 @@ jobs:
             os="${target%/*}"
             arch="${target#*/}"
             CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" "$RUNNER_TEMP/bin/cyclonedx-gomod" app \
-              -json -licenses=false -std=false -main cmd/agentclip \
-              -output "dist/agentclip_${VERSION}_${os}_${arch}.cdx.json"
+              -json -licenses=false -std=false -main cmd/agentport \
+              -output "dist/agentport_${VERSION}_${os}_${arch}.cdx.json"
           done
 
       - name: Checksums

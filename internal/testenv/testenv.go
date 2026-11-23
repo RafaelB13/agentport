@@ -10,7 +10,7 @@ import (
 // duration of the test. os.UserCacheDir and os.UserConfigDir read different
 // variables on each platform (XDG_* on Linux, HOME on macOS, LocalAppData and
 // AppData on Windows), so setting only XDG_CACHE_HOME leaves macOS and Windows
-// writing into the real cache, where AgentClip keeps its bridge state,
+// writing into the real cache, where agentport keeps its bridge state,
 // profiles, logs and received files.
 func IsolateUserDirs(t testing.TB) string {
 	t.Helper()
@@ -29,7 +29,7 @@ var userDirVariables = []string{"HOME", "USERPROFILE", "XDG_CACHE_HOME", "XDG_CO
 //
 //	func TestMain(m *testing.M) { os.Exit(testenv.Main(m)) }
 func Main(m *testing.M) int {
-	home, err := os.MkdirTemp("", "agentclip-test-home-")
+	home, err := os.MkdirTemp("", "agentport-test-home-")
 	if err != nil {
 		panic(err)
 	}

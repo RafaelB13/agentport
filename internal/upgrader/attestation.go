@@ -10,7 +10,7 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 const (
@@ -20,7 +20,7 @@ const (
 	AttestationMinVersion = "v0.7.1-rc.1"
 	// SkipAttestationEnv opts out of the attestation check, for example on a
 	// network that cannot reach api.github.com.
-	SkipAttestationEnv = "AGENTCLIP_SKIP_ATTESTATION"
+	SkipAttestationEnv = "AGENTPORT_SKIP_ATTESTATION"
 
 	defaultAPIBaseURL   = "https://api.github.com"
 	releaseWorkflowPath = ".github/workflows/release.yml"
@@ -82,7 +82,7 @@ func verifyAttestation(ctx context.Context, client *http.Client, apiBaseURL, rep
 		return err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "agentclip-upgrade")
+	request.Header.Set("User-Agent", "agentport-upgrade")
 	response, err := client.Do(request)
 	if err != nil {
 		return fmt.Errorf("query GitHub attestations: %w", err)

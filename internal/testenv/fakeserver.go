@@ -16,14 +16,14 @@ import (
 // The command lookup is private. PATH holds only a directory made here, with the
 // few system utilities the scripts need and a `sh` that runs `sh -lc` as `sh -c`:
 // a login shell rebuilds PATH from /etc/profile on macOS and Debian, which would
-// bring back an agentclip or a harness installed on the machine running the tests.
+// bring back an agentport or a harness installed on the machine running the tests.
 type FakeServer struct {
 	t *testing.T
 	// Home is the "server's" home directory.
 	Home string
 }
 
-// utilities the remote scripts of AgentClip call by name.
+// utilities the remote scripts of agentport call by name.
 var serverUtilities = []string{"uname", "cat", "chmod", "mv", "mkdir", "rm", "cut", "grep", "dirname"}
 
 // NewFakeServer skips the test on Windows, where the scripts cannot run.
@@ -65,7 +65,7 @@ func (s *FakeServer) Install(name, script string) {
 	}
 }
 
-// Path is where the server's agentclip lives.
+// Path is where the server's agentport lives.
 func (s *FakeServer) Path(name string) string {
 	return filepath.Join(s.Home, ".local", "bin", name)
 }

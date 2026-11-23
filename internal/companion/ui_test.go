@@ -42,7 +42,7 @@ func TestDashboardStylesheetRowClassesAreUsedByThePage(t *testing.T) {
 	}
 }
 
-const designSystemAssets = "../../design-systems/agentclip-companion/assets/"
+const designSystemAssets = "../../design-systems/agentport-companion/assets/"
 
 // The design system page is the reference the dashboard was built from. It only
 // shows the static components, so the dashboard has more rules (offline states,
@@ -124,7 +124,7 @@ func TestParseCSSDeclarationsKeepsRulesAndMediaContextsApart(t *testing.T) {
 }
 
 func TestDesignSystemBrandAssetsMatchTheDashboard(t *testing.T) {
-	for _, name := range []string{"agentclip-mark.svg", "favicon.svg"} {
+	for _, name := range []string{"agentport-mark.svg", "favicon.svg"} {
 		design, err := os.ReadFile(designSystemAssets + name)
 		if err != nil {
 			t.Fatal(err)

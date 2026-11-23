@@ -7,7 +7,7 @@ import (
 	"testing"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 type fakeProvider struct{}
@@ -26,7 +26,7 @@ func (fakeProvider) Text(context.Context, string) (Text, error) {
 	return Text{Data: []byte("hello"), MIMEType: "text/plain"}, nil
 }
 func (fakeProvider) MaterializeFiles(context.Context, []string) (Materialization, error) {
-	return Materialization{Directory: "/tmp/agentclip", Files: []MaterializedFile{{ItemID: "file", Path: "/tmp/agentclip/file.csv"}}}, nil
+	return Materialization{Directory: "/tmp/agentport", Files: []MaterializedFile{{ItemID: "file", Path: "/tmp/agentport/file.csv"}}}, nil
 }
 func (fakeProvider) OfferFileToHost(context.Context, string) (HostFileOffer, error) {
 	return HostFileOffer{ID: "offer", Name: "report.csv", Size: 3, SHA256: "hash", State: "pending"}, nil
@@ -85,11 +85,11 @@ func TestToolsThroughInMemoryMCP(t *testing.T) {
 	if err != nil || status.IsError {
 		t.Fatalf("status failed: %v %#v", err, status)
 	}
-	update, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "agentclip_update_status", Arguments: map[string]any{}})
+	update, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "agentport_update_status", Arguments: map[string]any{}})
 	if err != nil || update.IsError || len(update.Content) != 1 {
 		t.Fatalf("update failed: %v %#v", err, update)
 	}
-	if text, ok := update.Content[0].(*mcp.TextContent); !ok || !strings.Contains(text.Text, `"upgrade_command":"agentclip upgrade"`) {
+	if text, ok := update.Content[0].(*mcp.TextContent); !ok || !strings.Contains(text.Text, `"upgrade_command":"agentport upgrade"`) {
 		t.Fatalf("update result = %#v", update.Content)
 	}
 	offer, err := session.CallTool(ctx, &mcp.CallToolParams{Name: "offer_file_to_host", Arguments: map[string]any{"path": "/tmp/report.csv"}})

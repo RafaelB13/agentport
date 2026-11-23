@@ -25,22 +25,22 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/wendellrocha/agentclip/internal/agents"
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/buildinfo"
-	"github.com/wendellrocha/agentclip/internal/clipboard"
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/control"
-	"github.com/wendellrocha/agentclip/internal/daemon"
-	"github.com/wendellrocha/agentclip/internal/harness"
-	"github.com/wendellrocha/agentclip/internal/i18n"
-	"github.com/wendellrocha/agentclip/internal/mcpserver"
-	"github.com/wendellrocha/agentclip/internal/release"
-	"github.com/wendellrocha/agentclip/internal/remote"
-	"github.com/wendellrocha/agentclip/internal/selfupgrade"
-	"github.com/wendellrocha/agentclip/internal/setup"
-	"github.com/wendellrocha/agentclip/internal/sshsession"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/agents"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/buildinfo"
+	"github.com/rafaelb13/agentport/internal/clipboard"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/control"
+	"github.com/rafaelb13/agentport/internal/daemon"
+	"github.com/rafaelb13/agentport/internal/harness"
+	"github.com/rafaelb13/agentport/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/mcpserver"
+	"github.com/rafaelb13/agentport/internal/release"
+	"github.com/rafaelb13/agentport/internal/remote"
+	"github.com/rafaelb13/agentport/internal/selfupgrade"
+	"github.com/rafaelb13/agentport/internal/setup"
+	"github.com/rafaelb13/agentport/internal/sshsession"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 const (
@@ -116,11 +116,11 @@ func runArm() error {
 func acquireBridgeLock() (func(), error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, fmt.Errorf("find AgentClip cache directory: %w", err)
+		return nil, fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	dir := filepath.Join(cacheDir, "agentclip")
+	dir := filepath.Join(cacheDir, "agentport")
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, fmt.Errorf("create AgentClip cache directory: %w", err)
+		return nil, fmt.Errorf("create agentport cache directory: %w", err)
 	}
 	path := filepath.Join(dir, "bridge.lock")
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600)
@@ -132,9 +132,9 @@ func acquireBridgeLock() (func(), error) {
 	}
 	if err != nil {
 		if os.IsExist(err) {
-			return nil, errors.New("another AgentClip bridge operation is already in progress")
+			return nil, errors.New("another agentport bridge operation is already in progress")
 		}
-		return nil, fmt.Errorf("lock AgentClip arm operation: %w", err)
+		return nil, fmt.Errorf("lock agentport arm operation: %w", err)
 	}
 	return func() {
 		_ = file.Close()
@@ -144,11 +144,11 @@ func acquireBridgeLock() (func(), error) {
 
 func runSSH(arguments []string) error {
 	if len(arguments) == 0 || arguments[0] == "--" {
-		return errors.New("usage: agentclip ssh <ssh-destination> [-- <ssh arguments>]")
+		return errors.New("usage: agentport ssh <ssh-destination> [-- <ssh arguments>]")
 	}
 	state, err := daemon.LoadState()
 	if err != nil || !control.Healthy(state) {
-		return errors.New("no local AgentClip bridge; copy an image and run `agentclip arm` first")
+		return errors.New("no local agentport bridge; copy an image and run `agentport arm` first")
 	}
 	session, err := control.Session(state)
 	if err != nil {
@@ -174,11 +174,11 @@ func runSSH(arguments []string) error {
 }
 
 func runMCP() error {
-	port, err := strconv.Atoi(os.Getenv("AGENTCLIP_BRIDGE_PORT"))
+	port, err := strconv.Atoi(os.Getenv("AGENTPORT_BRIDGE_PORT"))
 	if err != nil {
-		return fmt.Errorf("read AGENTCLIP_BRIDGE_PORT: %w", err)
+		return fmt.Errorf("read AGENTPORT_BRIDGE_PORT: %w", err)
 	}
-	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTCLIP_SESSION_TOKEN"), os.Getenv("AGENTCLIP_UPLOAD_TOKEN"))
+	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTPORT_SESSION_TOKEN"), os.Getenv("AGENTPORT_UPLOAD_TOKEN"))
 	if err != nil {
 		return err
 	}
@@ -187,11 +187,11 @@ func runMCP() error {
 
 func runHarness(arguments []string) error {
 	if len(arguments) < 2 {
-		return errors.New("usage: agentclip harness <install|remove> <agy|opencode|pi> --name NAME [--port PORT --token TOKEN]")
+		return errors.New("usage: agentport harness <install|remove> <agy|opencode|pi> --name NAME [--port PORT --token TOKEN]")
 	}
 	settings := flag.NewFlagSet("harness", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
-	name := settings.String("name", "", "AgentClip MCP entry name")
+	name := settings.String("name", "", "agentport MCP entry name")
 	port := settings.Int("port", 0, "bridge loopback port")
 	token := settings.String("token", "", "bridge session token")
 	uploadToken := settings.String("upload-token", "", "host upload token")
@@ -199,7 +199,7 @@ func runHarness(arguments []string) error {
 		return fmt.Errorf("parse harness options: %w", err)
 	}
 	if *name == "" || settings.NArg() != 0 {
-		return errors.New("usage: agentclip harness <install|remove> <agy|opencode|pi> --name NAME [--port PORT --token TOKEN]")
+		return errors.New("usage: agentport harness <install|remove> <agy|opencode|pi> --name NAME [--port PORT --token TOKEN]")
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -220,7 +220,7 @@ func runHarness(arguments []string) error {
 
 func runPair(arguments []string) error {
 	if len(arguments) < 2 {
-		return errors.New("usage: agentclip pair <profile> <ssh-destination> [--agent all|codex|claude|gemini|agy|opencode|pi] [--remote-port 39123] [--skip-agent]")
+		return errors.New("usage: agentport pair <profile> <ssh-destination> [--agent all|codex|claude|gemini|agy|opencode|pi] [--remote-port 39123] [--skip-agent]")
 	}
 	settings := flag.NewFlagSet("pair", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
@@ -235,7 +235,7 @@ func runPair(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(i18n.T("Paired profile %q. Start it with: agentclip companion start %s", profile.Name, profile.Name))
+	fmt.Println(i18n.T("Paired profile %q. Start it with: agentport companion start %s", profile.Name, profile.Name))
 	return nil
 }
 
@@ -265,7 +265,7 @@ func runSetup(arguments []string) error {
 
 func runConnect(arguments []string) error {
 	if len(arguments) < 1 {
-		return errors.New("usage: agentclip connect <profile> [--agent all|codex|claude|gemini|agy|opencode|pi]")
+		return errors.New("usage: agentport connect <profile> [--agent all|codex|claude|gemini|agy|opencode|pi]")
 	}
 	settings := flag.NewFlagSet("connect", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
@@ -274,7 +274,7 @@ func runConnect(arguments []string) error {
 		return fmt.Errorf("parse connect options: %w", err)
 	}
 	if settings.NArg() != 0 {
-		return errors.New("usage: agentclip connect <profile> [--agent all|codex|claude|gemini|agy|opencode|pi]")
+		return errors.New("usage: agentport connect <profile> [--agent all|codex|claude|gemini|agy|opencode|pi]")
 	}
 	profile, err := companion.LoadProfile(arguments[0])
 	if err != nil {
@@ -290,7 +290,7 @@ func runConnect(arguments []string) error {
 
 func runUninstall(arguments []string) error {
 	if len(arguments) < 1 {
-		return errors.New("usage: agentclip uninstall <profile> --agent <codex|claude|gemini|agy|opencode|pi>")
+		return errors.New("usage: agentport uninstall <profile> --agent <codex|claude|gemini|agy|opencode|pi>")
 	}
 	settings := flag.NewFlagSet("uninstall", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
@@ -299,7 +299,7 @@ func runUninstall(arguments []string) error {
 		return fmt.Errorf("parse uninstall options: %w", err)
 	}
 	if *agent == "" || settings.NArg() != 0 {
-		return errors.New("usage: agentclip uninstall <profile> --agent <codex|claude|gemini|agy|opencode|pi>")
+		return errors.New("usage: agentport uninstall <profile> --agent <codex|claude|gemini|agy|opencode|pi>")
 	}
 	profile, err := companion.LoadProfile(arguments[0])
 	if err != nil {
@@ -309,10 +309,10 @@ func runUninstall(arguments []string) error {
 	if err != nil {
 		return err
 	}
-	if err := remote.LoginForProfile(profile, adapter.RemoveArguments("agentclip-"+profile.Name)...).Run(); err != nil {
-		return fmt.Errorf("remove AgentClip MCP from %s on %s: %w", adapter.DisplayName, profile.Destination, err)
+	if err := remote.LoginForProfile(profile, adapter.RemoveArguments("agentport-"+profile.Name)...).Run(); err != nil {
+		return fmt.Errorf("remove agentport MCP from %s on %s: %w", adapter.DisplayName, profile.Destination, err)
 	}
-	fmt.Println(i18n.T("Removed the AgentClip MCP entry from %s for profile %q. The harness remains installed.", adapter.DisplayName, profile.Name))
+	fmt.Println(i18n.T("Removed the agentport MCP entry from %s for profile %q. The harness remains installed.", adapter.DisplayName, profile.Name))
 	return nil
 }
 
@@ -354,7 +354,7 @@ func runCompanion(arguments []string) error {
 		return runAutostart(arguments[1:], os.Stdout)
 	}
 	if len(arguments) < 2 || len(arguments) > 4 {
-		return errors.New("usage: agentclip companion <start|stop|status|open|view|run|inbox> <profile> [--verbose] | agentclip companion <accept|reject> <profile> <offer-id> | agentclip companion autostart <enable|disable|status> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run|inbox> <profile> [--verbose] | agentport companion <accept|reject> <profile> <offer-id> | agentport companion autostart <enable|disable|status> <profile>")
 	}
 	verbose := false
 	if len(arguments) == 3 && arguments[2] == "--verbose" && (arguments[0] == "start" || arguments[0] == "run" || arguments[0] == "serve") {
@@ -374,18 +374,18 @@ func runCompanion(arguments []string) error {
 		return openCompanionView(arguments[1])
 	case "run", "serve":
 		if verbose {
-			os.Setenv("AGENTCLIP_LOG_LEVEL", "debug")
+			os.Setenv("AGENTPORT_LOG_LEVEL", "debug")
 		}
 		return runCompanionService(arguments[1], arguments[0] == "run")
 	case "inbox":
 		return printCompanionInbox(arguments[1])
 	case "accept", "reject":
 		if len(arguments) != 3 {
-			return errors.New("usage: agentclip companion <accept|reject> <profile> <offer-id>")
+			return errors.New("usage: agentport companion <accept|reject> <profile> <offer-id>")
 		}
 		return companionInboundAction(arguments[1], arguments[2], arguments[0])
 	default:
-		return errors.New("usage: agentclip companion <start|stop|status|open|view|run|inbox> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run|inbox> <profile>")
 	}
 }
 
@@ -394,15 +394,15 @@ func startCompanion(name string, verbose bool) error {
 		return err
 	}
 	if state, err := companion.LoadRuntime(name); err == nil && companion.RuntimeHealthy(state) {
-		return fmt.Errorf("Companion %q is already running; use `agentclip companion open %s`", name, name)
+		return fmt.Errorf("Companion %q is already running; use `agentport companion open %s`", name, name)
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return fmt.Errorf("locate AgentClip executable: %w", err)
+		return fmt.Errorf("locate agentport executable: %w", err)
 	}
 	command := exec.Command(executable, "companion", "serve", name)
 	if verbose {
-		command.Env = append(os.Environ(), "AGENTCLIP_LOG_LEVEL=debug")
+		command.Env = append(os.Environ(), "AGENTPORT_LOG_LEVEL=debug")
 	}
 	command.Stdin, command.Stdout, command.Stderr = nil, io.Discard, io.Discard
 	if err := command.Start(); err != nil {
@@ -414,7 +414,7 @@ func startCompanion(name string, verbose bool) error {
 		state, err := companion.LoadRuntime(name)
 		if err == nil && state.PID == pid && companion.RuntimeHealthy(state) {
 			_ = command.Process.Release()
-			fmt.Println(i18n.T("Companion %q started. Open: agentclip companion open %s", name, name))
+			fmt.Println(i18n.T("Companion %q started. Open: agentport companion open %s", name, name))
 			fmt.Println(i18n.T("Logs: %s", companionLogPath(name)))
 			return nil
 		}
@@ -428,14 +428,14 @@ func startCompanion(name string, verbose bool) error {
 func companionLogPath(name string) string {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return filepath.Join("~", ".cache", "agentclip", "logs", name+".log")
+		return filepath.Join("~", ".cache", "agentport", "logs", name+".log")
 	}
-	return filepath.Join(cacheDir, "agentclip", "logs", name+".log")
+	return filepath.Join(cacheDir, "agentport", "logs", name+".log")
 }
 
 func runLogs(arguments []string) error {
 	if len(arguments) < 1 {
-		return errors.New("usage: agentclip logs <profile> [--export PATH]")
+		return errors.New("usage: agentport logs <profile> [--export PATH]")
 	}
 	settings := flag.NewFlagSet("logs", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
@@ -444,7 +444,7 @@ func runLogs(arguments []string) error {
 		return fmt.Errorf("parse logs options: %w", err)
 	}
 	if settings.NArg() != 0 {
-		return errors.New("usage: agentclip logs <profile> [--export PATH]")
+		return errors.New("usage: agentport logs <profile> [--export PATH]")
 	}
 	if err := companion.RequireLog(arguments[0]); err != nil {
 		return err
@@ -471,7 +471,7 @@ func runLogs(arguments []string) error {
 // upgrade.
 func runUpgrade(arguments []string) error {
 	if len(arguments) != 0 {
-		return errors.New("usage: agentclip upgrade")
+		return errors.New("usage: agentport upgrade")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
@@ -555,7 +555,7 @@ func restartCompanions(names []string) error {
 // verified staged executable, starts only the previously active Companions,
 // then removes its own script.
 func launchWindowsReplacement(staged upgrader.StagedBinary, companions []string) error {
-	script, err := os.CreateTemp(filepath.Dir(staged.Target), ".agentclip-upgrade-*.ps1")
+	script, err := os.CreateTemp(filepath.Dir(staged.Target), ".agentport-upgrade-*.ps1")
 	if err != nil {
 		return fmt.Errorf("create Windows upgrade helper: %w", err)
 	}
@@ -707,7 +707,7 @@ func runCompanionService(name string, announce bool) error {
 	}()
 	if state, err := companion.LoadRuntime(name); err == nil && companion.RuntimeHealthy(state) {
 		if announce {
-			return fmt.Errorf("Companion %q is already running; use `agentclip companion open %s`", name, name)
+			return fmt.Errorf("Companion %q is already running; use `agentport companion open %s`", name, name)
 		}
 		return nil
 	}
@@ -889,7 +889,7 @@ func runBridge() error {
 func runDoctor() error {
 	state, err := daemon.LoadState()
 	if err != nil || !control.Healthy(state) {
-		return errors.New("bridge: unavailable (copy an image and run `agentclip arm`)")
+		return errors.New("bridge: unavailable (copy an image and run `agentport arm`)")
 	}
 	fmt.Println(i18n.T("bridge: healthy at %s (PID %d)", state.Address, state.PID))
 	return nil
@@ -915,7 +915,7 @@ func startBridge(image *daemon.Image) (daemon.State, error) {
 	}
 	executable, err := os.Executable()
 	if err != nil {
-		return daemon.State{}, fmt.Errorf("locate AgentClip executable: %w", err)
+		return daemon.State{}, fmt.Errorf("locate agentport executable: %w", err)
 	}
 	command := exec.Command(executable, "bridge")
 	command.Stdin, command.Stdout, command.Stderr = bytes.NewReader(payload), io.Discard, os.Stderr
@@ -994,11 +994,11 @@ const (
 func acquireProfileStartLock(name string, wait, stale time.Duration) (func(), error) {
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, fmt.Errorf("find AgentClip cache directory: %w", err)
+		return nil, fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	directory := filepath.Join(cacheDir, "agentclip", "companions")
+	directory := filepath.Join(cacheDir, "agentport", "companions")
 	if err := os.MkdirAll(directory, 0700); err != nil {
-		return nil, fmt.Errorf("create AgentClip cache directory: %w", err)
+		return nil, fmt.Errorf("create agentport cache directory: %w", err)
 	}
 	path := filepath.Join(directory, name+".start.lock")
 	deadline := time.Now().Add(wait)

@@ -21,10 +21,10 @@ func TestCommandTableIsConsistent(t *testing.T) {
 		}
 		named := false
 		for _, line := range c.usage {
-			if !strings.HasPrefix(line, "agentclip ") {
-				t.Errorf("usage %q of %q does not start with agentclip", line, c.name)
+			if !strings.HasPrefix(line, "agentport ") {
+				t.Errorf("usage %q of %q does not start with agentport", line, c.name)
 			}
-			named = named || strings.HasPrefix(line, "agentclip "+c.name)
+			named = named || strings.HasPrefix(line, "agentport "+c.name)
 		}
 		if !named {
 			t.Errorf("no usage line of %q starts with its own name", c.name)

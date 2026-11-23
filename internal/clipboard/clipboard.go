@@ -1,4 +1,4 @@
-// Package clipboard provides the image-capture boundary used by AgentClip.
+// Package clipboard provides the image-capture boundary used by agentport.
 package clipboard
 
 import (

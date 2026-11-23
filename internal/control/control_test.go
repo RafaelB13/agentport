@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/daemon"
-	"github.com/wendellrocha/agentclip/internal/release"
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/daemon"
+	"github.com/rafaelb13/agentport/internal/release"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 func stateFor(server *httptest.Server, token string) daemon.State {
@@ -154,7 +154,7 @@ func TestControlInboundTextParsesFilenameAndPreviewHeader(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Disposition", `inline; filename="report.csv"`)
-		w.Header().Set("X-AgentClip-Previewable", "true")
+		w.Header().Set("X-agentport-Previewable", "true")
 		_, _ = w.Write([]byte("a,b\n"))
 	}))
 	defer server.Close()

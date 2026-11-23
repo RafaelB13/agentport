@@ -6,7 +6,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $installer = Join-Path $root "scripts/install.ps1"
 $fixtures = Join-Path $root "scripts/testdata"
-$work = Join-Path ([System.IO.Path]::GetTempPath()) ("agentclip-test-" + [guid]::NewGuid())
+$work = Join-Path ([System.IO.Path]::GetTempPath()) ("agentport-test-" + [guid]::NewGuid())
 New-Item -ItemType Directory -Path $work | Out-Null
 
 $script:failures = 0
@@ -17,29 +17,29 @@ function Assert-That {
 }
 
 # Load the installer's functions only.
-$env:AGENTCLIP_INSTALLER_LIB = "1"
-if (-not $env:AGENTCLIP_INSTALL_DIR) { $env:AGENTCLIP_INSTALL_DIR = Join-Path $work "install" }
+$env:AGENTPORT_INSTALLER_LIB = "1"
+if (-not $env:AGENTPORT_INSTALL_DIR) { $env:AGENTPORT_INSTALL_DIR = Join-Path $work "install" }
 . $installer
-Remove-Item Env:AGENTCLIP_INSTALLER_LIB
+Remove-Item Env:AGENTPORT_INSTALLER_LIB
 
-# --- 1. Test-AgentClipStatement against the real GitHub response ------------
+# --- 1. Test-agentportStatement against the real GitHub response ------------
 
 $realDigest = "5232f1dfbfac70b8919c4dac7681441fa2ec0c05ec608ada2c7d9d9256a1ee71"
 $fixture = Get-Content -Raw (Join-Path $fixtures "attestation-v0.7.1-rc.1.json") | ConvertFrom-Json
 $realStatement = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fixture.attestations[0].bundle.dsseEnvelope.payload))
 
-Assert-That "real payload matches its archive, repository and tag" (Test-AgentClipStatement -Json $realStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1")
-Assert-That "real payload is refused for another digest" (-not (Test-AgentClipStatement -Json $realStatement -Digest ("0" * 64) -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
-Assert-That "real payload is refused for another tag" (-not (Test-AgentClipStatement -Json $realStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1"))
-Assert-That "real payload is refused for another repository" (-not (Test-AgentClipStatement -Json $realStatement -Digest $realDigest -Repository "attacker/agentclip" -Version "v0.7.1-rc.1"))
-Assert-That "malformed JSON is refused" (-not (Test-AgentClipStatement -Json "not json" -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
+Assert-That "real payload matches its archive, repository and tag" (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1")
+Assert-That "real payload is refused for another digest" (-not (Test-agentportStatement -Json $realStatement -Digest ("0" * 64) -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1"))
+Assert-That "real payload is refused for another tag" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1"))
+Assert-That "real payload is refused for another repository" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "attacker/agentport" -Version "v0.7.1-rc.1"))
+Assert-That "malformed JSON is refused" (-not (Test-agentportStatement -Json "not json" -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1"))
 
-# --- 2. Confirm-AgentClipAuthenticity with stubbed gh and GitHub API ----------
+# --- 2. Confirm-agentportAuthenticity with stubbed gh and GitHub API ----------
 
 $version = "v0.7.1"
-$repository = "example/agentclip"
+$repository = "example/agentport"
 $digest = "a" * 64
-$archive = Join-Path $work "agentclip_${version}_windows_amd64.zip"
+$archive = Join-Path $work "agentport_${version}_windows_amd64.zip"
 Set-Content -Path $archive -Value "archive"
 
 $script:haveGh = $true; $script:ghSupports = $true; $script:ghVerifyExit = 0
@@ -97,10 +97,10 @@ function Invoke-Scenario {
     $script:haveGh = $true; $script:ghSupports = $true; $script:ghVerifyExit = 0
     $script:haveBundle = $true; $script:apiMode = "ok"; $script:apiBody = Good-Body
     $script:ghCalls = @(); $script:apiCalls = @()
-    Remove-Item Env:AGENTCLIP_SKIP_ATTESTATION -ErrorAction SilentlyContinue
+    Remove-Item Env:AGENTPORT_SKIP_ATTESTATION -ErrorAction SilentlyContinue
     & $Setup
     # Success output is the returned value; Write-Host lines arrive on stream 6.
-    $output = Confirm-AgentClipAuthenticity -Archive $archive -Asset (Split-Path -Leaf $archive) -BaseUrl "https://github.com/$repository/releases/download/$version" -Digest $digest -Repository $repository -Version $version 6>&1
+    $output = Confirm-agentportAuthenticity -Archive $archive -Asset (Split-Path -Leaf $archive) -BaseUrl "https://github.com/$repository/releases/download/$version" -Digest $digest -Repository $repository -Version $version 6>&1
     $script:lastMessages = ($output | Where-Object { $_ -isnot [bool] } | Out-String)
     $result = @($output | Where-Object { $_ -is [bool] })[-1]
     Assert-That $Description ($result -eq $Expected)
@@ -125,38 +125,38 @@ Assert-That "  the API was queried for the archive digest" (($script:apiCalls | 
 
 Invoke-Scenario "attestation made from a branch: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest $digest -Ref "refs/heads/main" -Repository $repository -Path ".github/workflows/release.yml" }
 Invoke-Scenario "attestation made for another tag: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest $digest -Ref "refs/tags/v9.9.9" -Repository $repository -Path ".github/workflows/release.yml" }
-Invoke-Scenario "attestation made in another repository: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest $digest -Ref "refs/tags/$version" -Repository "attacker/agentclip" -Path ".github/workflows/release.yml" }
+Invoke-Scenario "attestation made in another repository: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest $digest -Ref "refs/tags/$version" -Repository "attacker/agentport" -Path ".github/workflows/release.yml" }
 Invoke-Scenario "attestation made by another workflow: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest $digest -Ref "refs/tags/$version" -Repository $repository -Path ".github/workflows/evil.yml" }
 Invoke-Scenario "attestation covering another file: refused" $false { $script:haveGh = $false; $script:apiBody = New-ApiBody -Digest ("1" * 64) -Ref "refs/tags/$version" -Repository $repository -Path ".github/workflows/release.yml" }
 
 Invoke-Scenario "no attestation (HTTP 404): refused" $false { $script:haveGh = $false; $script:apiMode = "404" }
 Invoke-Scenario "API rate limited (HTTP 403): refused" $false { $script:haveGh = $false; $script:apiMode = "403" }
-Assert-That "  the message mentions AGENTCLIP_SKIP_ATTESTATION" ($script:lastMessages -like "*AGENTCLIP_SKIP_ATTESTATION*")
+Assert-That "  the message mentions AGENTPORT_SKIP_ATTESTATION" ($script:lastMessages -like "*AGENTPORT_SKIP_ATTESTATION*")
 Invoke-Scenario "API unreachable: refused" $false { $script:haveGh = $false; $script:apiMode = "unreachable" }
 
-Invoke-Scenario "explicit opt-out is accepted with only the SHA-256 check" $true { $env:AGENTCLIP_SKIP_ATTESTATION = "1"; $script:apiMode = "404" }
-Assert-That "  the opt-out was announced" ($script:lastMessages -like "*AGENTCLIP_SKIP_ATTESTATION=1*")
+Invoke-Scenario "explicit opt-out is accepted with only the SHA-256 check" $true { $env:AGENTPORT_SKIP_ATTESTATION = "1"; $script:apiMode = "404" }
+Assert-That "  the opt-out was announced" ($script:lastMessages -like "*AGENTPORT_SKIP_ATTESTATION=1*")
 Assert-That "  neither gh nor the API is consulted after the opt-out" (($script:ghCalls.Count + $script:apiCalls.Count) -eq 0)
 
 $version = "v0.7.0"
 Invoke-Scenario "release before v0.7.1-rc.1 is accepted with a warning" $true { $script:apiMode = "404" }
 Assert-That "  the warning says it predates attestations" ($script:lastMessages -like "*predates build attestations*")
 
-$env:AGENTCLIP_LANG = "pt-BR"
+$env:AGENTPORT_LANG = "pt-BR"
 Invoke-Scenario "the same install in Brazilian Portuguese" $true { $script:apiMode = "404" }
 Assert-That "  the warning is in Portuguese" ($script:lastMessages -like "*anterior aos atestados*")
 Assert-That "  and no English warning is left" (-not ($script:lastMessages -like "*predates build attestations*"))
-$env:AGENTCLIP_LANG = "fr"
+$env:AGENTPORT_LANG = "fr"
 Invoke-Scenario "an unsupported language is English" $true { $script:apiMode = "404" }
 Assert-That "  the warning is English" ($script:lastMessages -like "*predates build attestations*")
-Remove-Item Env:AGENTCLIP_LANG
+Remove-Item Env:AGENTPORT_LANG
 
 # The PATH line is only reached by a real install, which changes the user's PATH,
 # so the message itself is checked in both languages instead.
-Assert-That "  the PATH message is English by default" ((Get-AgentClipMessage "added_to_path" @("C:\Tools")) -eq "Added C:\Tools to your user PATH. Open a new terminal after installation.")
-$env:AGENTCLIP_LANG = "pt_BR.UTF-8"
-Assert-That "  the PATH message is Portuguese on request" ((Get-AgentClipMessage "added_to_path" @("C:\Tools")) -like "C:\Tools foi adicionado ao PATH*")
-Remove-Item Env:AGENTCLIP_LANG
+Assert-That "  the PATH message is English by default" ((Get-agentportMessage "added_to_path" @("C:\Tools")) -eq "Added C:\Tools to your user PATH. Open a new terminal after installation.")
+$env:AGENTPORT_LANG = "pt_BR.UTF-8"
+Assert-That "  the PATH message is Portuguese on request" ((Get-agentportMessage "added_to_path" @("C:\Tools")) -like "C:\Tools foi adicionado ao PATH*")
+Remove-Item Env:AGENTPORT_LANG
 
 Remove-Item -Recurse -Force $work
 Write-Output ""

@@ -36,9 +36,9 @@ func TestCommandBuildsLoopbackForwardAndSessionEnvironment(t *testing.T) {
 		"ExitOnForwardFailure=yes",
 		"-J bastion",
 		"dev",
-		"export AGENTCLIP_SESSION=session",
-		"export AGENTCLIP_BRIDGE_PORT=39123",
-		"export AGENTCLIP_SESSION_TOKEN=token",
+		"export AGENTPORT_SESSION=session",
+		"export AGENTPORT_BRIDGE_PORT=39123",
+		"export AGENTPORT_SESSION_TOKEN=token",
 		"exec 'codex' '--model' 'gpt-5'",
 	} {
 		if !strings.Contains(arguments, expected) {

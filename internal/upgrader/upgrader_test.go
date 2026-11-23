@@ -21,8 +21,8 @@ func (f testTransport) RoundTrip(request *http.Request) (*http.Response, error) 
 
 func TestPrepareSelectsAssetVerifiesChecksumAndStagesBinary(t *testing.T) {
 	const version = "v1.2.3"
-	const asset = "agentclip_v1.2.3_linux_amd64.tar.gz"
-	archive := tarFixture(t, "agentclip_v1.2.3_linux_amd64/agentclip", []byte("new executable"))
+	const asset = "agentport_v1.2.3_linux_amd64.tar.gz"
+	archive := tarFixture(t, "agentport_v1.2.3_linux_amd64/agentport", []byte("new executable"))
 	sum := sha256.Sum256(archive)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
 		switch filepath.Base(request.URL.Path) {
@@ -31,15 +31,15 @@ func TestPrepareSelectsAssetVerifiesChecksumAndStagesBinary(t *testing.T) {
 		case "checksums.txt":
 			_, _ = w.Write([]byte(hex.EncodeToString(sum[:]) + "  " + asset + "\n"))
 		case "sha256:" + hex.EncodeToString(sum[:]):
-			_, _ = w.Write(attestationBody(t, hex.EncodeToString(sum[:]), "example/agentclip", releaseWorkflowPath, "refs/tags/"+version))
+			_, _ = w.Write(attestationBody(t, hex.EncodeToString(sum[:]), "example/agentport", releaseWorkflowPath, "refs/tags/"+version))
 		default:
 			http.NotFound(w, request)
 		}
 	}))
 	defer server.Close()
 	client := rewriteClient(server)
-	target := filepath.Join(t.TempDir(), "agentclip")
-	staged, err := Prepare(context.Background(), Options{Version: version, Executable: target, GOOS: "linux", GOARCH: "amd64", Repository: "example/agentclip", Client: client})
+	target := filepath.Join(t.TempDir(), "agentport")
+	staged, err := Prepare(context.Background(), Options{Version: version, Executable: target, GOOS: "linux", GOARCH: "amd64", Repository: "example/agentport", Client: client})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -65,7 +65,7 @@ func TestPrepareRefusesInvalidChecksumAndUnsupportedPlatform(t *testing.T) {
 		_, _ = w.Write([]byte("not an archive"))
 	}))
 	defer server.Close()
-	_, err := Prepare(context.Background(), Options{Version: "v1.2.3", Executable: filepath.Join(t.TempDir(), "agentclip"), GOOS: "linux", GOARCH: "amd64", Repository: "example/agentclip", Client: rewriteClient(server)})
+	_, err := Prepare(context.Background(), Options{Version: "v1.2.3", Executable: filepath.Join(t.TempDir(), "agentport"), GOOS: "linux", GOARCH: "amd64", Repository: "example/agentport", Client: rewriteClient(server)})
 	if err == nil {
 		t.Fatal("invalid checksum accepted")
 	}
@@ -104,8 +104,8 @@ func tarFixture(t *testing.T, name string, contents []byte) []byte {
 // has checked instead of running a script there.
 func TestFetchVerifiesAForeignPlatformBinaryAndInstallsNothing(t *testing.T) {
 	const version = "v1.2.3"
-	const asset = "agentclip_v1.2.3_darwin_arm64.tar.gz"
-	archive := tarFixture(t, "agentclip_v1.2.3_darwin_arm64/agentclip", []byte("mac executable"))
+	const asset = "agentport_v1.2.3_darwin_arm64.tar.gz"
+	archive := tarFixture(t, "agentport_v1.2.3_darwin_arm64/agentport", []byte("mac executable"))
 	sum := sha256.Sum256(archive)
 	digest := hex.EncodeToString(sum[:])
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -115,13 +115,13 @@ func TestFetchVerifiesAForeignPlatformBinaryAndInstallsNothing(t *testing.T) {
 		case "checksums.txt":
 			_, _ = w.Write([]byte(digest + "  " + asset + "\n"))
 		case "sha256:" + digest:
-			_, _ = w.Write(attestationBody(t, digest, "example/agentclip", releaseWorkflowPath, "refs/tags/"+version))
+			_, _ = w.Write(attestationBody(t, digest, "example/agentport", releaseWorkflowPath, "refs/tags/"+version))
 		default:
 			http.NotFound(w, request)
 		}
 	}))
 	defer server.Close()
-	fetched, err := Fetch(context.Background(), Options{Version: version, GOOS: "darwin", GOARCH: "arm64", Repository: "example/agentclip", Client: rewriteClient(server), APIBaseURL: server.URL})
+	fetched, err := Fetch(context.Background(), Options{Version: version, GOOS: "darwin", GOARCH: "arm64", Repository: "example/agentport", Client: rewriteClient(server), APIBaseURL: server.URL})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -143,7 +143,7 @@ func TestFetchVerifiesAForeignPlatformBinaryAndInstallsNothing(t *testing.T) {
 		_, _ = w.Write(archive)
 	}))
 	defer bad.Close()
-	if _, err := Fetch(context.Background(), Options{Version: version, GOOS: "darwin", GOARCH: "arm64", Repository: "example/agentclip", Client: rewriteClient(bad)}); err == nil {
+	if _, err := Fetch(context.Background(), Options{Version: version, GOOS: "darwin", GOARCH: "arm64", Repository: "example/agentport", Client: rewriteClient(bad)}); err == nil {
 		t.Fatal("a binary that does not match checksums.txt was accepted")
 	}
 }

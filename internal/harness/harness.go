@@ -1,4 +1,4 @@
-// Package harness registers the AgentClip MCP server with agent harnesses
+// Package harness registers the agentport MCP server with agent harnesses
 // that are configured through local files (Antigravity, OpenCode and Pi).
 package harness
 
@@ -26,7 +26,7 @@ type openCodeMCPEntry struct {
 	Enabled     bool              `json:"enabled"`
 }
 
-// Install registers AgentClip with a supported harness under the given home.
+// Install registers agentport with a supported harness under the given home.
 func Install(home, harness, name string, port int, token string, uploadTokens ...string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("harness entry name is required")
@@ -36,19 +36,19 @@ func Install(home, harness, name string, port int, token string, uploadTokens ..
 		uploadToken = uploadTokens[0]
 	}
 	environment := map[string]string{
-		"AGENTCLIP_BRIDGE_PORT":   strconv.Itoa(port),
-		"AGENTCLIP_SESSION_TOKEN": token,
+		"AGENTPORT_BRIDGE_PORT":   strconv.Itoa(port),
+		"AGENTPORT_SESSION_TOKEN": token,
 	}
 	if strings.TrimSpace(uploadToken) != "" {
-		environment["AGENTCLIP_UPLOAD_TOKEN"] = uploadToken
+		environment["AGENTPORT_UPLOAD_TOKEN"] = uploadToken
 	}
 	switch strings.ToLower(strings.TrimSpace(harness)) {
 	case "agy", "antigravity":
 		path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
-		return updateJSONMCPEntry(path, "mcpServers", name, harnessMCPEntry{Command: "agentclip", Args: []string{"mcp"}, Env: environment})
+		return updateJSONMCPEntry(path, "mcpServers", name, harnessMCPEntry{Command: "agentport", Args: []string{"mcp"}, Env: environment})
 	case "opencode":
 		path := filepath.Join(home, ".config", "opencode", "opencode.json")
-		return updateJSONMCPEntry(path, "mcp", name, openCodeMCPEntry{Type: "local", Command: []string{"agentclip", "mcp"}, Environment: environment, Enabled: true})
+		return updateJSONMCPEntry(path, "mcp", name, openCodeMCPEntry{Type: "local", Command: []string{"agentport", "mcp"}, Environment: environment, Enabled: true})
 	case "pi":
 		return writePiExtension(home, name, port, token, uploadToken)
 	default:
@@ -56,7 +56,7 @@ func Install(home, harness, name string, port int, token string, uploadTokens ..
 	}
 }
 
-// Remove deletes the AgentClip registration from a supported harness.
+// Remove deletes the agentport registration from a supported harness.
 func Remove(home, harness, name string) error {
 	switch strings.ToLower(strings.TrimSpace(harness)) {
 	case "agy", "antigravity":
@@ -87,7 +87,7 @@ func updateJSONMCPEntry(path, section, name string, entry any) error {
 	}
 	raw, err := json.Marshal(entry)
 	if err != nil {
-		return fmt.Errorf("encode AgentClip MCP entry: %w", err)
+		return fmt.Errorf("encode agentport MCP entry: %w", err)
 	}
 	entries[name] = raw
 	root[section], err = json.Marshal(entries)
@@ -150,7 +150,7 @@ func writeJSONObject(path string, root map[string]json.RawMessage) error {
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return fmt.Errorf("create configuration directory: %w", err)
 	}
-	temporary, err := os.CreateTemp(directory, ".agentclip-")
+	temporary, err := os.CreateTemp(directory, ".agentport-")
 	if err != nil {
 		return fmt.Errorf("create temporary configuration: %w", err)
 	}

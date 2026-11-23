@@ -7,16 +7,16 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/remote"
-	"github.com/wendellrocha/agentclip/internal/testenv"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/remote"
+	"github.com/rafaelb13/agentport/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 // The whole lifecycle of a server, through the same functions the commands run:
 // setup installs the verified binary and registers the MCP entry, running it
 // again does not download anything, connect registers again, uninstall removes
-// only AgentClip's entry. The server is a fake `ssh` that runs the remote
+// only agentport's entry. The server is a fake `ssh` that runs the remote
 // commands locally with a home of its own, the harness is a script that logs its
 // arguments, and the release download is replaced; everything else is real.
 func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
@@ -29,7 +29,7 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 	t.Cleanup(func() { remote.FetchRelease = previous })
 	remote.FetchRelease = func(_ context.Context, options upgrader.Options) (upgrader.Fetched, error) {
 		downloads++
-		path := filepath.Join(t.TempDir(), "agentclip")
+		path := filepath.Join(t.TempDir(), "agentport")
 		if err := os.WriteFile(path, []byte("#!/bin/sh\necho "+options.Version+"\n"), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -50,14 +50,14 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 	if downloads != 1 {
 		t.Fatalf("downloads = %d, want the release fetched once", downloads)
 	}
-	if out, err := os.ReadFile(server.Path("agentclip")); err != nil || !strings.Contains(string(out), "v0.7.3") {
+	if out, err := os.ReadFile(server.Path("agentport")); err != nil || !strings.Contains(string(out), "v0.7.3") {
 		t.Fatalf("the server has %q, %v", out, err)
 	}
 	calls := logged()
-	if len(calls) != 2 || calls[0] != "codex mcp remove agentclip-e2e" || !strings.Contains(calls[1], "codex mcp add agentclip-e2e") {
+	if len(calls) != 2 || calls[0] != "codex mcp remove agentport-e2e" || !strings.Contains(calls[1], "codex mcp add agentport-e2e") {
 		t.Fatalf("harness calls after setup = %q, want a removal then an addition", calls)
 	}
-	for _, secret := range []string{"AGENTCLIP_SESSION_TOKEN=" + profile.Token, "AGENTCLIP_UPLOAD_TOKEN=" + profile.UploadToken} {
+	for _, secret := range []string{"AGENTPORT_SESSION_TOKEN=" + profile.Token, "AGENTPORT_UPLOAD_TOKEN=" + profile.UploadToken} {
 		if !strings.Contains(calls[1], secret) {
 			t.Errorf("the server was registered without %s", strings.SplitN(secret, "=", 2)[0])
 		}
@@ -75,7 +75,7 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 		t.Fatalf("a second setup must issue a new pairing token (err %v)", err)
 	}
 	got := logged()
-	if len(got) != 4 || got[2] != "codex mcp remove agentclip-e2e" || !strings.Contains(got[3], "AGENTCLIP_SESSION_TOKEN="+repaired.Token) || strings.Contains(got[3], profile.Token) {
+	if len(got) != 4 || got[2] != "codex mcp remove agentport-e2e" || !strings.Contains(got[3], "AGENTPORT_SESSION_TOKEN="+repaired.Token) || strings.Contains(got[3], profile.Token) {
 		t.Fatalf("harness calls after the second setup = %q, want the re-registration to carry the new token and not the old one", got)
 	}
 
@@ -83,16 +83,16 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 	if err := runConnect([]string{"e2e", "--agent", "codex"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := logged(); len(got) != 6 || !strings.Contains(got[5], "AGENTCLIP_SESSION_TOKEN="+repaired.Token) {
+	if got := logged(); len(got) != 6 || !strings.Contains(got[5], "AGENTPORT_SESSION_TOKEN="+repaired.Token) {
 		t.Fatalf("harness calls after connect = %q", got)
 	}
 
-	// uninstall removes only AgentClip's own entry.
+	// uninstall removes only agentport's own entry.
 	if err := runUninstall([]string{"e2e", "--agent", "codex"}); err != nil {
 		t.Fatal(err)
 	}
-	if got := logged(); len(got) != 7 || got[6] != "codex mcp remove agentclip-e2e" {
-		t.Fatalf("harness calls after uninstall = %q, want exactly one more: the removal of agentclip-e2e", got)
+	if got := logged(); len(got) != 7 || got[6] != "codex mcp remove agentport-e2e" {
+		t.Fatalf("harness calls after uninstall = %q, want exactly one more: the removal of agentport-e2e", got)
 	}
 }
 
@@ -107,10 +107,10 @@ func TestSetupWithAnUnverifiableReleaseInstallsNothingAndSavesNoProfile(t *testi
 		return upgrader.Fetched{}, os.ErrPermission
 	}
 	err := runSetup([]string{"bastion-e2e", "--profile", "refused", "--version", "v0.7.3", "--agent", "codex", "--no-start"})
-	if err == nil || !strings.Contains(err.Error(), "install AgentClip on bastion-e2e") {
+	if err == nil || !strings.Contains(err.Error(), "install agentport on bastion-e2e") {
 		t.Fatalf("err = %v, want the install failure", err)
 	}
-	if _, statErr := os.Stat(server.Path("agentclip")); statErr == nil {
+	if _, statErr := os.Stat(server.Path("agentport")); statErr == nil {
 		t.Error("a binary was installed although verification failed")
 	}
 	if _, loadErr := companion.LoadProfile("refused"); loadErr == nil {

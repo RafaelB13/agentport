@@ -1,8 +1,8 @@
-# AgentClip
+# agentport
 
 [Português](README.md) · **English**
 
-AgentClip makes images, text and files from the host's clipboard available,
+agentport makes images, text and files from the host's clipboard available,
 with explicit authorization, to a coding agent running on an SSH server.
 
 It runs a local HTTP bridge, a reverse SSH tunnel and an MCP server over
@@ -17,13 +17,13 @@ look at what is on your clipboard.
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wendellrocha/agentclip/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
 ```
 
 On Windows, run in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/wendellrocha/agentclip/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
 ```
 
 The scripts detect the platform, look up the latest release, verify its SHA-256
@@ -32,7 +32,7 @@ already installed. They download and update only when the version found is
 newer; running the installer again is safe. For a specific version, use
 `--version vX.Y.Z` with the POSIX installer or `-Version vX.Y.Z` with
 PowerShell. Artifacts and checksums are also on
-[GitHub Releases](https://github.com/wendellrocha/agentclip/releases).
+[GitHub Releases](https://github.com/rafaelb13/agentport/releases).
 
 ### Verifying the authenticity of a release
 
@@ -44,7 +44,7 @@ verify by hand, download the release file, `checksums.txt` and
 
 ```bash
 VERSION=vX.Y.Z
-IDENTITY="https://github.com/wendellrocha/agentclip/.github/workflows/release.yml@refs/tags/${VERSION}"
+IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 cosign verify-blob \
   --bundle checksums.txt.bundle \
@@ -56,10 +56,10 @@ cosign verify-blob \
 sha256sum --check --ignore-missing checksums.txt
 # macOS (it has neither sha256sum nor --ignore-missing)
 ARCH=$(uname -m | sed s/x86_64/amd64/) # arm64 or amd64
-grep " agentclip_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
+grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
 
-gh attestation verify "agentclip_${VERSION}_linux_amd64.tar.gz" \
-  --repo wendellrocha/agentclip \
+gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
+  --repo rafaelb13/agentport \
   --cert-identity "$IDENTITY"
 ```
 
@@ -72,7 +72,7 @@ from any other branch is not accepted.
 
 ### Automatic verification
 
-From `v0.7.1-rc.1` on, the installers and `agentclip upgrade` confirm, besides
+From `v0.7.1-rc.1` on, the installers and `agentport upgrade` confirm, besides
 the SHA-256, that the downloaded file was produced by this repository's release
 workflow on the tag being installed. If the confirmation fails, the
 installation is refused.
@@ -82,8 +82,8 @@ installation is refused.
   `gh auth login`. If `gh` **rejects** the file, the installation fails, without
   falling back to a weaker method. Without `gh`, or if the release has no
   bundle, they query the GitHub attestations API.
-- **`agentclip upgrade`:** queries the GitHub attestations API.
-- **Servers (`agentclip setup` and `agentclip upgrade`):** this machine downloads
+- **`agentport upgrade`:** queries the GitHub attestations API.
+- **Servers (`agentport setup` and `agentport upgrade`):** this machine downloads
   the binary for the server's platform, verifies it the way `upgrade` does and
   sends it over the SSH connection. No installer is downloaded to the server: it
   only runs a short, fixed sequence of commands that checks the SHA-256 of what
@@ -99,8 +99,8 @@ use the manual commands above.
 
 If the API is down or its rate limit is exhausted, the installation is refused
 instead of proceeding unverified. To install anyway, with the SHA-256 check
-only, set `AGENTCLIP_SKIP_ATTESTATION=1`. With `agentclip setup` and
-`agentclip upgrade` the variable also applies to the binaries sent to servers.
+only, set `AGENTPORT_SKIP_ATTESTATION=1`. With `agentport setup` and
+`agentport upgrade` the variable also applies to the binaries sent to servers.
 Versions before `v0.7.1-rc.1` have
 no attestation and are installed with the SHA-256 only, with a warning.
 
@@ -109,16 +109,16 @@ no attestation and are installed with the SHA-256 only, with a warning.
 Install and configure a server in a single call:
 
 ```bash
-agentclip setup bastion-m2 --profile m2
+agentport setup bastion-m2 --profile m2
 ```
 
 The command installs the matching version on the Linux/macOS server over SSH,
 detects every supported harness that is already installed, registers the
-AgentClip integration with each of them automatically, creates the local
+agentport integration with each of them automatically, creates the local
 profile and starts the Companion. When SSH still accepts only a password,
-`setup` asks for it once to install a private AgentClip Ed25519 key; later
+`setup` asks for it once to install a private agentport Ed25519 key; later
 tunnels do not ask for a password. If an SSH key already authenticates the
-destination, AgentClip leaves it alone. Then:
+destination, agentport leaves it alone. Then:
 
 ```bash
 ssh bastion-m2
@@ -148,57 +148,57 @@ After updating to a version with this feature, pair the profile again to
 propagate the upload capability to the remote harnesses:
 
 ```bash
-agentclip setup bastion-m2 --profile m2
+agentport setup bastion-m2 --profile m2
 ```
 
 ## Companion, background and restarts
 
-`agentclip setup` starts the local Companion in the background (unless you pass
-`--no-start`); `agentclip companion start <profile>` does the same by hand. The
+`agentport setup` starts the local Companion in the background (unless you pass
+`--no-start`); `agentport companion start <profile>` does the same by hand. The
 process follows the clipboard, keeps the local bridge running and opens the
 reverse SSH tunnel to the destination saved in the profile. The view and the
 current state can be queried without tying up the terminal:
 
 ```bash
-agentclip companion status m2
-agentclip companion open m2
-agentclip companion stop m2
+agentport companion status m2
+agentport companion open m2
+agentport companion stop m2
 ```
 
 The Companion checks for the stable release at startup and shows a notice on the
-local page and in the `agentclip_update_status` MCP tool when an update exists.
+local page and in the `agentport_update_status` MCP tool when an update exists.
 To update the local executable and every saved remote profile, use:
 
 ```bash
-agentclip upgrade
+agentport upgrade
 ```
 
 The command validates the published SHA-256 and the release's build
 attestation, keeps stopped the profiles that were already stopped and restarts
 only the Companions that were active.
 
-`agentclip companion open m2` opens a local, token-protected web page with the
+`agentport companion open m2` opens a local, token-protected web page with the
 tunnel state, the clipboard items and their expiry, the last error and a button
 to stop the Companion. It listens on `127.0.0.1` only. See all the details in the
 [Command reference](COMMANDS.md#página-web-do-companion) (in Portuguese).
 
 The profile — SSH destination, remote port and pairing token — is saved on the
 host. The running process, the bridge and the tunnel are not. By default
-AgentClip **does not install an automatic startup service**, so if the **host**
+agentport **does not install an automatic startup service**, so if the **host**
 restarts, start the profile you want again:
 
 ```bash
-agentclip companion start m2
+agentport companion start m2
 ```
 
 To have the Companion start by itself when you log in, turn on autostart for the
-profile. AgentClip uses what each system already has: a LaunchAgent on macOS, a
+profile. agentport uses what each system already has: a LaunchAgent on macOS, a
 systemd user unit on Linux and a Task Scheduler task on Windows.
 
 ```bash
-agentclip companion autostart enable m2
-agentclip companion autostart status m2
-agentclip companion autostart disable m2
+agentport companion autostart enable m2
+agentport companion autostart status m2
+agentport companion autostart disable m2
 ```
 
 Turning it off removes the service and stops the Companion it started; one you
@@ -214,18 +214,18 @@ profile and the same remote port are used again.
 By default, `setup`, `pair` and `connect` use every supported harness they find.
 Installing and registering the integration is automatic: you do not need to
 edit JSON or create the Pi extension by hand. Use `--agent` to limit the
-configuration to one of them. To remove only the AgentClip integration from a
+configuration to one of them. To remove only the agentport integration from a
 harness, use `uninstall`; the harness CLI and the local profile stay intact:
 
 ```bash
-agentclip setup bastion-m2 --profile m2 --agent claude
-agentclip connect m2
-agentclip uninstall m2 --agent gemini
+agentport setup bastion-m2 --profile m2 --agent claude
+agentport connect m2
+agentport uninstall m2 --agent gemini
 ```
 
 ## Agent compatibility
 
-AgentClip integrates with the **harness** — the program that runs the agent and
+agentport integrates with the **harness** — the program that runs the agent and
 calls MCP tools — not with the model chosen inside it. The table separates what
 the current version configures automatically from what is still planned.
 
@@ -234,10 +234,10 @@ the current version configures automatically from what is still planned.
 | Codex | Supported | Detected and configured automatically when installed |
 | Claude Code | Supported | Detected and configured automatically when installed |
 | Gemini CLI | Supported | Detected and configured automatically when installed |
-| AGY / Antigravity CLI | Supported | AgentClip creates/updates the global MCP automatically |
-| OpenCode | Supported | AgentClip creates/updates the global local MCP automatically |
-| Pi Coding Agent | Supported | AgentClip installs a global extension automatically |
-| Another MCP client | Manual | Configure `agentclip mcp` and the profile variables by hand |
+| AGY / Antigravity CLI | Supported | agentport creates/updates the global MCP automatically |
+| OpenCode | Supported | agentport creates/updates the global local MCP automatically |
+| Pi Coding Agent | Supported | agentport installs a global extension automatically |
+| Another MCP client | Manual | Configure `agentport mcp` and the profile variables by hand |
 
 | Model or provider | Direct status | How to use it |
 | --- | --- | --- |
@@ -245,7 +245,7 @@ the current version configures automatically from what is still planned.
 | MiMo | Not applicable | Use it through an MCP harness; there is no direct model adapter |
 
 Planned adapters will never install third-party clients without an explicit user
-action, nor write the AgentClip token into project settings that could be
+action, nor write the agentport token into project settings that could be
 committed.
 
 Adapters never install third-party harnesses. `setup`, `pair` and `connect`
@@ -262,7 +262,7 @@ installed; `--agent` lets you choose one of them.
   materialization. Directories and symlinks are rejected.
 - Files sent from the server to the host require local approval, accept one
   regular file of up to 50 MiB at a time, have their SHA-256 verified and are
-  written atomically to `~/.cache/agentclip/received/` (or the platform's
+  written atomically to `~/.cache/agentport/received/` (or the platform's
   equivalent cache). Offers expire after 10 minutes and the Companion forgets them
   30 minutes after that; delivered files stay in that folder until you delete
   them.
@@ -271,14 +271,14 @@ installed; `--agent` lets you choose one of them.
 
 ## Language
 
-By default, command output, `agentclip help` and the Companion page are in
-English. For Brazilian Portuguese set `AGENTCLIP_LANG=pt-BR` (it applies to the
+By default, command output, `agentport help` and the Companion page are in
+English. For Brazilian Portuguese set `AGENTPORT_LANG=pt-BR` (it applies to the
 installers too); the Companion page also accepts `?lang=pt-BR` and follows the
 browser's language. Technical error messages stay in English. See
 [Language](COMMANDS.md#idioma) in the command reference (in Portuguese).
 
 ```bash
-AGENTCLIP_LANG=pt-BR agentclip help
+AGENTPORT_LANG=pt-BR agentport help
 ```
 
 ## Documentation

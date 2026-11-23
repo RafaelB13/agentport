@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 const (
@@ -282,17 +282,17 @@ func (p *HTTPProvider) MaterializeFiles(ctx context.Context, itemIDs []string) (
 	}
 	cache, err := os.UserCacheDir()
 	if err != nil {
-		return Materialization{}, fmt.Errorf("find AgentClip cache directory: %w", err)
+		return Materialization{}, fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	root := filepath.Join(cache, "agentclip", "inbox")
+	root := filepath.Join(cache, "agentport", "inbox")
 	if err := os.MkdirAll(root, 0700); err != nil {
-		return Materialization{}, fmt.Errorf("create AgentClip inbox: %w", err)
+		return Materialization{}, fmt.Errorf("create agentport inbox: %w", err)
 	}
 	if err := os.Chmod(root, 0700); err != nil {
-		return Materialization{}, fmt.Errorf("secure AgentClip inbox: %w", err)
+		return Materialization{}, fmt.Errorf("secure agentport inbox: %w", err)
 	}
 	if err := cleanupInbox(root, time.Now().Add(-inboxRetention)); err != nil {
-		return Materialization{}, fmt.Errorf("clean AgentClip inbox: %w", err)
+		return Materialization{}, fmt.Errorf("clean agentport inbox: %w", err)
 	}
 	directory, err := os.MkdirTemp(root, "snapshot-")
 	if err != nil {
@@ -324,7 +324,7 @@ func cleanupExpiredInbox() error {
 	if err != nil {
 		return err
 	}
-	return cleanupInbox(filepath.Join(cache, "agentclip", "inbox"), time.Now().Add(-inboxRetention))
+	return cleanupInbox(filepath.Join(cache, "agentport", "inbox"), time.Now().Add(-inboxRetention))
 }
 
 func cleanupInbox(root string, cutoff time.Time) error {
@@ -370,7 +370,7 @@ func (p *HTTPProvider) downloadFile(ctx context.Context, directory string, item 
 	if err := responseError(response); err != nil {
 		return MaterializedFile{}, err
 	}
-	if response.Header.Get("Content-Length") != strconv.FormatInt(item.Size, 10) || response.Header.Get("X-AgentClip-SHA256") != item.SHA256 {
+	if response.Header.Get("Content-Length") != strconv.FormatInt(item.Size, 10) || response.Header.Get("X-agentport-SHA256") != item.SHA256 {
 		return MaterializedFile{}, fmt.Errorf("clipboard file metadata changed during transfer")
 	}
 	name := filepath.Base(item.Name)
@@ -383,7 +383,7 @@ func (p *HTTPProvider) downloadFile(ctx context.Context, directory string, item 
 	if _, err := os.Lstat(path); err == nil {
 		path = filepath.Join(directory, item.ID+"-"+name)
 	}
-	temporary, err := os.CreateTemp(directory, ".agentclip-file-")
+	temporary, err := os.CreateTemp(directory, ".agentport-file-")
 	if err != nil {
 		return MaterializedFile{}, err
 	}
@@ -430,7 +430,7 @@ func (p *HTTPProvider) requestWithClient(ctx context.Context, path string, clien
 
 func (p *HTTPProvider) uploadRequest(ctx context.Context, method, path string, body io.Reader, length int64, client *http.Client) (*http.Response, error) {
 	if strings.TrimSpace(p.uploadToken) == "" {
-		return nil, fmt.Errorf("host uploads are unavailable for this profile; run agentclip setup again")
+		return nil, fmt.Errorf("host uploads are unavailable for this profile; run agentport setup again")
 	}
 	request, err := http.NewRequestWithContext(ctx, method, p.baseURL+path, body)
 	if err != nil {

@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 func pngFixture(t *testing.T) []byte {
@@ -485,9 +485,9 @@ func TestFailedInboundDeliveryDoesNotLeakHostPaths(t *testing.T) {
 	if err := os.MkdirAll(root, 0700); err != nil {
 		t.Fatal(err)
 	}
-	// A regular file where the AgentClip cache directory belongs makes the
+	// A regular file where the agentport cache directory belongs makes the
 	// write fail with an error that embeds the full host path.
-	if err := os.WriteFile(filepath.Join(root, "agentclip"), nil, 0600); err != nil {
+	if err := os.WriteFile(filepath.Join(root, "agentport"), nil, 0600); err != nil {
 		t.Fatal(err)
 	}
 

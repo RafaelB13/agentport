@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 type Image struct {
@@ -258,7 +258,7 @@ func (d *Daemon) inboundAction(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Length", fmt.Sprintf("%d", offer.Size))
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		if bridge.InboundTextPreviewable(offer.Name) {
-			w.Header().Set("X-AgentClip-Previewable", "true")
+			w.Header().Set("X-agentport-Previewable", "true")
 		}
 		_, _ = io.Copy(w, io.LimitReader(file, offer.Size))
 		return
@@ -319,7 +319,7 @@ func statePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "agentclip", "bridge.json"), nil
+	return filepath.Join(dir, "agentport", "bridge.json"), nil
 }
 func saveState(s State) error {
 	p, err := statePath()

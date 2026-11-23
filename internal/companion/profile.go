@@ -105,11 +105,11 @@ func LoadProfile(name string) (Profile, error) {
 // reported instead of silently skipped: an upgrade must not claim that every
 // configured host was considered when one profile cannot be read.
 func ListProfiles() ([]Profile, error) {
-	configDir, err := agentClipConfigDir()
+	configDir, err := agentPortConfigDir()
 	if err != nil {
-		return nil, fmt.Errorf("find AgentClip config directory: %w", err)
+		return nil, fmt.Errorf("find agentport config directory: %w", err)
 	}
-	directory := filepath.Join(configDir, "agentclip", "profiles")
+	directory := filepath.Join(configDir, "agentport", "profiles")
 	entries, err := os.ReadDir(directory)
 	if os.IsNotExist(err) {
 		return []Profile{}, nil
@@ -136,11 +136,11 @@ func profilePath(name string) (string, error) {
 	if !validProfileName(name) || filepath.Base(name) != name {
 		return "", errors.New("companion profile name must be a simple filename")
 	}
-	configDir, err := agentClipConfigDir()
+	configDir, err := agentPortConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("find AgentClip config directory: %w", err)
+		return "", fmt.Errorf("find agentport config directory: %w", err)
 	}
-	return filepath.Join(configDir, "agentclip", "profiles", name+".json"), nil
+	return filepath.Join(configDir, "agentport", "profiles", name+".json"), nil
 }
 
 // SSHIdentityPath returns the private key path reserved for a setup-created
@@ -149,17 +149,17 @@ func SSHIdentityPath(name string) (string, error) {
 	if !validProfileName(name) || filepath.Base(name) != name {
 		return "", errors.New("companion profile name must be a simple filename")
 	}
-	configDir, err := agentClipConfigDir()
+	configDir, err := agentPortConfigDir()
 	if err != nil {
-		return "", fmt.Errorf("find AgentClip config directory: %w", err)
+		return "", fmt.Errorf("find agentport config directory: %w", err)
 	}
-	return filepath.Join(configDir, "agentclip", "keys", name), nil
+	return filepath.Join(configDir, "agentport", "keys", name), nil
 }
 
-func agentClipConfigDir() (string, error) {
-	if directory := strings.TrimSpace(os.Getenv("AGENTCLIP_CONFIG_DIR")); directory != "" {
+func agentPortConfigDir() (string, error) {
+	if directory := strings.TrimSpace(os.Getenv("AGENTPORT_CONFIG_DIR")); directory != "" {
 		if !filepath.IsAbs(directory) {
-			return "", errors.New("AGENTCLIP_CONFIG_DIR must be an absolute path")
+			return "", errors.New("AGENTPORT_CONFIG_DIR must be an absolute path")
 		}
 		return directory, nil
 	}

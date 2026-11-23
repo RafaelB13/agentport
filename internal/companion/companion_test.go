@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/clipboard"
+	"github.com/rafaelb13/agentport/internal/clipboard"
 )
 
 func TestSaveAndLoadProfileUsesPrivateConfigFile(t *testing.T) {
-	t.Setenv("AGENTCLIP_CONFIG_DIR", t.TempDir())
+	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
 	want := Profile{Name: "dev", Destination: "dev.example", RemotePort: 39123, Token: "pair-token", CreatedAt: time.Now().UTC().Round(0)}
 	if err := SaveProfile(want); err != nil {
 		t.Fatal(err)
@@ -59,7 +59,7 @@ func TestProfileRejectsRelativeManagedIdentity(t *testing.T) {
 }
 
 func TestListProfilesReturnsPersistedPairings(t *testing.T) {
-	t.Setenv("AGENTCLIP_CONFIG_DIR", t.TempDir())
+	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
 	for _, name := range []string{"dev", "prod"} {
 		if err := SaveProfile(Profile{Name: name, Destination: name + ".example", RemotePort: 39123, Token: "token"}); err != nil {
 			t.Fatal(err)
@@ -85,7 +85,7 @@ func TestTunnelCommandUsesLoopbackReverseForward(t *testing.T) {
 }
 
 func TestTunnelCommandUsesManagedIdentityWithoutPrompts(t *testing.T) {
-	identity := filepath.Join(t.TempDir(), "agentclip-key")
+	identity := filepath.Join(t.TempDir(), "agentport-key")
 	command, err := TunnelCommand(Profile{Name: "dev", Destination: "dev", RemotePort: 39123, Token: "token", SSHIdentityFile: identity}, 45678)
 	if err != nil {
 		t.Fatal(err)

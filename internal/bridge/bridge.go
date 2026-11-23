@@ -22,7 +22,7 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 const (
@@ -648,7 +648,7 @@ func (b *Bridge) serveItem(w http.ResponseWriter, r *http.Request, id string) {
 	b.mu.Unlock()
 	w.Header().Set("Content-Type", meta.MIMEType)
 	w.Header().Set("Content-Length", strconv.FormatInt(meta.Size, 10))
-	w.Header().Set("X-AgentClip-SHA256", meta.SHA256)
+	w.Header().Set("X-agentport-SHA256", meta.SHA256)
 	w.WriteHeader(http.StatusOK)
 	if file != nil {
 		_, _ = io.Copy(w, file)

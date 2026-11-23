@@ -30,7 +30,7 @@ func TestCompareSemanticVersions(t *testing.T) {
 
 func TestCheckerCachesLatestReleaseFor24Hours(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
-		if request.URL.Path != "/repos/example/agentclip/releases/latest" {
+		if request.URL.Path != "/repos/example/agentport/releases/latest" {
 			http.NotFound(w, request)
 			return
 		}
@@ -43,7 +43,7 @@ func TestCheckerCachesLatestReleaseFor24Hours(t *testing.T) {
 		request.URL.Host = server.Listener.Addr().String()
 		return http.DefaultTransport.RoundTrip(request)
 	})}
-	checker := Checker{Repository: "example/agentclip", CachePath: t.TempDir() + "/release.json", Client: client, Now: func() time.Time { return now }}
+	checker := Checker{Repository: "example/agentport", CachePath: t.TempDir() + "/release.json", Client: client, Now: func() time.Time { return now }}
 	first, err := checker.Check(context.Background(), "1.0.0")
 	if err != nil || !first.UpdateAvailable || first.LatestVersion != "v1.2.0" {
 		t.Fatalf("first check = %#v, %v", first, err)
@@ -80,7 +80,7 @@ func TestFetchLatestRejectsPrereleaseAndInvalidTag(t *testing.T) {
 			request.URL.Host = server.Listener.Addr().String()
 			return http.DefaultTransport.RoundTrip(request)
 		})}
-		if _, err := (Checker{Repository: "example/agentclip", Client: client}).FetchLatest(context.Background()); err == nil {
+		if _, err := (Checker{Repository: "example/agentport", Client: client}).FetchLatest(context.Background()); err == nil {
 			t.Fatalf("body %s accepted", body)
 		}
 		server.Close()

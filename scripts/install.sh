@@ -1,14 +1,14 @@
 #!/bin/sh
-# Install the latest AgentClip release on macOS or Linux.
+# Install the latest agentport release on macOS or Linux.
 set -eu
 
-repository="${AGENTCLIP_REPOSITORY:-wendellrocha/agentclip}"
-install_dir="${AGENTCLIP_INSTALL_DIR:-$HOME/.local/bin}"
-requested_version="${AGENTCLIP_VERSION:-latest}"
+repository="${AGENTPORT_REPOSITORY:-rafaelb13/agentport}"
+install_dir="${AGENTPORT_INSTALL_DIR:-$HOME/.local/bin}"
+requested_version="${AGENTPORT_VERSION:-latest}"
 
-# Messages are English unless AGENTCLIP_LANG asks for Brazilian Portuguese
+# Messages are English unless AGENTPORT_LANG asks for Brazilian Portuguese
 # (pt, pt-BR, pt_BR.UTF-8, ...). Errors stay in English on purpose.
-case "$(printf '%s' "${AGENTCLIP_LANG:-}" | tr 'A-Z_' 'a-z-')" in
+case "$(printf '%s' "${AGENTPORT_LANG:-}" | tr 'A-Z_' 'a-z-')" in
   pt | pt-*) message_language=pt ;;
   *) message_language=en ;;
 esac
@@ -25,30 +25,30 @@ say() {
     pt:authentic_gh) message_format='Autenticidade confirmada por gh attestation verify.' ;;
     en:authentic_api) message_format='Authenticity confirmed by the GitHub attestations API.' ;;
     pt:authentic_api) message_format='Autenticidade confirmada pela API de atestados do GitHub.' ;;
-    en:looking_up_latest) message_format='Looking up the latest AgentClip version...' ;;
-    pt:looking_up_latest) message_format='Buscando a versão mais recente do AgentClip...' ;;
+    en:looking_up_latest) message_format='Looking up the latest agentport version...' ;;
+    pt:looking_up_latest) message_format='Buscando a versão mais recente do agentport...' ;;
     en:requested_version) message_format='Requested version: %s' ;;
     pt:requested_version) message_format='Versão solicitada: %s' ;;
     en:found_version) message_format='Version found: %s' ;;
     pt:found_version) message_format='Versão encontrada: %s' ;;
     en:installed_version) message_format='Installed version found: %s' ;;
     pt:installed_version) message_format='Versão instalada encontrada: %s' ;;
-    en:up_to_date) message_format='AgentClip %s is already up to date. No download needed.' ;;
-    pt:up_to_date) message_format='AgentClip %s já está atualizado. Nenhum download necessário.' ;;
+    en:up_to_date) message_format='agentport %s is already up to date. No download needed.' ;;
+    pt:up_to_date) message_format='agentport %s já está atualizado. Nenhum download necessário.' ;;
     en:installed_is_newer) message_format='The installed version (%s) is newer than %s. Nothing was changed.' ;;
     pt:installed_is_newer) message_format='A versão instalada (%s) é mais nova que %s. Nenhuma alteração realizada.' ;;
     en:update_available) message_format='New version available: %s (current: %s).' ;;
     pt:update_available) message_format='Nova versão disponível: %s (atual: %s).' ;;
     en:no_valid_install) message_format='No valid installation was found at %s.' ;;
     pt:no_valid_install) message_format='Nenhuma instalação válida foi encontrada em %s.' ;;
-    en:downloading) message_format='Downloading AgentClip %s for %s/%s...' ;;
-    pt:downloading) message_format='Baixando AgentClip %s para %s/%s...' ;;
-    en:updated) message_format='AgentClip updated: %s → %s.' ;;
-    pt:updated) message_format='AgentClip atualizado: %s → %s.' ;;
-    en:installed) message_format='AgentClip installed: %s.' ;;
-    pt:installed) message_format='AgentClip instalado: %s.' ;;
-    en:skip_warning) message_format='Warning: attestation check skipped (AGENTCLIP_SKIP_ATTESTATION=1); only the SHA-256 was checked.' ;;
-    pt:skip_warning) message_format='Aviso: verificação de atestado ignorada (AGENTCLIP_SKIP_ATTESTATION=1); apenas o SHA-256 foi conferido.' ;;
+    en:downloading) message_format='Downloading agentport %s for %s/%s...' ;;
+    pt:downloading) message_format='Baixando agentport %s para %s/%s...' ;;
+    en:updated) message_format='agentport updated: %s → %s.' ;;
+    pt:updated) message_format='agentport atualizado: %s → %s.' ;;
+    en:installed) message_format='agentport installed: %s.' ;;
+    pt:installed) message_format='agentport instalado: %s.' ;;
+    en:skip_warning) message_format='Warning: attestation check skipped (AGENTPORT_SKIP_ATTESTATION=1); only the SHA-256 was checked.' ;;
+    pt:skip_warning) message_format='Aviso: verificação de atestado ignorada (AGENTPORT_SKIP_ATTESTATION=1); apenas o SHA-256 foi conferido.' ;;
     en:old_release_warning) message_format='Warning: %s predates build attestations; only the SHA-256 was checked.' ;;
     pt:old_release_warning) message_format='Aviso: %s é anterior aos atestados de build; apenas o SHA-256 foi conferido.' ;;
     en:full_verification_hint) message_format='For full cryptographic verification, install gh and use gh attestation verify.' ;;
@@ -69,14 +69,14 @@ usage() {
   cat <<'EOF'
 Usage: install.sh [--version vX.Y.Z] [--install-dir PATH]
 
-Environment overrides: AGENTCLIP_REPOSITORY, AGENTCLIP_VERSION,
-AGENTCLIP_INSTALL_DIR.
+Environment overrides: AGENTPORT_REPOSITORY, AGENTPORT_VERSION,
+AGENTPORT_INSTALL_DIR.
 
 Releases from v0.7.1-rc.1 on are verified against their GitHub build
-attestation. AGENTCLIP_SKIP_ATTESTATION=1 installs with the SHA-256 check only.
+attestation. AGENTPORT_SKIP_ATTESTATION=1 installs with the SHA-256 check only.
 
 Without --version, the installer checks the latest release and downloads it
-only when it is newer than the installed AgentClip binary.
+only when it is newer than the installed agentport binary.
 EOF
 }
 
@@ -104,7 +104,7 @@ done
 
 require() {
   command -v "$1" >/dev/null 2>&1 || {
-    echo "AgentClip installer requires '$1'." >&2
+    echo "agentport installer requires '$1'." >&2
     exit 1
   }
 }
@@ -204,7 +204,7 @@ verify_with_gh() {
 verify_with_api() {
   say verifying_api
   api_status="$(curl -sS -o "$temporary_directory/attestations.json" -w '%{http_code}' \
-    -H "Accept: application/vnd.github+json" -H "User-Agent: agentclip-installer" \
+    -H "Accept: application/vnd.github+json" -H "User-Agent: agentport-installer" \
     "https://api.github.com/repos/${repository}/attestations/sha256:${actual_checksum}")" || {
     echo "Could not reach the GitHub attestations API." >&2
     return 2
@@ -232,7 +232,7 @@ verify_with_api() {
 }
 
 verify_authenticity() {
-  if [ "${AGENTCLIP_SKIP_ATTESTATION:-}" = "1" ]; then
+  if [ "${AGENTPORT_SKIP_ATTESTATION:-}" = "1" ]; then
     say skip_warning >&2
     return 0
   fi
@@ -260,12 +260,12 @@ verify_authenticity() {
       ;;
     1) return 1 ;;
   esac
-  echo "Could not verify the build attestation. Set AGENTCLIP_SKIP_ATTESTATION=1 to install with the SHA-256 check only." >&2
+  echo "Could not verify the build attestation. Set AGENTPORT_SKIP_ATTESTATION=1 to install with the SHA-256 check only." >&2
   return 1
 }
 
 # Lets the tests load the functions above without installing anything.
-if [ "${AGENTCLIP_INSTALLER_LIB:-}" = "1" ]; then
+if [ "${AGENTPORT_INSTALLER_LIB:-}" = "1" ]; then
   return 0 2>/dev/null || exit 0
 fi
 
@@ -289,7 +289,7 @@ esac
 
 if [ "$requested_version" = "latest" ]; then
   say looking_up_latest
-  requested_version="$(curl -fsSL -H "User-Agent: agentclip-installer" "https://api.github.com/repos/${repository}/releases/latest" \
+  requested_version="$(curl -fsSL -H "User-Agent: agentport-installer" "https://api.github.com/repos/${repository}/releases/latest" \
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
     | head -n 1)"
 else
@@ -306,7 +306,7 @@ esac
 
 say found_version "$requested_version"
 
-installed_binary="$install_dir/agentclip"
+installed_binary="$install_dir/agentport"
 installed_version=""
 if [ -x "$installed_binary" ]; then
   installed_version="$("$installed_binary" version 2>/dev/null || true)"
@@ -341,7 +341,7 @@ else
   say no_valid_install "$installed_binary"
 fi
 
-asset="agentclip_${requested_version}_${os}_${arch}.tar.gz"
+asset="agentport_${requested_version}_${os}_${arch}.tar.gz"
 base_url="https://github.com/${repository}/releases/download/${requested_version}"
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
@@ -361,7 +361,7 @@ if command -v sha256sum >/dev/null 2>&1; then
 elif command -v shasum >/dev/null 2>&1; then
   actual_checksum="$(shasum -a 256 "$temporary_directory/$asset" | awk '{ print $1 }')"
 else
-  echo "AgentClip installer requires sha256sum or shasum to verify the release." >&2
+  echo "agentport installer requires sha256sum or shasum to verify the release." >&2
   exit 1
 fi
 
@@ -376,20 +376,20 @@ verify_authenticity || {
 }
 
 tar -xzf "$temporary_directory/$asset" -C "$temporary_directory"
-binary="$temporary_directory/agentclip_${requested_version}_${os}_${arch}/agentclip"
+binary="$temporary_directory/agentport_${requested_version}_${os}_${arch}/agentport"
 if [ ! -f "$binary" ]; then
-  echo "Release archive did not contain the expected AgentClip binary." >&2
+  echo "Release archive did not contain the expected agentport binary." >&2
   exit 1
 fi
 
 mkdir -p "$install_dir"
-install -m 0755 "$binary" "$install_dir/agentclip"
+install -m 0755 "$binary" "$install_dir/agentport"
 if [ -n "$installed_version" ]; then
   say updated "$installed_version" "$requested_version"
 else
   say installed "$requested_version"
 fi
-say binary_at "${install_dir}/agentclip"
+say binary_at "${install_dir}/agentport"
 
 case ":$PATH:" in
   *":$install_dir:"*) ;;

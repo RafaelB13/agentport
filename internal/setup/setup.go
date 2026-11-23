@@ -1,5 +1,5 @@
-// Package setup implements `agentclip setup`: it prepares a server end to end by
-// installing AgentClip there, pairing a profile, registering it with the
+// Package setup implements `agentport setup`: it prepares a server end to end by
+// installing agentport there, pairing a profile, registering it with the
 // server's agents and starting the local Companion. The effects (SSH, the
 // profile store, processes) are injected, so every branch can be tested without
 // them.
@@ -13,13 +13,13 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/wendellrocha/agentclip/internal/buildinfo"
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/buildinfo"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
 // Usage is the message shown when the arguments are missing.
-const Usage = "usage: agentclip setup <ssh-destination> [--profile NAME] [--agent all|codex|claude|gemini|agy|opencode|pi] [--version vX.Y.Z] [--remote-port 39123] [--skip-agent] [--skip-install] [--no-start]"
+const Usage = "usage: agentport setup <ssh-destination> [--profile NAME] [--agent all|codex|claude|gemini|agy|opencode|pi] [--version vX.Y.Z] [--remote-port 39123] [--skip-agent] [--skip-install] [--no-start]"
 
 var releaseTagPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$`)
 
@@ -35,7 +35,7 @@ type Options struct {
 	NoStart        bool
 }
 
-// ParseArgs parses the arguments that follow `agentclip setup`.
+// ParseArgs parses the arguments that follow `agentport setup`.
 func ParseArgs(arguments []string) (Options, error) {
 	if len(arguments) < 1 {
 		return Options{}, errors.New(Usage)
@@ -48,11 +48,11 @@ func ParseArgs(arguments []string) (Options, error) {
 	options := Options{Destination: arguments[0]}
 	settings.StringVar(&options.Profile, "profile", "", "local Companion profile name")
 	settings.StringVar(&options.Agent, "agent", "all", "remote agent: all, codex, claude, gemini, agy, opencode, or pi")
-	settings.StringVar(&options.ReleaseVersion, "version", "", "AgentClip release tag to install remotely")
+	settings.StringVar(&options.ReleaseVersion, "version", "", "agentport release tag to install remotely")
 	settings.IntVar(&options.RemotePort, "remote-port", 39123, "remote loopback port")
 	settings.BoolVar(&options.SkipAgent, "skip-agent", false, "do not configure an agent on the server")
 	skipCodex := settings.Bool("skip-codex", false, "deprecated alias for --skip-agent")
-	settings.BoolVar(&options.SkipInstall, "skip-install", false, "do not install AgentClip on the server")
+	settings.BoolVar(&options.SkipInstall, "skip-install", false, "do not install agentport on the server")
 	settings.BoolVar(&options.NoStart, "no-start", false, "do not start the local Companion")
 	if err := settings.Parse(arguments[1:]); err != nil {
 		return Options{}, fmt.Errorf("parse setup options: %w", err)
@@ -150,9 +150,9 @@ func (r Runner) Run(options Options) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintln(stdout, i18n.T("Installing AgentClip %s on %s...", tag, options.Destination))
+		fmt.Fprintln(stdout, i18n.T("Installing agentport %s on %s...", tag, options.Destination))
 		if err := r.Install(options.Destination, identityFile, tag); err != nil {
-			return fmt.Errorf("install AgentClip on %s: %w", options.Destination, err)
+			return fmt.Errorf("install agentport on %s: %w", options.Destination, err)
 		}
 	}
 
@@ -167,7 +167,7 @@ func (r Runner) Run(options Options) error {
 		return err
 	}
 	if options.NoStart {
-		fmt.Fprintln(stdout, i18n.T("Setup complete for %q. Start it with: agentclip companion start %s", profile.Name, profile.Name))
+		fmt.Fprintln(stdout, i18n.T("Setup complete for %q. Start it with: agentport companion start %s", profile.Name, profile.Name))
 		return nil
 	}
 	if err := r.StartCompanion(profile.Name); err != nil {

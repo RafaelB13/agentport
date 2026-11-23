@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const Repository = "wendellrocha/agentclip"
+const Repository = "rafaelb13/agentport"
 
 type Options struct {
 	Version    string
@@ -88,13 +88,13 @@ func Fetch(ctx context.Context, options Options) (Fetched, error) {
 	if repository == "" {
 		repository = Repository
 	}
-	asset := fmt.Sprintf("agentclip_%s_%s_%s.%s", options.Version, goos, goarch, archiveFormat)
+	asset := fmt.Sprintf("agentport_%s_%s_%s.%s", options.Version, goos, goarch, archiveFormat)
 	baseURL := "https://github.com/" + repository + "/releases/download/" + options.Version
 	client := options.Client
 	if client == nil {
 		client = &http.Client{Timeout: 30 * time.Second}
 	}
-	temporaryDirectory, err := os.MkdirTemp("", "agentclip-upgrade-")
+	temporaryDirectory, err := os.MkdirTemp("", "agentport-upgrade-")
 	if err != nil {
 		return Fetched{}, fmt.Errorf("create upgrade temporary directory: %w", err)
 	}
@@ -125,7 +125,7 @@ func Fetch(ctx context.Context, options Options) (Fetched, error) {
 	if err != nil {
 		return fail(err)
 	}
-	binaryName := "agentclip" + extension
+	binaryName := "agentport" + extension
 	archiveBinary := filepath.ToSlash(filepath.Join(strings.TrimSuffix(asset, "."+archiveFormat), binaryName))
 	preparedPath := filepath.Join(temporaryDirectory, binaryName)
 	if archiveFormat == "tar.gz" {
@@ -161,7 +161,7 @@ func Prepare(ctx context.Context, options Options) (StagedBinary, error) {
 	}
 	target := options.Executable
 	directory := filepath.Dir(target)
-	staged, err := os.CreateTemp(directory, ".agentclip-upgrade-*")
+	staged, err := os.CreateTemp(directory, ".agentport-upgrade-*")
 	if err != nil {
 		return StagedBinary{}, fmt.Errorf("prepare replacement next to executable: %w", err)
 	}
@@ -236,7 +236,7 @@ func download(ctx context.Context, client *http.Client, url, destination string)
 	if err != nil {
 		return err
 	}
-	request.Header.Set("User-Agent", "agentclip-upgrade")
+	request.Header.Set("User-Agent", "agentport-upgrade")
 	response, err := client.Do(request)
 	if err != nil {
 		return err

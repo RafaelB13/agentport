@@ -18,7 +18,7 @@ func TestHarnessConfigurationPreservesOtherEntries(t *testing.T) {
 	if err := os.WriteFile(path, []byte(`{"mcpServers":{"other":{"command":"other"}},"keep":true}`), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Install(home, "agy", "agentclip-m2", 39123, "pair-token", "upload-token"); err != nil {
+	if err := Install(home, "agy", "agentport-m2", 39123, "pair-token", "upload-token"); err != nil {
 		t.Fatal(err)
 	}
 	data, err := os.ReadFile(path)
@@ -35,40 +35,40 @@ func TestHarnessConfigurationPreservesOtherEntries(t *testing.T) {
 	if !config.Keep || config.MCPServers["other"].Command != "other" {
 		t.Fatalf("unrelated configuration was changed: %s", data)
 	}
-	entry := config.MCPServers["agentclip-m2"]
-	if entry.Command != "agentclip" || !reflect.DeepEqual(entry.Args, []string{"mcp"}) || entry.Env["AGENTCLIP_SESSION_TOKEN"] != "pair-token" || entry.Env["AGENTCLIP_UPLOAD_TOKEN"] != "upload-token" {
-		t.Fatalf("AgentClip AGY entry = %#v", entry)
+	entry := config.MCPServers["agentport-m2"]
+	if entry.Command != "agentport" || !reflect.DeepEqual(entry.Args, []string{"mcp"}) || entry.Env["AGENTPORT_SESSION_TOKEN"] != "pair-token" || entry.Env["AGENTPORT_UPLOAD_TOKEN"] != "upload-token" {
+		t.Fatalf("agentport AGY entry = %#v", entry)
 	}
-	if err := Remove(home, "agy", "agentclip-m2"); err != nil {
+	if err := Remove(home, "agy", "agentport-m2"); err != nil {
 		t.Fatal(err)
 	}
 	data, err = os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(string(data), "agentclip-m2") || !strings.Contains(string(data), "other") {
-		t.Fatalf("AgentClip removal did not preserve other entry: %s", data)
+	if strings.Contains(string(data), "agentport-m2") || !strings.Contains(string(data), "other") {
+		t.Fatalf("agentport removal did not preserve other entry: %s", data)
 	}
 }
 
 func TestOpenCodeAndPiHarnessConfiguration(t *testing.T) {
 	home := t.TempDir()
-	if err := Install(home, "opencode", "agentclip-m2", 39123, "pair-token", "upload-token"); err != nil {
+	if err := Install(home, "opencode", "agentport-m2", 39123, "pair-token", "upload-token"); err != nil {
 		t.Fatal(err)
 	}
 	openCode, err := os.ReadFile(filepath.Join(home, ".config", "opencode", "opencode.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, required := range []string{`"type": "local"`, `"command": [`, `"agentclip"`, `"mcp"`, `"environment"`, `"AGENTCLIP_BRIDGE_PORT": "39123"`, `"AGENTCLIP_UPLOAD_TOKEN": "upload-token"`} {
+	for _, required := range []string{`"type": "local"`, `"command": [`, `"agentport"`, `"mcp"`, `"environment"`, `"AGENTPORT_BRIDGE_PORT": "39123"`, `"AGENTPORT_UPLOAD_TOKEN": "upload-token"`} {
 		if !strings.Contains(string(openCode), required) {
 			t.Fatalf("OpenCode configuration missing %q: %s", required, openCode)
 		}
 	}
-	if err := Install(home, "pi", "agentclip-m2", 39123, "pair-token", "upload-token"); err != nil {
+	if err := Install(home, "pi", "agentport-m2", 39123, "pair-token", "upload-token"); err != nil {
 		t.Fatal(err)
 	}
-	piPath := filepath.Join(home, ".pi", "agent", "extensions", "agentclip-m2.ts")
+	piPath := filepath.Join(home, ".pi", "agent", "extensions", "agentport-m2.ts")
 	piExtension, err := os.ReadFile(piPath)
 	if err != nil {
 		t.Fatal(err)
@@ -78,7 +78,7 @@ func TestOpenCodeAndPiHarnessConfiguration(t *testing.T) {
 			t.Fatalf("Pi extension missing %q", required)
 		}
 	}
-	if err := Remove(home, "pi", "agentclip-m2"); err != nil {
+	if err := Remove(home, "pi", "agentport-m2"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(piPath); !os.IsNotExist(err) {
@@ -88,13 +88,13 @@ func TestOpenCodeAndPiHarnessConfiguration(t *testing.T) {
 
 func TestInstallRejectsUnsupportedHarnessAndEmptyName(t *testing.T) {
 	home := t.TempDir()
-	if err := Install(home, "unknown", "agentclip", 39123, "token"); err == nil {
+	if err := Install(home, "unknown", "agentport", 39123, "token"); err == nil {
 		t.Fatal("unsupported harness must be rejected")
 	}
 	if err := Install(home, "agy", "  ", 39123, "token"); err == nil {
 		t.Fatal("empty entry name must be rejected")
 	}
-	if err := Remove(home, "unknown", "agentclip"); err == nil {
+	if err := Remove(home, "unknown", "agentport"); err == nil {
 		t.Fatal("removing from an unsupported harness must be rejected")
 	}
 }
@@ -109,7 +109,7 @@ func TestInstallDoesNotOverwriteMalformedConfiguration(t *testing.T) {
 	if err := os.WriteFile(path, []byte(original), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if err := Install(home, "agy", "agentclip", 39123, "token"); err == nil {
+	if err := Install(home, "agy", "agentport", 39123, "token"); err == nil {
 		t.Fatal("malformed configuration must not be accepted")
 	}
 	data, err := os.ReadFile(path)

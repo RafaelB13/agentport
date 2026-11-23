@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/wendellrocha/agentclip/internal/buildinfo"
-	"github.com/wendellrocha/agentclip/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/buildinfo"
+	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
 // findCommand looks a command up by name or alias.
@@ -25,14 +25,14 @@ func findCommand(table []command, name string) (command, bool) {
 	return command{}, false
 }
 
-// printHelp writes the overview: what AgentClip is, then every command with its
+// printHelp writes the overview: what agentport is, then every command with its
 // summary, grouped, and how to get more.
 func printHelp(w io.Writer, table []command) {
-	fmt.Fprintln(w, i18n.T("AgentClip gives a coding agent on an SSH server access to your clipboard, with your approval."))
+	fmt.Fprintln(w, i18n.T("agentport gives a coding agent on an SSH server access to your clipboard, with your approval."))
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, i18n.T("Usage:"))
-	fmt.Fprintln(w, "  agentclip <command> [arguments]")
-	fmt.Fprintln(w, "  agentclip help [command]")
+	fmt.Fprintln(w, "  agentport <command> [arguments]")
+	fmt.Fprintln(w, "  agentport help [command]")
 	width := 0
 	for _, c := range table {
 		if len(c.name) > width {
@@ -52,7 +52,7 @@ func printHelp(w io.Writer, table []command) {
 		fmt.Fprintf(w, "\n%s:\n%s\n", groupTitle(group), strings.Join(lines, "\n"))
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintln(w, i18n.T(`Run "agentclip help <command>" for the details of a command.`))
+	fmt.Fprintln(w, i18n.T(`Run "agentport help <command>" for the details of a command.`))
 	fmt.Fprintln(w, i18n.T("Set %s=pt-BR to see the messages in Brazilian Portuguese.", i18n.Env))
 }
 
@@ -76,7 +76,7 @@ type usageError struct{ message string }
 func (e usageError) Error() string { return e.message }
 
 func unknownCommand(name string) usageError {
-	return usageError{i18n.T("unknown command %q; run \"agentclip help\" to list the commands", name)}
+	return usageError{i18n.T("unknown command %q; run \"agentport help\" to list the commands", name)}
 }
 
 // runHelp is the help command: the overview, or the help of one command.

@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
 //go:embed ui/index.html ui/assets/*
@@ -237,7 +237,7 @@ func noStore(next http.Handler) http.Handler {
 }
 
 // dashboardLanguage is the language of a page: ?lang= wins, then what the browser
-// asks for, then the language of this process (AGENTCLIP_LANG), then English.
+// asks for, then the language of this process (AGENTPORT_LANG), then English.
 func dashboardLanguage(r *http.Request) string {
 	if language, ok := i18n.Supported(r.URL.Query().Get("lang")); ok {
 		return language

@@ -18,10 +18,10 @@ import (
 	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/daemon"
-	"github.com/wendellrocha/agentclip/internal/mcpserver"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/daemon"
+	"github.com/rafaelb13/agentport/internal/mcpserver"
 )
 
 func TestArmedImageFlowsFromBridgeToMCP(t *testing.T) {
@@ -51,7 +51,7 @@ func TestArmedImageFlowsFromBridgeToMCP(t *testing.T) {
 
 	ctx := context.Background()
 	server := mcpserver.New(provider)
-	client := mcp.NewClient(&mcp.Implementation{Name: "agentclip-integration-test", Version: "0.1.0"}, nil)
+	client := mcp.NewClient(&mcp.Implementation{Name: "agentport-integration-test", Version: "0.1.0"}, nil)
 	serverTransport, clientTransport := mcp.NewInMemoryTransports()
 	if _, err := server.Connect(ctx, serverTransport, nil); err != nil {
 		t.Fatal(err)

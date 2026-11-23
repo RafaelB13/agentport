@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
+	"github.com/rafaelb13/agentport/internal/companion"
 )
 
 func TestReleaseTag(t *testing.T) {
@@ -89,7 +89,7 @@ func TestParseArgsRejectsInvalidInput(t *testing.T) {
 		arguments []string
 		want      string
 	}{
-		"no arguments":           {nil, "usage: agentclip setup"},
+		"no arguments":           {nil, "usage: agentport setup"},
 		"destination is a flag":  {[]string{"-oProxyCommand=evil"}, "must not start with a dash"},
 		"unknown flag":           {[]string{"host", "--nope"}, "parse setup options"},
 		"flag without a value":   {[]string{"host", "--profile"}, "parse setup options"},
@@ -131,7 +131,7 @@ func newHarness(t *testing.T) *harness {
 			if h.identityErr != nil {
 				return "", h.identityErr
 			}
-			return "/keys/agentclip-" + profileName, nil
+			return "/keys/agentport-" + profileName, nil
 		},
 		ReleaseTag: func(requested string) (string, error) {
 			h.calls = append(h.calls, "tag "+requested)
@@ -191,12 +191,12 @@ func TestSetupInstallsPairsAndStartsInOrder(t *testing.T) {
 		"load m2",
 		"identity bastion-m2 m2 existing=",
 		"tag ",
-		"install bastion-m2 /keys/agentclip-m2 v9.9.9",
+		"install bastion-m2 /keys/agentport-m2 v9.9.9",
 		"running? m2",
-		"pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentclip-m2",
+		"pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentport-m2",
 		"start m2",
 	)
-	for _, want := range []string{"Installing AgentClip v9.9.9 on bastion-m2...", `Setup complete for "m2". SSH normally`} {
+	for _, want := range []string{"Installing agentport v9.9.9 on bastion-m2...", `Setup complete for "m2". SSH normally`} {
 		if !strings.Contains(h.stdout.String(), want) {
 			t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 		}
@@ -228,7 +228,7 @@ func TestSetupForwardsPairingOptions(t *testing.T) {
 	if got := h.calls[2]; got != "tag 0.7.1" {
 		t.Fatalf("tag call = %q", got)
 	}
-	want := "pair m2 bastion-m2 port=40000 agent=claude skipAgent=true /keys/agentclip-m2"
+	want := "pair m2 bastion-m2 port=40000 agent=claude skipAgent=true /keys/agentport-m2"
 	if h.calls[5] != want {
 		t.Fatalf("pair call = %q, want %q", h.calls[5], want)
 	}
@@ -286,9 +286,9 @@ func TestSetupStopsAtTheFirstFailure(t *testing.T) {
 	}{
 		"identity":    {func(h *harness) { h.identityErr = errors.New("ssh denied") }, "ssh denied", "identity bastion-m2 m2 existing="},
 		"release tag": {func(h *harness) { h.tagErr = errors.New("bad tag") }, "bad tag", "tag "},
-		"install":     {func(h *harness) { h.installErr = errors.New("exit 255") }, "install AgentClip on bastion-m2: exit 255", "install bastion-m2 /keys/agentclip-m2 v9.9.9"},
+		"install":     {func(h *harness) { h.installErr = errors.New("exit 255") }, "install agentport on bastion-m2: exit 255", "install bastion-m2 /keys/agentport-m2 v9.9.9"},
 		"stop":        {func(h *harness) { h.running = true; h.stopErr = errors.New("stuck") }, "stuck", "stop m2"},
-		"pairing":     {func(h *harness) { h.pairErr = errors.New("no agent found") }, "no agent found", "pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentclip-m2"},
+		"pairing":     {func(h *harness) { h.pairErr = errors.New("no agent found") }, "no agent found", "pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentport-m2"},
 		"start":       {func(h *harness) { h.startErr = errors.New("port busy") }, "port busy", "start m2"},
 	}
 	for name, test := range tests {
@@ -319,7 +319,7 @@ func TestSetupNoStartPrintsHowToStartTheCompanion(t *testing.T) {
 			t.Fatalf("unexpected call %q", call)
 		}
 	}
-	if !strings.Contains(h.stdout.String(), "Start it with: agentclip companion start m2") {
+	if !strings.Contains(h.stdout.String(), "Start it with: agentport companion start m2") {
 		t.Fatalf("output = %q", h.stdout.String())
 	}
 }

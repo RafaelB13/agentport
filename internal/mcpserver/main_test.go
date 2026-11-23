@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 // TestMain keeps these tests away from the developer's real inbox and cache.

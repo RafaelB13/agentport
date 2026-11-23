@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/bridge"
 )
 
 func TestSnapshotWatcherArmsOnlyWhenFingerprintChanges(t *testing.T) {

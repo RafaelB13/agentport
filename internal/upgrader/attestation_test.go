@@ -44,8 +44,8 @@ type releaseFixture struct {
 
 func (f *releaseFixture) prepare(t *testing.T, options Options) (StagedBinary, error) {
 	t.Helper()
-	asset := "agentclip_" + f.version + "_linux_amd64.tar.gz"
-	archive := tarFixture(t, "agentclip_"+f.version+"_linux_amd64/agentclip", []byte("new executable"))
+	asset := "agentport_" + f.version + "_linux_amd64.tar.gz"
+	archive := tarFixture(t, "agentport_"+f.version+"_linux_amd64/agentport", []byte("new executable"))
 	sum := sha256.Sum256(archive)
 	digest := hex.EncodeToString(sum[:])
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
@@ -68,8 +68,8 @@ func (f *releaseFixture) prepare(t *testing.T, options Options) (StagedBinary, e
 	}))
 	t.Cleanup(server.Close)
 	options.Version, options.GOOS, options.GOARCH = f.version, "linux", "amd64"
-	options.Executable = filepath.Join(t.TempDir(), "agentclip")
-	options.Repository = "example/agentclip"
+	options.Executable = filepath.Join(t.TempDir(), "agentport")
+	options.Repository = "example/agentport"
 	options.Client = rewriteClient(server)
 	staged, err := Prepare(context.Background(), options)
 	if err == nil {
@@ -80,7 +80,7 @@ func (f *releaseFixture) prepare(t *testing.T, options Options) (StagedBinary, e
 
 func valid(version string) func(*testing.T, string) (int, []byte) {
 	return func(t *testing.T, digest string) (int, []byte) {
-		return http.StatusOK, attestationBody(t, digest, "example/agentclip", releaseWorkflowPath, "refs/tags/"+version)
+		return http.StatusOK, attestationBody(t, digest, "example/agentport", releaseWorkflowPath, "refs/tags/"+version)
 	}
 }
 
@@ -104,19 +104,19 @@ func TestPrepareRefusesFilesThatTheAttestationDoesNotVouchFor(t *testing.T) {
 		"no attestation for the file": {func(*testing.T, string) (int, []byte) { return http.StatusNotFound, []byte(`{}`) }, "no build attestation"},
 		"empty attestation list":      {func(*testing.T, string) (int, []byte) { return http.StatusOK, []byte(`{"attestations":[]}`) }, "no build attestation"},
 		"attestation for another file": {func(t *testing.T, _ string) (int, []byte) {
-			return http.StatusOK, attestationBody(t, strings.Repeat("a", 64), "example/agentclip", releaseWorkflowPath, "refs/tags/"+version)
+			return http.StatusOK, attestationBody(t, strings.Repeat("a", 64), "example/agentport", releaseWorkflowPath, "refs/tags/"+version)
 		}, "does not cover this file"},
 		"made from a branch, not the tag": {func(t *testing.T, d string) (int, []byte) {
-			return http.StatusOK, attestationBody(t, d, "example/agentclip", releaseWorkflowPath, "refs/heads/main")
+			return http.StatusOK, attestationBody(t, d, "example/agentport", releaseWorkflowPath, "refs/heads/main")
 		}, "not the release tag"},
 		"made for a different tag": {func(t *testing.T, d string) (int, []byte) {
-			return http.StatusOK, attestationBody(t, d, "example/agentclip", releaseWorkflowPath, "refs/tags/v9.9.9")
+			return http.StatusOK, attestationBody(t, d, "example/agentport", releaseWorkflowPath, "refs/tags/v9.9.9")
 		}, "not the release tag"},
 		"made by another workflow": {func(t *testing.T, d string) (int, []byte) {
-			return http.StatusOK, attestationBody(t, d, "example/agentclip", ".github/workflows/evil.yml", "refs/tags/"+version)
+			return http.StatusOK, attestationBody(t, d, "example/agentport", ".github/workflows/evil.yml", "refs/tags/"+version)
 		}, "not the release workflow"},
 		"made in another repository": {func(t *testing.T, d string) (int, []byte) {
-			return http.StatusOK, attestationBody(t, d, "attacker/agentclip", releaseWorkflowPath, "refs/tags/"+version)
+			return http.StatusOK, attestationBody(t, d, "attacker/agentport", releaseWorkflowPath, "refs/tags/"+version)
 		}, "made for repository"},
 		"malformed payload": {func(*testing.T, string) (int, []byte) {
 			return http.StatusOK, []byte(`{"attestations":[{"bundle":{"dsseEnvelope":{"payload":"%%%"}}}]}`)
@@ -149,10 +149,10 @@ func TestPrepareFailsClosedWhenTheAttestationAPIIsUnavailable(t *testing.T) {
 func TestPrepareAcceptsAnyMatchingAttestationInTheList(t *testing.T) {
 	fixture := &releaseFixture{version: "v1.2.3", attestation: func(t *testing.T, digest string) (int, []byte) {
 		var bad, good map[string][]map[string]any
-		if err := json.Unmarshal(attestationBody(t, strings.Repeat("b", 64), "example/agentclip", releaseWorkflowPath, "refs/tags/v1.2.3"), &bad); err != nil {
+		if err := json.Unmarshal(attestationBody(t, strings.Repeat("b", 64), "example/agentport", releaseWorkflowPath, "refs/tags/v1.2.3"), &bad); err != nil {
 			t.Fatal(err)
 		}
-		if err := json.Unmarshal(attestationBody(t, digest, "example/agentclip", releaseWorkflowPath, "refs/tags/v1.2.3"), &good); err != nil {
+		if err := json.Unmarshal(attestationBody(t, digest, "example/agentport", releaseWorkflowPath, "refs/tags/v1.2.3"), &good); err != nil {
 			t.Fatal(err)
 		}
 		body, _ := json.Marshal(map[string]any{"attestations": append(bad["attestations"], good["attestations"]...)})

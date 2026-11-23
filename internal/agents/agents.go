@@ -1,4 +1,4 @@
-// Package agents knows how to register AgentClip's MCP server with each
+// Package agents knows how to register agentport's MCP server with each
 // supported remote coding agent (Codex, Claude Code, Gemini CLI and others).
 package agents
 
@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/remote"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/remote"
 )
 
-// Adapter describes how to register AgentClip with one remote agent.
+// Adapter describes how to register agentport with one remote agent.
 type Adapter struct {
 	ID              string
 	DisplayName     string
@@ -21,7 +21,7 @@ type Adapter struct {
 	RemoveArguments func(string) []string
 }
 
-// Configure registers AgentClip with the selected agent, or with every
+// Configure registers agentport with the selected agent, or with every
 // supported agent found on the server when selection is "all".
 func Configure(profile companion.Profile, selection string) ([]Adapter, error) {
 	if strings.HasPrefix(profile.Destination, "-") {
@@ -35,7 +35,7 @@ func Configure(profile companion.Profile, selection string) ([]Adapter, error) {
 		return nil, err
 	}
 	if err := remote.PreflightForProfile(profile, adapter.Executable).Run(); err != nil {
-		return nil, fmt.Errorf("remote preflight failed: install `agentclip` and `%s` on %s, or retry with --skip-agent: %w", adapter.Executable, profile.Destination, err)
+		return nil, fmt.Errorf("remote preflight failed: install `agentport` and `%s` on %s, or retry with --skip-agent: %w", adapter.Executable, profile.Destination, err)
 	}
 	if err := checkRemoteVersion(profile); err != nil {
 		return nil, err
@@ -46,12 +46,12 @@ func Configure(profile companion.Profile, selection string) ([]Adapter, error) {
 	return []Adapter{adapter}, nil
 }
 
-// checkRemoteVersion refuses a server whose agentclip is too old for what is
+// checkRemoteVersion refuses a server whose agentport is too old for what is
 // about to be configured, instead of registering an MCP entry that fails later.
 func checkRemoteVersion(profile companion.Profile) error {
 	output, err := remote.VersionForProfile(profile).Output()
 	if err != nil {
-		return fmt.Errorf("read the agentclip version on %s: %w", profile.Destination, err)
+		return fmt.Errorf("read the agentport version on %s: %w", profile.Destination, err)
 	}
 	return remote.CheckVersion(profile.Destination, string(output))
 }
@@ -59,7 +59,7 @@ func checkRemoteVersion(profile companion.Profile) error {
 func configureAll(profile companion.Profile) ([]Adapter, error) {
 	output, err := remote.SupportedAgentsForProfile(profile).Output()
 	if err != nil {
-		return nil, fmt.Errorf("remote preflight failed: install `agentclip` on %s, or retry with --skip-agent: %w", profile.Destination, err)
+		return nil, fmt.Errorf("remote preflight failed: install `agentport` on %s, or retry with --skip-agent: %w", profile.Destination, err)
 	}
 	if err := checkRemoteVersion(profile); err != nil {
 		return nil, err
@@ -82,8 +82,8 @@ func configureAll(profile companion.Profile) ([]Adapter, error) {
 }
 
 func configureOne(profile companion.Profile, adapter Adapter) error {
-	name := "agentclip-" + profile.Name
-	// Re-pairing deliberately replaces only AgentClip's own named MCP entry.
+	name := "agentport-" + profile.Name
+	// Re-pairing deliberately replaces only agentport's own named MCP entry.
 	_ = remote.LoginForProfile(profile, adapter.RemoveArguments(name)...).Run()
 	if err := remote.LoginForProfile(profile, adapter.AddArguments(profile, name)...).Run(); err != nil {
 		return fmt.Errorf("configure %s MCP on %s: %w", adapter.DisplayName, profile.Destination, err)
@@ -101,7 +101,7 @@ func Resolve(agentID string) (Adapter, error) {
 				return []string{"codex", "mcp", "remove", name}
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
-				return append(agentEnvironmentArguments([]string{"codex", "mcp", "add", name}, profile), "--", "agentclip", "mcp")
+				return append(agentEnvironmentArguments([]string{"codex", "mcp", "add", name}, profile), "--", "agentport", "mcp")
 			},
 		}, nil
 	case "claude", "claude-code":
@@ -112,7 +112,7 @@ func Resolve(agentID string) (Adapter, error) {
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
 				arguments := []string{"claude", "mcp", "add", name, "--scope", "user"}
-				return append(agentEnvironmentArguments(arguments, profile), "--", "agentclip", "mcp")
+				return append(agentEnvironmentArguments(arguments, profile), "--", "agentport", "mcp")
 			},
 		}, nil
 	case "gemini", "gemini-cli":
@@ -122,7 +122,7 @@ func Resolve(agentID string) (Adapter, error) {
 				return []string{"gemini", "mcp", "remove", "--scope", "user", name}
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
-				arguments := []string{"gemini", "mcp", "add", name, "agentclip", "mcp", "--scope", "user"}
+				arguments := []string{"gemini", "mcp", "add", name, "agentport", "mcp", "--scope", "user"}
 				return agentEnvironmentArguments(arguments, profile)
 			},
 		}, nil
@@ -130,7 +130,7 @@ func Resolve(agentID string) (Adapter, error) {
 		return Adapter{
 			ID: "agy", DisplayName: "AGY / Antigravity CLI", Executable: "agy",
 			RemoveArguments: func(name string) []string {
-				return []string{"agentclip", "harness", "remove", "agy", "--name", name}
+				return []string{"agentport", "harness", "remove", "agy", "--name", name}
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
 				return harnessInstallArguments("agy", profile, name)
@@ -140,7 +140,7 @@ func Resolve(agentID string) (Adapter, error) {
 		return Adapter{
 			ID: "opencode", DisplayName: "OpenCode", Executable: "opencode",
 			RemoveArguments: func(name string) []string {
-				return []string{"agentclip", "harness", "remove", "opencode", "--name", name}
+				return []string{"agentport", "harness", "remove", "opencode", "--name", name}
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
 				return harnessInstallArguments("opencode", profile, name)
@@ -150,7 +150,7 @@ func Resolve(agentID string) (Adapter, error) {
 		return Adapter{
 			ID: "pi", DisplayName: "Pi Coding Agent", Executable: "pi",
 			RemoveArguments: func(name string) []string {
-				return []string{"agentclip", "harness", "remove", "pi", "--name", name}
+				return []string{"agentport", "harness", "remove", "pi", "--name", name}
 			},
 			AddArguments: func(profile companion.Profile, name string) []string {
 				return harnessInstallArguments("pi", profile, name)
@@ -162,7 +162,7 @@ func Resolve(agentID string) (Adapter, error) {
 }
 
 func harnessInstallArguments(harness string, profile companion.Profile, name string) []string {
-	arguments := []string{"agentclip", "harness", "install", harness, "--name", name, "--port", strconv.Itoa(profile.RemotePort), "--token", profile.Token}
+	arguments := []string{"agentport", "harness", "install", harness, "--name", name, "--port", strconv.Itoa(profile.RemotePort), "--token", profile.Token}
 	if profile.HasUploadToken() {
 		arguments = append(arguments, "--upload-token", profile.UploadToken)
 	}
@@ -171,11 +171,11 @@ func harnessInstallArguments(harness string, profile companion.Profile, name str
 
 func agentEnvironmentArguments(arguments []string, profile companion.Profile) []string {
 	arguments = append(arguments,
-		"--env", fmt.Sprintf("AGENTCLIP_BRIDGE_PORT=%d", profile.RemotePort),
-		"--env", "AGENTCLIP_SESSION_TOKEN="+profile.Token,
+		"--env", fmt.Sprintf("AGENTPORT_BRIDGE_PORT=%d", profile.RemotePort),
+		"--env", "AGENTPORT_SESSION_TOKEN="+profile.Token,
 	)
 	if profile.HasUploadToken() {
-		arguments = append(arguments, "--env", "AGENTCLIP_UPLOAD_TOKEN="+profile.UploadToken)
+		arguments = append(arguments, "--env", "AGENTPORT_UPLOAD_TOKEN="+profile.UploadToken)
 	}
 	return arguments
 }

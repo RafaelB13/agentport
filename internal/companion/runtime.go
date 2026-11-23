@@ -144,9 +144,9 @@ func runtimePath(name string) (string, error) {
 	}
 	cacheDir, err := os.UserCacheDir()
 	if err != nil {
-		return "", fmt.Errorf("find AgentClip cache directory: %w", err)
+		return "", fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	return filepath.Join(cacheDir, "agentclip", "companions", name+".json"), nil
+	return filepath.Join(cacheDir, "agentport", "companions", name+".json"), nil
 }
 
 func writePrivateJSON(path, temporaryPrefix string, value any) error {

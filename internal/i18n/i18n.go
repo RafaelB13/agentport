@@ -1,4 +1,4 @@
-// Package i18n translates what AgentClip shows to a person: the help text, the
+// Package i18n translates what agentport shows to a person: the help text, the
 // output of the commands and the Companion dashboard. English is the source
 // language and the default: a message is its own key, and a catalog maps it to
 // another language. What a catalog lacks is shown in English, so a missing
@@ -23,7 +23,7 @@ const (
 	// Portuguese is the Brazilian Portuguese catalog.
 	Portuguese = "pt-BR"
 	// Env selects the language of the command line and the installers.
-	Env = "AGENTCLIP_LANG"
+	Env = "AGENTPORT_LANG"
 )
 
 //go:embed catalogs/*.json
@@ -64,7 +64,7 @@ func SetLanguage(tag string) {
 	current.Store(English)
 }
 
-// Init reads AGENTCLIP_LANG. It is the only thing that picks the language of the
+// Init reads AGENTPORT_LANG. It is the only thing that picks the language of the
 // command line: the system locale is not consulted, so the same command prints
 // the same words on every machine unless the person asks otherwise.
 func Init() { SetLanguage(os.Getenv(Env)) }

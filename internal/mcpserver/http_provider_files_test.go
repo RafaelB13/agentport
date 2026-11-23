@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 func sumOf(data []byte) string {
@@ -51,7 +51,7 @@ func (f *fileBridge) handler(t *testing.T) http.Handler {
 			}
 			data := f.content[id]
 			w.Header().Set("Content-Length", strconv.Itoa(len(data)))
-			w.Header().Set("X-AgentClip-SHA256", sumOf(data))
+			w.Header().Set("X-agentport-SHA256", sumOf(data))
 			_, _ = w.Write(data)
 		default:
 			http.NotFound(w, r)
@@ -207,19 +207,19 @@ func TestMaterializeFilesRefusesAndCleansUpWhenTheTransferIsTampered(t *testing.
 	tests := map[string]func(id string, w http.ResponseWriter) bool{
 		"content differs from the announced hash": func(id string, w http.ResponseWriter) bool {
 			w.Header().Set("Content-Length", "5")
-			w.Header().Set("X-AgentClip-SHA256", sumOf([]byte("alpha")))
+			w.Header().Set("X-agentport-SHA256", sumOf([]byte("alpha")))
 			_, _ = w.Write([]byte("EVIL!"))
 			return true
 		},
 		"header hash differs from the listed one": func(id string, w http.ResponseWriter) bool {
 			w.Header().Set("Content-Length", "5")
-			w.Header().Set("X-AgentClip-SHA256", sumOf([]byte("other")))
+			w.Header().Set("X-agentport-SHA256", sumOf([]byte("other")))
 			_, _ = w.Write([]byte("alpha"))
 			return true
 		},
 		"length differs from the listed size": func(id string, w http.ResponseWriter) bool {
 			w.Header().Set("Content-Length", "6")
-			w.Header().Set("X-AgentClip-SHA256", sumOf([]byte("alpha")))
+			w.Header().Set("X-agentport-SHA256", sumOf([]byte("alpha")))
 			_, _ = w.Write([]byte("alpha!"))
 			return true
 		},
@@ -239,7 +239,7 @@ func TestMaterializeFilesRefusesAndCleansUpWhenTheTransferIsTampered(t *testing.
 				t.Fatalf("a tampered transfer was accepted: %+v", result)
 			}
 			cache, _ := os.UserCacheDir()
-			entries, _ := os.ReadDir(filepath.Join(cache, "agentclip", "inbox"))
+			entries, _ := os.ReadDir(filepath.Join(cache, "agentport", "inbox"))
 			for _, entry := range entries {
 				t.Errorf("a failed transfer left %q behind in the inbox", entry.Name())
 			}
@@ -392,7 +392,7 @@ func TestUploadsAreUnavailableWithoutAnUploadToken(t *testing.T) {
 	provider := providerForServer(t, server, "session-token")
 	file := filepath.Join(t.TempDir(), "f")
 	_ = os.WriteFile(file, []byte("x"), 0o600)
-	if _, err := provider.OfferFileToHost(context.Background(), file); err == nil || !strings.Contains(err.Error(), "run agentclip setup again") {
+	if _, err := provider.OfferFileToHost(context.Background(), file); err == nil || !strings.Contains(err.Error(), "run agentport setup again") {
 		t.Fatalf("err = %v", err)
 	}
 	if _, err := provider.HostFileOfferStatus(context.Background(), "offer-1"); err == nil {

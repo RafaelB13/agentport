@@ -13,7 +13,7 @@ import (
 )
 
 // These tests exercise the real system clipboard. They are opt-in because they
-// OVERWRITE whatever is on the clipboard: set AGENTCLIP_NATIVE_CLIPBOARD_TEST=1
+// OVERWRITE whatever is on the clipboard: set AGENTPORT_NATIVE_CLIPBOARD_TEST=1
 // on a machine (or CI job) where that is acceptable. On Linux they need an X
 // server, for example `xvfb-run -a go test ./internal/clipboard`, plus xclip.
 //
@@ -22,7 +22,7 @@ import (
 // production readers are checked against genuine clipboard formats.
 // nativeSetTextExclusive additionally guarantees the clipboard offers text and
 // nothing else, for tests that assert other formats are absent.
-const nativeTestEnv = "AGENTCLIP_NATIVE_CLIPBOARD_TEST"
+const nativeTestEnv = "AGENTPORT_NATIVE_CLIPBOARD_TEST"
 
 func requireNativeClipboard(t *testing.T) {
 	t.Helper()
@@ -61,7 +61,7 @@ func writeProbePNG(t *testing.T) string {
 
 func TestNativeTextRoundTripKeepsMultibyteUTF8(t *testing.T) {
 	requireNativeClipboard(t)
-	const want = "agentclip é 中文 🚀\nsecond line"
+	const want = "agentport é 中文 🚀\nsecond line"
 	nativeSetText(t, want)
 	got, err := Text(nativeContext(t))
 	if err != nil || string(got) != want {

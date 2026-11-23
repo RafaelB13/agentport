@@ -38,9 +38,9 @@ func RequireLog(profile string) error {
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return fmt.Errorf("find AgentClip cache directory: %w", err)
+		return fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	path := filepath.Join(dir, "agentclip", "logs", profile+".log")
+	path := filepath.Join(dir, "agentport", "logs", profile+".log")
 	info, err := os.Stat(path)
 	switch {
 	case errors.Is(err, os.ErrNotExist):
@@ -60,11 +60,11 @@ func NewLogger(profile string) (*Logger, error) {
 	}
 	dir, err := os.UserCacheDir()
 	if err != nil {
-		return nil, fmt.Errorf("find AgentClip cache directory: %w", err)
+		return nil, fmt.Errorf("find agentport cache directory: %w", err)
 	}
-	dir = filepath.Join(dir, "agentclip", "logs")
+	dir = filepath.Join(dir, "agentport", "logs")
 	if err := os.MkdirAll(dir, 0700); err != nil {
-		return nil, fmt.Errorf("create AgentClip log directory: %w", err)
+		return nil, fmt.Errorf("create agentport log directory: %w", err)
 	}
 	path := filepath.Join(dir, profile+".log")
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
@@ -76,7 +76,7 @@ func NewLogger(profile string) (*Logger, error) {
 	if info, err := file.Stat(); err == nil {
 		size = info.Size()
 	}
-	return &Logger{file: file, path: path, size: size, maxBytes: maxLogBytes, debug: strings.EqualFold(os.Getenv("AGENTCLIP_LOG_LEVEL"), "debug")}, nil
+	return &Logger{file: file, path: path, size: size, maxBytes: maxLogBytes, debug: strings.EqualFold(os.Getenv("AGENTPORT_LOG_LEVEL"), "debug")}, nil
 }
 
 func (l *Logger) Path() string { return l.path }

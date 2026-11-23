@@ -26,7 +26,7 @@ type Spec struct {
 	LogPath string
 	// Environment is passed to the service. A login service does not inherit the
 	// shell that enabled it, so anything the profile lookup depends on, such as
-	// AGENTCLIP_CONFIG_DIR, has to be written into the definition.
+	// AGENTPORT_CONFIG_DIR, has to be written into the definition.
 	Environment map[string]string
 }
 
@@ -65,7 +65,7 @@ type Plan struct {
 var profileName = regexp.MustCompile(`^[0-9A-Za-z_-]{1,64}$`)
 
 // PlanFor builds the plan for goos. The profile name is restricted to the
-// characters AgentClip allows, since it becomes part of a file name and a label.
+// characters agentport allows, since it becomes part of a file name and a label.
 func PlanFor(goos string, spec Spec) (Plan, error) {
 	if !profileName.MatchString(spec.Profile) {
 		return Plan{}, fmt.Errorf("invalid Companion profile %q", spec.Profile)
@@ -73,7 +73,7 @@ func PlanFor(goos string, spec Spec) (Plan, error) {
 	// The plan is for goos, whichever system builds it, so paths follow goos's
 	// rules and not the host's: a macOS plan uses slashes even when built on Windows.
 	if goos != "windows" && !path.IsAbs(spec.Executable) {
-		return Plan{}, errors.New("the AgentClip executable path must be absolute")
+		return Plan{}, errors.New("the agentport executable path must be absolute")
 	}
 	if spec.HomeDir == "" && goos != "windows" {
 		return Plan{}, errors.New("the home directory is required")
@@ -85,7 +85,7 @@ func PlanFor(goos string, spec Spec) (Plan, error) {
 		return linuxPlan(spec), nil
 	case "windows":
 		if len(spec.Environment) > 0 {
-			return Plan{}, errors.New("a Windows logon task cannot carry environment variables such as AGENTCLIP_CONFIG_DIR; unset them, or set them for your user account, and turn autostart on again")
+			return Plan{}, errors.New("a Windows logon task cannot carry environment variables such as AGENTPORT_CONFIG_DIR; unset them, or set them for your user account, and turn autostart on again")
 		}
 		return windowsPlan(spec), nil
 	default:
@@ -96,7 +96,7 @@ func PlanFor(goos string, spec Spec) (Plan, error) {
 func serveArguments(spec Spec) []string { return []string{"companion", "serve", spec.Profile} }
 
 // Label is the LaunchAgent label and the name of the Windows task.
-func Label(profile string) string { return "com.wendellrocha.agentclip." + profile }
+func Label(profile string) string { return "com.rafaelb13.agentport." + profile }
 
 func darwinPlan(spec Spec) Plan {
 	label := Label(spec.Profile)
@@ -150,14 +150,14 @@ func darwinPlan(spec Spec) Plan {
 }
 
 func linuxPlan(spec Spec) Plan {
-	unit := "agentclip-" + spec.Profile + ".service"
+	unit := "agentport-" + spec.Profile + ".service"
 	file := path.Join(spec.HomeDir, ".config", "systemd", "user", unit)
 	words := make([]string, 0, 4)
 	for _, argument := range append([]string{spec.Executable}, serveArguments(spec)...) {
 		words = append(words, systemdQuote(argument))
 	}
 	content := `[Unit]
-Description=AgentClip Companion (` + spec.Profile + `)
+Description=agentport Companion (` + spec.Profile + `)
 After=network-online.target
 
 [Service]

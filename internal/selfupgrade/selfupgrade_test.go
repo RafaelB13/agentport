@@ -10,8 +10,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 // harness wires a Runner to fakes that record every effect in order.
@@ -38,7 +38,7 @@ type harness struct {
 func newHarness(t *testing.T) *harness {
 	t.Helper()
 	dir := t.TempDir()
-	h := &harness{t: t, target: filepath.Join(dir, "agentclip"), staged: filepath.Join(dir, ".agentclip-upgrade-1")}
+	h := &harness{t: t, target: filepath.Join(dir, "agentport"), staged: filepath.Join(dir, ".agentport-upgrade-1")}
 	if err := os.WriteFile(h.staged, []byte("new"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -140,7 +140,7 @@ func TestUpgradeUpdatesServersThenReplacesTheExecutableAndRestartsActiveCompanio
 	if h.targetContent() != "new" {
 		t.Fatalf("the executable was not replaced: %q", h.targetContent())
 	}
-	for _, want := range []string{`Updating "m2" on m2-host...`, "m2: updated", "vortx: updated", "AgentClip updated to v9.9.9."} {
+	for _, want := range []string{`Updating "m2" on m2-host...`, "m2: updated", "vortx: updated", "agentport updated to v9.9.9."} {
 		if !strings.Contains(h.stdout.String(), want) {
 			t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 		}
@@ -174,7 +174,7 @@ func TestUpgradeStopsBeforeAnyEffectWhenTheReleaseCannotBeResolved(t *testing.T)
 	h := newHarness(t)
 	h.latestErr = errors.New("rate limited")
 	err := h.run()
-	if err == nil || !strings.Contains(err.Error(), "resolve latest AgentClip release") || !errors.Is(err, h.latestErr) {
+	if err == nil || !strings.Contains(err.Error(), "resolve latest agentport release") || !errors.Is(err, h.latestErr) {
 		t.Fatalf("err = %v", err)
 	}
 	h.expectCalls("latest")
@@ -185,7 +185,7 @@ func TestUpgradeStopsBeforePreparingWhenTheRunningExecutableCannotBeLocated(t *t
 	h.profiles = []companion.Profile{profile("m2")}
 	h.executableErr = errors.New("no such file")
 	err := h.run()
-	if err == nil || !strings.Contains(err.Error(), "locate running AgentClip executable") || !errors.Is(err, h.executableErr) {
+	if err == nil || !strings.Contains(err.Error(), "locate running agentport executable") || !errors.Is(err, h.executableErr) {
 		t.Fatalf("err = %v", err)
 	}
 	// Without a target there is nothing to replace, so nothing is downloaded,
@@ -199,7 +199,7 @@ func TestUpgradeTouchesNothingWhenThePreparedBinaryIsRefused(t *testing.T) {
 	h.active = []string{"m2"}
 	h.prepareErr = errors.New("no build attestation")
 	err := h.run()
-	if err == nil || !strings.Contains(err.Error(), "prepare AgentClip v9.9.9") || !errors.Is(err, h.prepareErr) {
+	if err == nil || !strings.Contains(err.Error(), "prepare agentport v9.9.9") || !errors.Is(err, h.prepareErr) {
 		t.Fatalf("err = %v", err)
 	}
 	// Nothing on any server or on this machine changes when verification fails.
@@ -263,7 +263,7 @@ func TestUpgradeRestoresTheCompanionsWhenTheExecutableCannotBeReplaced(t *testin
 	h.active = []string{"m2"}
 	h.replaceErr = errors.New("permission denied")
 	err := h.run()
-	if err == nil || !strings.Contains(err.Error(), "replace AgentClip executable") || !errors.Is(err, h.replaceErr) {
+	if err == nil || !strings.Contains(err.Error(), "replace agentport executable") || !errors.Is(err, h.replaceErr) {
 		t.Fatalf("err = %v", err)
 	}
 	h.expectCalls("latest", "executable", "prepare v9.9.9", "profiles", "active", "stop m2", "replace", "restart m2")
@@ -288,7 +288,7 @@ func TestUpgradeStillReplacesThisMachineWhenSomeServersFailAndReportsThem(t *tes
 			t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 		}
 	}
-	if strings.Contains(h.stdout.String(), "AgentClip updated to") {
+	if strings.Contains(h.stdout.String(), "agentport updated to") {
 		t.Fatal("a partial failure must not announce success")
 	}
 }
@@ -380,12 +380,12 @@ func TestUpgradeOfAnUpToDateMachineOnlyUpdatesTheServers(t *testing.T) {
 			if h.targetContent() == "new" {
 				t.Fatal("the executable was replaced although it was current")
 			}
-			for _, want := range []string{"m2: already up to date", "vortx: updated", "AgentClip is already up to date (" + current + ")."} {
+			for _, want := range []string{"m2: already up to date", "vortx: updated", "agentport is already up to date (" + current + ")."} {
 				if !strings.Contains(h.stdout.String(), want) {
 					t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 				}
 			}
-			if strings.Contains(h.stdout.String(), "AgentClip updated to") {
+			if strings.Contains(h.stdout.String(), "agentport updated to") {
 				t.Errorf("claimed an update that did not happen:\n%s", h.stdout.String())
 			}
 		})
@@ -402,7 +402,7 @@ func TestUpgradeOfAnOlderMachineStillReplacesItAndSaysServersWereCurrent(t *test
 		t.Fatal(err)
 	}
 	h.expectCalls("latest", "executable", "prepare v9.9.9", "profiles", "active", "remote m2 v9.9.9", "stop m2", "replace", "restart m2")
-	for _, want := range []string{"m2: already up to date", "AgentClip updated to v9.9.9."} {
+	for _, want := range []string{"m2: already up to date", "agentport updated to v9.9.9."} {
 		if !strings.Contains(h.stdout.String(), want) {
 			t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 		}
@@ -441,13 +441,13 @@ func TestUpgradeAnnouncesEachStageInTheOrderItHappens(t *testing.T) {
 	}
 	out := h.stdout.String()
 	order := []string{
-		"Downloading and verifying AgentClip v9.9.9 for this machine...",
+		"Downloading and verifying agentport v9.9.9 for this machine...",
 		`Updating "m2" on m2-host...`,
 		`Updating "vortx" on vortx-host...`,
 		"Replacing this machine's executable...",
 		"Restarting 1 Companion(s)...",
 		"Remote update summary:",
-		"AgentClip updated to v9.9.9.",
+		"agentport updated to v9.9.9.",
 	}
 	previous := -1
 	for _, want := range order {

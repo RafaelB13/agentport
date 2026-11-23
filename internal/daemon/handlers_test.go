@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/bridge"
 )
 
 func controlRequest(t *testing.T, d *Daemon, method, path string, body []byte) (int, string) {

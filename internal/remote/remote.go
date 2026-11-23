@@ -1,4 +1,4 @@
-// Package remote builds and runs the SSH commands AgentClip uses to prepare a
+// Package remote builds and runs the SSH commands agentport uses to prepare a
 // server: preflight checks, installation and the dedicated SSH identity.
 package remote
 
@@ -15,10 +15,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/i18n"
-	"github.com/wendellrocha/agentclip/internal/release"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/release"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 func remotePreflightCommand(destination, agentExecutable string) *exec.Cmd {
@@ -31,19 +31,19 @@ func PreflightForProfile(profile companion.Profile, agentExecutable string) *exe
 
 func remotePreflightCommandWithIdentity(destination, identityFile, agentExecutable string) *exec.Cmd {
 	// ssh combines all arguments after the destination into a remote shell
-	// command. Use a login shell as well: remote AgentClip and Codex are often
+	// command. Use a login shell as well: remote agentport and Codex are often
 	// installed through ~/.profile or Volta, neither of which a plain SSH
 	// command is required to load.
-	check := "export PATH=\"$HOME/.local/bin:$PATH\"; command -v agentclip >/dev/null && command -v " + shellQuote(agentExecutable) + " >/dev/null"
+	check := "export PATH=\"$HOME/.local/bin:$PATH\"; command -v agentport >/dev/null && command -v " + shellQuote(agentExecutable) + " >/dev/null"
 	return remoteSSHCommand(destination, identityFile, "sh -lc "+shellQuote(check))
 }
 
-// MinRemoteVersion is the oldest remote agentclip that understands what setup
+// MinRemoteVersion is the oldest remote agentport that understands what setup
 // configures: the upload token for files sent from the server arrived in v0.5.0.
 // An older one registers the MCP entry and then fails on the tools, silently.
 const MinRemoteVersion = "v0.5.0"
 
-// VersionForProfile asks the server which agentclip it would run.
+// VersionForProfile asks the server which agentport it would run.
 func VersionForProfile(profile companion.Profile) *exec.Cmd {
 	return versionCommand(profile.Destination, profile.SSHIdentityFile)
 }
@@ -55,12 +55,12 @@ func versionCommand(destination, identityFile string) *exec.Cmd {
 func versionCommandContext(ctx context.Context, destination, identityFile string) *exec.Cmd {
 	// A login shell may print a banner or a warning first, so the version is
 	// marked and CheckVersion reads only the marked line.
-	script := "export PATH=\"$HOME/.local/bin:$PATH\"; printf '" + versionMarker + "%s\\n' \"$(agentclip version 2>/dev/null)\""
+	script := "export PATH=\"$HOME/.local/bin:$PATH\"; printf '" + versionMarker + "%s\\n' \"$(agentport version 2>/dev/null)\""
 	return remoteSSHCommandContext(ctx, destination, identityFile, "sh -lc "+shellQuote(script))
 }
 
 // versionMarker prefixes the line that carries the server's version.
-const versionMarker = "agentclip-version="
+const versionMarker = "agentport-version="
 
 // CheckVersion decides whether the output of VersionForProfile from a server is
 // new enough. It reports what to do when it is not, and refuses output it cannot
@@ -74,10 +74,10 @@ func CheckVersion(destination, output string) error {
 	}
 	comparison, err := release.Compare(version, MinRemoteVersion)
 	if err != nil {
-		return fmt.Errorf("could not read the agentclip version on %s (got %q); install or update it with `agentclip setup %s`", destination, version, destination)
+		return fmt.Errorf("could not read the agentport version on %s (got %q); install or update it with `agentport setup %s`", destination, version, destination)
 	}
 	if comparison < 0 {
-		return fmt.Errorf("agentclip %s on %s is older than %s, the oldest that supports this setup; update it with `agentclip upgrade` or `agentclip setup %s`", version, destination, MinRemoteVersion, destination)
+		return fmt.Errorf("agentport %s on %s is older than %s, the oldest that supports this setup; update it with `agentport upgrade` or `agentport setup %s`", version, destination, MinRemoteVersion, destination)
 	}
 	return nil
 }
@@ -97,7 +97,7 @@ func remoteSupportedAgentsCommandWithIdentity(destination, identityFile string) 
 }
 
 func remoteSupportedAgentsScript() string {
-	return "export PATH=\"$HOME/.local/bin:$PATH\"; command -v agentclip >/dev/null || exit 10; for agentclip_harness in codex claude gemini agy opencode pi; do command -v \"$agentclip_harness\" >/dev/null && printf '%s\\n' \"$agentclip_harness\"; done; true"
+	return "export PATH=\"$HOME/.local/bin:$PATH\"; command -v agentport >/dev/null || exit 10; for agentport_harness in codex claude gemini agy opencode pi; do command -v \"$agentport_harness\" >/dev/null && printf '%s\\n' \"$agentport_harness\"; done; true"
 }
 
 func remoteLoginCommand(destination string, arguments ...string) *exec.Cmd {
@@ -134,7 +134,7 @@ func remoteSSHCommandContext(ctx context.Context, destination, identityFile, rem
 
 // ensureSetupSSHIdentity preserves an already-working SSH key setup. When the
 // destination rejects non-interactive key authentication, it creates a
-// dedicated AgentClip key and installs its public half through one interactive
+// dedicated agentport key and installs its public half through one interactive
 // password login before the rest of setup runs.
 func EnsureSetupSSHIdentity(destination, profileName, existingIdentityFile string) (string, error) {
 	output, err := sshKeyCheckCommand(destination, existingIdentityFile).CombinedOutput()
@@ -144,19 +144,19 @@ func EnsureSetupSSHIdentity(destination, profileName, existingIdentityFile strin
 	if !sshAuthenticationFailure(output) {
 		return "", fmt.Errorf("check SSH key authentication for %s: %s", destination, sshErrorSummary(output, err))
 	}
-	identityFile, publicKey, err := ensureAgentClipSSHKey(profileName)
+	identityFile, publicKey, err := ensureagentportSSHKey(profileName)
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(i18n.T("Configuring a dedicated AgentClip SSH key for %s (your password may be requested once)...", destination))
+	fmt.Println(i18n.T("Configuring a dedicated agentport SSH key for %s (your password may be requested once)...", destination))
 	bootstrap := bootstrapSSHKeyCommand(destination, publicKey)
 	bootstrap.Stdin, bootstrap.Stdout, bootstrap.Stderr = os.Stdin, os.Stdout, os.Stderr
 	if err := bootstrap.Run(); err != nil {
-		return "", fmt.Errorf("install AgentClip SSH key on %s: %w", destination, err)
+		return "", fmt.Errorf("install agentport SSH key on %s: %w", destination, err)
 	}
 	output, err = sshKeyCheckCommand(destination, identityFile).CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("verify AgentClip SSH key on %s: %s", destination, sshErrorSummary(output, err))
+		return "", fmt.Errorf("verify agentport SSH key on %s: %s", destination, sshErrorSummary(output, err))
 	}
 	return identityFile, nil
 }
@@ -189,70 +189,70 @@ func sshErrorSummary(output []byte, err error) string {
 	return message
 }
 
-func ensureAgentClipSSHKey(profileName string) (string, string, error) {
+func ensureagentportSSHKey(profileName string) (string, string, error) {
 	identityFile, err := companion.SSHIdentityPath(profileName)
 	if err != nil {
 		return "", "", err
 	}
 	if err := os.MkdirAll(filepath.Dir(identityFile), 0700); err != nil {
-		return "", "", fmt.Errorf("create AgentClip SSH key directory: %w", err)
+		return "", "", fmt.Errorf("create agentport SSH key directory: %w", err)
 	}
 	if err := os.Chmod(filepath.Dir(identityFile), 0700); err != nil {
-		return "", "", fmt.Errorf("secure AgentClip SSH key directory: %w", err)
+		return "", "", fmt.Errorf("secure agentport SSH key directory: %w", err)
 	}
 	publicFile := identityFile + ".pub"
 	privateInfo, privateErr := os.Lstat(identityFile)
 	publicInfo, publicErr := os.Lstat(publicFile)
 	if privateErr == nil && (!privateInfo.Mode().IsRegular() || privateInfo.Mode()&os.ModeSymlink != 0) {
-		return "", "", errors.New("AgentClip SSH private key is not a regular file")
+		return "", "", errors.New("agentport SSH private key is not a regular file")
 	}
 	if publicErr == nil && (!publicInfo.Mode().IsRegular() || publicInfo.Mode()&os.ModeSymlink != 0) {
-		return "", "", errors.New("AgentClip SSH public key is not a regular file")
+		return "", "", errors.New("agentport SSH public key is not a regular file")
 	}
 	if privateErr != nil && !os.IsNotExist(privateErr) {
-		return "", "", fmt.Errorf("inspect AgentClip SSH private key: %w", privateErr)
+		return "", "", fmt.Errorf("inspect agentport SSH private key: %w", privateErr)
 	}
 	if publicErr != nil && !os.IsNotExist(publicErr) {
-		return "", "", fmt.Errorf("inspect AgentClip SSH public key: %w", publicErr)
+		return "", "", fmt.Errorf("inspect agentport SSH public key: %w", publicErr)
 	}
 	if os.IsNotExist(privateErr) && !os.IsNotExist(publicErr) {
-		return "", "", errors.New("AgentClip SSH public key exists without its private key")
+		return "", "", errors.New("agentport SSH public key exists without its private key")
 	}
 	if os.IsNotExist(privateErr) {
-		command := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "agentclip:"+profileName, "-f", identityFile)
+		command := exec.Command("ssh-keygen", "-q", "-t", "ed25519", "-N", "", "-C", "agentport:"+profileName, "-f", identityFile)
 		if output, err := command.CombinedOutput(); err != nil {
-			return "", "", fmt.Errorf("generate AgentClip SSH key (requires ssh-keygen): %s", sshErrorSummary(output, err))
+			return "", "", fmt.Errorf("generate agentport SSH key (requires ssh-keygen): %s", sshErrorSummary(output, err))
 		}
 	} else if os.IsNotExist(publicErr) {
 		output, err := exec.Command("ssh-keygen", "-y", "-f", identityFile).Output()
 		if err != nil {
-			return "", "", fmt.Errorf("derive AgentClip SSH public key: %w", err)
+			return "", "", fmt.Errorf("derive agentport SSH public key: %w", err)
 		}
 		if err := os.WriteFile(publicFile, output, 0600); err != nil {
-			return "", "", fmt.Errorf("write AgentClip SSH public key: %w", err)
+			return "", "", fmt.Errorf("write agentport SSH public key: %w", err)
 		}
 	}
 	if err := os.Chmod(identityFile, 0600); err != nil {
-		return "", "", fmt.Errorf("secure AgentClip SSH private key: %w", err)
+		return "", "", fmt.Errorf("secure agentport SSH private key: %w", err)
 	}
 	if err := os.Chmod(publicFile, 0600); err != nil {
-		return "", "", fmt.Errorf("secure AgentClip SSH public key: %w", err)
+		return "", "", fmt.Errorf("secure agentport SSH public key: %w", err)
 	}
-	publicKey, err := readAgentClipSSHPublicKey(publicFile)
+	publicKey, err := readagentportSSHPublicKey(publicFile)
 	if err != nil {
 		return "", "", err
 	}
 	return identityFile, publicKey, nil
 }
 
-func readAgentClipSSHPublicKey(path string) (string, error) {
+func readagentportSSHPublicKey(path string) (string, error) {
 	payload, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("read AgentClip SSH public key: %w", err)
+		return "", fmt.Errorf("read agentport SSH public key: %w", err)
 	}
 	key := strings.TrimSpace(string(payload))
 	if strings.ContainsAny(key, "\r\n") || !strings.HasPrefix(key, "ssh-ed25519 ") || len(strings.Fields(key)) < 2 {
-		return "", errors.New("invalid AgentClip SSH public key")
+		return "", errors.New("invalid agentport SSH public key")
 	}
 	return key, nil
 }
@@ -273,7 +273,7 @@ func shellQuote(value string) string {
 }
 
 // platformMarker prefixes the line that carries the server's `uname -sm`.
-const platformMarker = "agentclip-platform="
+const platformMarker = "agentport-platform="
 
 func platformCommand(ctx context.Context, destination, identityFile string) *exec.Cmd {
 	script := "printf '" + platformMarker + "%s\\n' \"$(uname -sm)\""
@@ -298,7 +298,7 @@ func PlatformFromOutput(output string) (goos, goarch string, err error) {
 	case "Darwin":
 		goos = "darwin"
 	default:
-		return "", "", fmt.Errorf("unsupported server operating system %q; AgentClip installs on Linux and macOS servers", system)
+		return "", "", fmt.Errorf("unsupported server operating system %q; agentport installs on Linux and macOS servers", system)
 	}
 	switch machine {
 	case "x86_64", "amd64":
@@ -312,7 +312,7 @@ func PlatformFromOutput(output string) (goos, goarch string, err error) {
 }
 
 // uploadCommand receives an executable on stdin and installs it as
-// ~/.local/bin/agentclip, but only if it hashes to digest. A dropped
+// ~/.local/bin/agentport, but only if it hashes to digest. A dropped
 // connection then leaves the previous binary in place instead of a truncated one.
 func uploadCommand(ctx context.Context, destination, identityFile, digest string) *exec.Cmd {
 	script := strings.Join([]string{
@@ -320,13 +320,13 @@ func uploadCommand(ctx context.Context, destination, identityFile, digest string
 		"umask 077",
 		"dir=\"$HOME/.local/bin\"",
 		"mkdir -p \"$dir\"",
-		"tmp=\"$dir/.agentclip-new.$$\"",
+		"tmp=\"$dir/.agentport-new.$$\"",
 		"trap 'rm -f \"$tmp\"' EXIT",
 		"cat > \"$tmp\"",
 		"if command -v sha256sum >/dev/null 2>&1; then actual=$(sha256sum \"$tmp\" | cut -d' ' -f1); else actual=$(shasum -a 256 \"$tmp\" | cut -d' ' -f1); fi",
 		"[ \"$actual\" = " + shellQuote(digest) + " ] || { echo 'uploaded binary does not match the verified checksum' >&2; exit 1; }",
 		"chmod 755 \"$tmp\"",
-		"mv -f \"$tmp\" \"$dir/agentclip\"",
+		"mv -f \"$tmp\" \"$dir/agentport\"",
 	}, "; ")
 	return remoteSSHCommandContext(ctx, destination, identityFile, "sh -c "+shellQuote(script))
 }
@@ -339,7 +339,7 @@ var FetchRelease = upgrader.Fetch
 // the platform probe, the download and verification, and the upload.
 const InstallTimeout = 3 * time.Minute
 
-// installedVersion reads the version of the agentclip already on the server, or
+// installedVersion reads the version of the agentport already on the server, or
 // "" when there is none or its output cannot be read as a version.
 func installedVersion(ctx context.Context, destination, identityFile string) string {
 	output, err := versionCommandContext(ctx, destination, identityFile).Output()
@@ -374,9 +374,9 @@ func InstallVerified(ctx context.Context, destination, identityFile, tag string,
 		if comparison, err := release.Compare(tag, installed); err == nil && comparison <= 0 {
 			if stderr != nil {
 				if comparison == 0 {
-					fmt.Fprintln(stderr, i18n.T("AgentClip %s is already installed on %s.", installed, destination))
+					fmt.Fprintln(stderr, i18n.T("agentport %s is already installed on %s.", installed, destination))
 				} else {
-					fmt.Fprintln(stderr, i18n.T("%s has AgentClip %s, newer than %s; leaving it unchanged.", destination, installed, tag))
+					fmt.Fprintln(stderr, i18n.T("%s has agentport %s, newer than %s; leaving it unchanged.", destination, installed, tag))
 				}
 			}
 			return false, nil
@@ -392,7 +392,7 @@ func InstallVerified(ctx context.Context, destination, identityFile, tag string,
 	}
 	fetched, err := FetchRelease(ctx, upgrader.Options{Version: tag, GOOS: goos, GOARCH: goarch, SkipAttestation: os.Getenv(upgrader.SkipAttestationEnv) == "1"})
 	if err != nil {
-		return false, fmt.Errorf("verify AgentClip %s for %s/%s: %w", tag, goos, goarch, err)
+		return false, fmt.Errorf("verify agentport %s for %s/%s: %w", tag, goos, goarch, err)
 	}
 	defer fetched.Cleanup()
 	if fetched.Notice != "" && stderr != nil {
@@ -413,7 +413,7 @@ func InstallVerified(ctx context.Context, destination, identityFile, tag string,
 	upload := uploadCommand(ctx, destination, identityFile, hex.EncodeToString(hash.Sum(nil)))
 	upload.Stdin = binary
 	if combined, err := upload.CombinedOutput(); err != nil {
-		return false, fmt.Errorf("install AgentClip on %s: %w: %s", destination, err, strings.TrimSpace(string(combined)))
+		return false, fmt.Errorf("install agentport on %s: %w: %s", destination, err, strings.TrimSpace(string(combined)))
 	}
 	return true, nil
 }

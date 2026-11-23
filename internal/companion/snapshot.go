@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/clipboard"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/clipboard"
 )
 
 // SnapshotSource separates cheap change detection from the potentially costly

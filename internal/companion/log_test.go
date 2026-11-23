@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 // Asking for the log of a profile that never ran must not create one: the name
@@ -22,7 +22,7 @@ func TestRequireLogNeverCreatesALog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if entries, _ := os.ReadDir(filepath.Join(cache, "agentclip", "logs")); len(entries) != 0 {
+	if entries, _ := os.ReadDir(filepath.Join(cache, "agentport", "logs")); len(entries) != 0 {
 		t.Fatalf("RequireLog created %d file(s)", len(entries))
 	}
 
@@ -54,7 +54,7 @@ func TestRequireLogDistinguishesMissingFromUnreadableAndIrregular(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	logs := filepath.Join(cache, "agentclip", "logs")
+	logs := filepath.Join(cache, "agentport", "logs")
 	if err := os.MkdirAll(filepath.Join(logs, "isdir.log"), 0o700); err != nil {
 		t.Fatal(err)
 	}

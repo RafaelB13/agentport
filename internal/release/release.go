@@ -1,4 +1,4 @@
-// Package release resolves and caches AgentClip's stable GitHub release.
+// Package release resolves and caches agentport's stable GitHub release.
 package release
 
 import (
@@ -15,11 +15,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/buildinfo"
+	"github.com/rafaelb13/agentport/internal/buildinfo"
 )
 
 const (
-	Repository = "wendellrocha/agentclip"
+	Repository = "rafaelb13/agentport"
 	CacheTTL   = 24 * time.Hour
 )
 
@@ -47,7 +47,7 @@ type githubRelease struct {
 }
 
 // Checker is configurable so callers and tests can use a private GitHub
-// endpoint. A zero value uses the official AgentClip repository.
+// endpoint. A zero value uses the official agentport repository.
 type Checker struct {
 	Repository string
 	CachePath  string
@@ -105,7 +105,7 @@ func (c Checker) FetchLatest(ctx context.Context) (string, error) {
 		return "", err
 	}
 	request.Header.Set("Accept", "application/vnd.github+json")
-	request.Header.Set("User-Agent", "agentclip-release-watcher")
+	request.Header.Set("User-Agent", "agentport-release-watcher")
 	client := c.Client
 	if client == nil {
 		client = &http.Client{Timeout: 5 * time.Second}
@@ -143,7 +143,7 @@ func (c Checker) cachePath() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(dir, "agentclip", "release.json"), nil
+	return filepath.Join(dir, "agentport", "release.json"), nil
 }
 
 func (c Checker) readCache() (cacheEntry, bool) {

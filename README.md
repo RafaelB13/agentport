@@ -1,8 +1,8 @@
-# AgentClip
+# agentport
 
 **Português** · [English](README.en.md)
 
-AgentClip disponibiliza, sob autorização explícita, imagens, texto e arquivos
+agentport disponibiliza, sob autorização explícita, imagens, texto e arquivos
 do clipboard do host a um agente de código rodando em um servidor SSH.
 
 Ele mantém um bridge HTTP local, um túnel SSH reverso e um servidor MCP por
@@ -14,13 +14,13 @@ e peça para ele examinar o conteúdo do clipboard.
 No macOS ou Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/wendellrocha/agentclip/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
 ```
 
 No Windows, execute no PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/wendellrocha/agentclip/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
 ```
 
 Os scripts detectam a plataforma, consultam a release mais recente, verificam
@@ -29,7 +29,7 @@ instalada. Eles baixam e atualizam somente
 quando a versão encontrada é mais nova; repetir o instalador é seguro. Para uma
 versão específica, use `--version vX.Y.Z` no instalador POSIX ou
 `-Version vX.Y.Z` no PowerShell. Os artefatos e checksums também estão nas
-[GitHub Releases](https://github.com/wendellrocha/agentclip/releases).
+[GitHub Releases](https://github.com/rafaelb13/agentport/releases).
 
 ### Verificar a autenticidade de um release
 
@@ -41,7 +41,7 @@ Para verificar manualmente, baixe o arquivo do release, o `checksums.txt` e o
 
 ```bash
 VERSION=vX.Y.Z
-IDENTITY="https://github.com/wendellrocha/agentclip/.github/workflows/release.yml@refs/tags/${VERSION}"
+IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 cosign verify-blob \
   --bundle checksums.txt.bundle \
@@ -53,10 +53,10 @@ cosign verify-blob \
 sha256sum --check --ignore-missing checksums.txt
 # macOS (não tem sha256sum nem --ignore-missing)
 ARCH=$(uname -m | sed s/x86_64/amd64/) # arm64 or amd64
-grep " agentclip_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
+grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
 
-gh attestation verify "agentclip_${VERSION}_linux_amd64.tar.gz" \
-  --repo wendellrocha/agentclip \
+gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
+  --repo rafaelb13/agentport \
   --cert-identity "$IDENTITY"
 ```
 
@@ -69,7 +69,7 @@ Para verificar sem login, baixe também o `attestation.jsonl` da release e acres
 
 ### Verificação automática
 
-A partir da `v0.7.1-rc.1`, os instaladores e o `agentclip upgrade` confirmam,
+A partir da `v0.7.1-rc.1`, os instaladores e o `agentport upgrade` confirmam,
 além do SHA-256, que o arquivo baixado foi produzido pelo workflow de release
 deste repositório na tag que está sendo instalada. Se a confirmação falhar, a
 instalação é recusada.
@@ -79,8 +79,8 @@ instalação é recusada.
   está instalado. Se o `gh` **rejeitar** o arquivo, a instalação falha, sem
   tentar um método mais fraco. Sem `gh`, ou se a release não tiver o bundle,
   consultam a API de atestados do GitHub.
-- **`agentclip upgrade`:** consulta a API de atestados do GitHub.
-- **Servidores (`agentclip setup` e `agentclip upgrade`):** esta máquina baixa o
+- **`agentport upgrade`:** consulta a API de atestados do GitHub.
+- **Servidores (`agentport setup` e `agentport upgrade`):** esta máquina baixa o
   binário da plataforma do servidor, faz a mesma verificação do `upgrade` e o
   envia pela conexão SSH. Nenhum instalador é baixado para o servidor: ele só
   executa uma sequência curta e fixa de comandos que confere se o SHA-256 do que
@@ -96,8 +96,8 @@ o `gh` ou use os comandos manuais acima.
 
 Se a API estiver fora do ar ou com o limite de requisições estourado, a
 instalação é recusada em vez de seguir sem verificar. Para instalar mesmo assim,
-apenas com o SHA-256, defina `AGENTCLIP_SKIP_ATTESTATION=1`. No `agentclip setup` e no
-`agentclip upgrade` a variável vale também para os binários enviados aos
+apenas com o SHA-256, defina `AGENTPORT_SKIP_ATTESTATION=1`. No `agentport setup` e no
+`agentport upgrade` a variável vale também para os binários enviados aos
 servidores. Versões anteriores
 à `v0.7.1-rc.1` não têm atestado e são instaladas só com o SHA-256, com um aviso.
 
@@ -106,15 +106,15 @@ servidores. Versões anteriores
 Instale e configure o servidor em uma única chamada:
 
 ```bash
-agentclip setup bastion-m2 --profile m2
+agentport setup bastion-m2 --profile m2
 ```
 
 O comando instala a versão compatível no servidor Linux/macOS via SSH, detecta
 todos os harnesses suportados já instalados, registra automaticamente a
-integração AgentClip em cada um deles, cria o perfil local e inicia o Companion.
+integração agentport em cada um deles, cria o perfil local e inicia o Companion.
 Quando o SSH ainda aceita apenas senha, o `setup` pede essa senha uma vez para
-instalar uma chave Ed25519 privada do AgentClip; os túneis seguintes não pedem
-senha. Se uma chave SSH já autentica o destino, o AgentClip não a altera.
+instalar uma chave Ed25519 privada do agentport; os túneis seguintes não pedem
+senha. Se uma chave SSH já autentica o destino, o agentport não a altera.
 Em seguida:
 
 ```bash
@@ -147,58 +147,58 @@ Após atualizar para uma versão com esse recurso, refaça o pareamento do perfi
 para propagar a capability de upload aos harnesses remotos:
 
 ```bash
-agentclip setup bastion-m2 --profile m2
+agentport setup bastion-m2 --profile m2
 ```
 
 ## Companion, background e reinicializações
 
-`agentclip setup` inicia o Companion local em background (salvo com
-`--no-start`); `agentclip companion start <perfil>` faz o mesmo manualmente.
+`agentport setup` inicia o Companion local em background (salvo com
+`--no-start`); `agentport companion start <perfil>` faz o mesmo manualmente.
 O processo acompanha o clipboard, mantém o bridge local e abre o túnel SSH
 reverso para o destino salvo no perfil. A view e o estado atual podem ser
 consultados sem prender o terminal:
 
 ```bash
-agentclip companion status m2
-agentclip companion open m2
-agentclip companion stop m2
+agentport companion status m2
+agentport companion open m2
+agentport companion stop m2
 ```
 
 O Companion verifica a release estável no início e mostra um aviso na página
-local e na ferramenta MCP `agentclip_update_status` quando houver atualização.
+local e na ferramenta MCP `agentport_update_status` quando houver atualização.
 Para atualizar o executável local e todos os perfis remotos salvos, use:
 
 ```bash
-agentclip upgrade
+agentport upgrade
 ```
 
 O comando valida o SHA-256 publicado e o atestado de build da release, mantém
 parados os perfis que já estavam
 parados e reinicia somente os Companions que estavam ativos.
 
-`agentclip companion open m2` abre uma página web local, protegida por token,
+`agentport companion open m2` abre uma página web local, protegida por token,
 com estado do túnel, itens e expiração do clipboard, último erro e um botão
 para parar o Companion. Ela escuta somente em `127.0.0.1`. Veja todos os
 detalhes em [Referência de comandos](COMMANDS.md#página-web-do-companion).
 
 O perfil — destino SSH, porta remota e token de pareamento — fica salvo no
-host. O processo em execução, o bridge e o túnel não. Por padrão o AgentClip
+host. O processo em execução, o bridge e o túnel não. Por padrão o agentport
 **não instala um serviço de inicialização automática**, então, se o **host**
 for reiniciado, inicie o perfil desejado novamente:
 
 ```bash
-agentclip companion start m2
+agentport companion start m2
 ```
 
 Para o Companion subir sozinho quando você entrar na sessão, ative a
-inicialização automática do perfil. O AgentClip usa o que cada sistema já tem:
+inicialização automática do perfil. O agentport usa o que cada sistema já tem:
 um LaunchAgent no macOS, uma unidade de usuário do systemd no Linux e uma tarefa
 do Agendador de Tarefas no Windows.
 
 ```bash
-agentclip companion autostart enable m2
-agentclip companion autostart status m2
-agentclip companion autostart disable m2
+agentport companion autostart enable m2
+agentport companion autostart status m2
+agentport companion autostart disable m2
 ```
 
 Desativar remove o serviço e para o Companion que ele iniciou; um Companion que
@@ -214,18 +214,18 @@ perfil e a mesma porta remota voltam a ser usados.
 Por padrão, `setup`, `pair` e `connect` usam todos os harnesses suportados que
 encontrarem. A instalação/registro da integração é automática: não é preciso
 editar JSON nem criar a extensão do Pi manualmente. Use `--agent` para limitar
-a configuração a um deles. Para remover apenas a integração do AgentClip de um
+a configuração a um deles. Para remover apenas a integração do agentport de um
 harness, use `uninstall`; o CLI/harness e o perfil local continuam intactos:
 
 ```bash
-agentclip setup bastion-m2 --profile m2 --agent claude
-agentclip connect m2
-agentclip uninstall m2 --agent gemini
+agentport setup bastion-m2 --profile m2 --agent claude
+agentport connect m2
+agentport uninstall m2 --agent gemini
 ```
 
 ## Compatibilidade de agentes
 
-AgentClip integra-se ao **harness** — o programa que executa o agente e chama
+agentport integra-se ao **harness** — o programa que executa o agente e chama
 ferramentas MCP —, não ao modelo escolhido dentro dele. A tabela separa o que
 a versão atual configura automaticamente do que ainda é planejamento.
 
@@ -234,10 +234,10 @@ a versão atual configura automaticamente do que ainda é planejamento.
 | Codex | Suportado | Detectado e configurado automaticamente quando instalado |
 | Claude Code | Suportado | Detectado e configurado automaticamente quando instalado |
 | Gemini CLI | Suportado | Detectado e configurado automaticamente quando instalado |
-| AGY / Antigravity CLI | Suportado | AgentClip cria/atualiza automaticamente o MCP global |
-| OpenCode | Suportado | AgentClip cria/atualiza automaticamente o MCP local global |
-| Pi Coding Agent | Suportado | AgentClip instala automaticamente uma extensão global |
-| Outro cliente MCP | Manual | Configure `agentclip mcp` e as variáveis do perfil manualmente |
+| AGY / Antigravity CLI | Suportado | agentport cria/atualiza automaticamente o MCP global |
+| OpenCode | Suportado | agentport cria/atualiza automaticamente o MCP local global |
+| Pi Coding Agent | Suportado | agentport instala automaticamente uma extensão global |
+| Outro cliente MCP | Manual | Configure `agentport mcp` e as variáveis do perfil manualmente |
 
 | Modelo ou provedor | Status direto | Como usar |
 | --- | --- | --- |
@@ -245,7 +245,7 @@ a versão atual configura automaticamente do que ainda é planejamento.
 | MiMo | Não aplicável | Use por meio de um harness MCP; não há um adaptador de modelo direto |
 
 Os adaptadores planejados nunca instalarão clientes de terceiros sem ação
-explícita do usuário, nem gravarão o token do AgentClip em configurações de
+explícita do usuário, nem gravarão o token do agentport em configurações de
 projeto versionáveis.
 
 Os adaptadores nunca instalam harnesses de terceiros. `setup`, `pair` e
@@ -262,7 +262,7 @@ instalados; `--agent` permite escolher um deles.
   materialização. Diretórios e symlinks são rejeitados.
 - Arquivos enviados do servidor para o host exigem aceite local, aceitam um
   arquivo regular de até 50 MiB por vez, têm SHA-256 verificado e são gravados
-  atomicamente em `~/.cache/agentclip/received/` (ou o cache equivalente da
+  atomicamente em `~/.cache/agentport/received/` (ou o cache equivalente da
   plataforma). Ofertas expiram em 10 minutos e o Companion as esquece 30 minutos depois;
   os arquivos entregues ficam nessa pasta até você apagá-los.
 - O servidor remoto precisa ser confiável: ele recebe o conteúdo somente após
@@ -270,14 +270,14 @@ instalados; `--agent` permite escolher um deles.
 
 ## Idioma
 
-Por padrão, a saída dos comandos, o `agentclip help` e a página do Companion
-estão em inglês. Para português do Brasil, defina `AGENTCLIP_LANG=pt-BR` (vale
+Por padrão, a saída dos comandos, o `agentport help` e a página do Companion
+estão em inglês. Para português do Brasil, defina `AGENTPORT_LANG=pt-BR` (vale
 também para os instaladores); a página do Companion também aceita `?lang=pt-BR`
 e segue o idioma do navegador. As mensagens de erro técnicas continuam em
 inglês. Veja [Idioma](COMMANDS.md#idioma) na referência de comandos.
 
 ```bash
-AGENTCLIP_LANG=pt-BR agentclip help
+AGENTPORT_LANG=pt-BR agentport help
 ```
 
 ## Documentação

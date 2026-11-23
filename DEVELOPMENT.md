@@ -10,12 +10,12 @@
 ## Build e testes
 
 ```bash
-go build -o ./agentclip ./cmd/agentclip
+go build -o ./agentport ./cmd/agentport
 go test -race ./...
 go vet ./...
 ```
 
-O binário local `./agentclip` e a pasta `plans/` são ignorados pelo Git.
+O binário local `./agentport` e a pasta `plans/` são ignorados pelo Git.
 
 A versão de desenvolvimento vive em `internal/buildinfo/buildinfo.go`. As
 releases usam a tag `vX.Y.Z` para sobrescrevê-la no binário e nos metadados MCP;
@@ -26,13 +26,13 @@ para iniciar o próximo ciclo, altere apenas esse arquivo.
 Para uma instalação remota manual durante o desenvolvimento:
 
 ```bash
-go build -o ./agentclip ./cmd/agentclip
-scp ./agentclip bastion-m2:~/.local/bin/agentclip
-ssh bastion-m2 'agentclip version'
+go build -o ./agentport ./cmd/agentport
+scp ./agentport bastion-m2:~/.local/bin/agentport
+ssh bastion-m2 'agentport version'
 
-./agentclip pair m2 bastion-m2 --remote-port 39123
-./agentclip companion start m2
-./agentclip companion open m2
+./agentport pair m2 bastion-m2 --remote-port 39123
+./agentport companion start m2
+./agentport companion open m2
 ```
 
 `pair` mantém esse fluxo avançado. `setup` é o caminho recomendado para uma
@@ -42,12 +42,12 @@ release publicada; ele não tenta baixar uma versão de desenvolvimento sem que
 `pair`, `setup` e `connect` detectam e configuram todos os harnesses suportados
 instalados no servidor. AGY e OpenCode recebem entradas globais de usuário; Pi
 recebe uma extensão global. Para limitar a um harness ou remover exclusivamente
-a entrada MCP/extensão do AgentClip, use:
+a entrada MCP/extensão do agentport, use:
 
 ```bash
-./agentclip connect m2 --agent claude
-./agentclip connect m2 --agent gemini
-./agentclip uninstall m2 --agent gemini
+./agentport connect m2 --agent claude
+./agentport connect m2 --agent gemini
+./agentport uninstall m2 --agent gemini
 ```
 
 `disconnect` é mantido como alias compatível de `uninstall`. Nenhum dos dois
@@ -55,20 +55,20 @@ remove o binário ou desinstala o harness remoto.
 
 ## Ciclo de vida do Companion
 
-`./agentclip companion start m2` retorna ao terminal depois de iniciar o
+`./agentport companion start m2` retorna ao terminal depois de iniciar o
 processo local em background. Esse processo acompanha o clipboard, mantém o
 bridge e reconecta o túnel SSH quando o servidor remoto ou a conexão cai,
 usando espera progressiva de 1 a 30 segundos. Inspecione ou pare-o com:
 
 ```bash
-./agentclip companion status m2
-./agentclip companion open m2
-./agentclip companion stop m2
+./agentport companion status m2
+./agentport companion open m2
+./agentport companion stop m2
 ```
 
-O perfil é persistido em `os.UserConfigDir()/agentclip/profiles/`, mas o
+O perfil é persistido em `os.UserConfigDir()/agentport/profiles/`, mas o
 Companion não é registrado como serviço de inicialização no macOS, Linux ou
-Windows. Após reiniciar o host, rode `./agentclip companion start m2` de novo.
+Windows. Após reiniciar o host, rode `./agentport companion start m2` de novo.
 Um reinício somente do servidor remoto não exige esse comando: o Companion
 que ainda estiver rodando tentará abrir novamente o mesmo túnel reverso.
 
@@ -79,18 +79,18 @@ que ainda estiver rodando tentará abrir novamente o mesmo túnel reverso.
 2. Confirme na view do Companion que o item foi armado:
 
    ```bash
-   ./agentclip companion status m2
+   ./agentport companion status m2
    ```
 
 3. Abra uma sessão no servidor, inicie o Codex e peça: `Analise o arquivo CSV
    que está no meu clipboard.`
 4. O agente deve chamar `clipboard_status` e
    `materialize_clipboard_files`. O arquivo aparecerá em
-   `~/.cache/agentclip/inbox/` no servidor.
+   `~/.cache/agentport/inbox/` no servidor.
 
 ## Estrutura do código
 
-- `cmd/agentclip`: CLI e orquestração dos comandos.
+- `cmd/agentport`: CLI e orquestração dos comandos.
 - `internal/bridge`, `internal/daemon`: bridge HTTP local, sessões, itens do
   clipboard e inbox de arquivos recebidos.
 - `internal/companion`: perfis, túnel SSH, servidor de controle e página web.
@@ -109,12 +109,12 @@ chave, e o que faltar no catálogo aparece em inglês.
 
 - **CLI**: o que a pessoa lê (ajuda, resultado, status, avisos) passa por
   `i18n.T("English text %s", arg)`, com um **literal** como primeiro argumento. Os
-  comandos e seus textos de ajuda ficam na tabela de `cmd/agentclip/commands.go`,
+  comandos e seus textos de ajuda ficam na tabela de `cmd/agentport/commands.go`,
   que também é de onde o `main` despacha.
 - **Página do Companion**: `t('English text')` no `app.js` e `{{t:English text}}`
   no `index.html`. O servidor envia à página só as traduções que o script usa.
 - **Instaladores**: as tabelas de mensagens no início de `scripts/install.sh` e de
-  `scripts/install.ps1`, escolhidas por `AGENTCLIP_LANG`.
+  `scripts/install.ps1`, escolhidas por `AGENTPORT_LANG`.
 - **Erros técnicos** ficam em inglês, sem tradução.
 
 Os testes de `internal/i18n` falham se uma mensagem usada não tiver tradução, se
@@ -130,7 +130,7 @@ Uma tag semântica `vX.Y.Z` dispara os workflows de teste e release. A release
 publica binários para Linux `amd64`/`arm64`, macOS `amd64`/`arm64` e Windows
 `amd64`, além de checksums (assinados com cosign, `checksums.txt.bundle`),
 o atestado de proveniência (`attestation.jsonl`), um SBOM CycloneDX
-por plataforma (`agentclip_vX.Y.Z_<os>_<arch>.cdx.json`, cobertos pelos checksums e
+por plataforma (`agentport_vX.Y.Z_<os>_<arch>.cdx.json`, cobertos pelos checksums e
 pelo atestado; as dependências mudam com a plataforma) e
 instaladores. Antes de assinar, o workflow roda o `govulncheck` em modo binário
 sobre cada executável: uma vulnerabilidade conhecida no que será publicado

@@ -1,4 +1,4 @@
-module github.com/wendellrocha/agentclip
+module github.com/rafaelb13/agentport
 
 go 1.27.0
 

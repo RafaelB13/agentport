@@ -33,7 +33,7 @@ matches() { # matches <digest> <repository> <version>
     # A sourced script inherits the positional parameters, which its own
     # option parsing would reject.
     set --
-    export AGENTCLIP_INSTALLER_LIB=1
+    export AGENTPORT_INSTALLER_LIB=1
     # shellcheck disable=SC1090
     . "$installer"
     # The sourced installer reads these variables, which shellcheck cannot see.
@@ -43,20 +43,20 @@ matches() { # matches <digest> <repository> <version>
   )
 }
 
-expect "real payload matches its archive, repository and tag" matches "$real_digest" wendellrocha/agentclip v0.7.1-rc.1
-if matches 0000000000000000000000000000000000000000000000000000000000000000 wendellrocha/agentclip v0.7.1-rc.1; then fail "real payload refused for another digest"; else pass "real payload refused for another digest"; fi
-if matches "$real_digest" wendellrocha/agentclip v0.7.1; then fail "real payload refused for another tag"; else pass "real payload refused for another tag"; fi
-if matches "$real_digest" attacker/agentclip v0.7.1-rc.1; then fail "real payload refused for another repository"; else pass "real payload refused for another repository"; fi
+expect "real payload matches its archive, repository and tag" matches "$real_digest" rafaelb13/agentport v0.7.1-rc.1
+if matches 0000000000000000000000000000000000000000000000000000000000000000 rafaelb13/agentport v0.7.1-rc.1; then fail "real payload refused for another digest"; else pass "real payload refused for another digest"; fi
+if matches "$real_digest" rafaelb13/agentport v0.7.1; then fail "real payload refused for another tag"; else pass "real payload refused for another tag"; fi
+if matches "$real_digest" attacker/agentport v0.7.1-rc.1; then fail "real payload refused for another repository"; else pass "real payload refused for another repository"; fi
 
 # --- 2. the whole installer with stubbed curl and gh ---
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 case "$(uname -m)" in x86_64 | amd64) arch=amd64 ;; *) arch=arm64 ;; esac
 version="v0.7.1"
-asset="agentclip_${version}_${os}_${arch}.tar.gz"
-repository="example/agentclip"
+asset="agentport_${version}_${os}_${arch}.tar.gz"
+repository="example/agentport"
 
-mkdir -p "$work/release/agentclip_${version}_${os}_${arch}" "$work/bin" "$work/tools"
+mkdir -p "$work/release/agentport_${version}_${os}_${arch}" "$work/bin" "$work/tools"
 
 # The installer runs with a PATH that holds only the tools it needs plus the
 # stubs, so a real gh on this machine can never leak into a scenario.
@@ -64,9 +64,9 @@ for tool in sh env tar gzip awk uname mktemp rm mkdir install sed head tr grep c
   found="$(command -v "$tool" 2>/dev/null || true)"
   case "$found" in /*) ln -s "$found" "$work/tools/$tool" ;; esac
 done
-printf '#!/bin/sh\necho %s\n' "$version" >"$work/release/agentclip_${version}_${os}_${arch}/agentclip"
-chmod +x "$work/release/agentclip_${version}_${os}_${arch}/agentclip"
-tar -C "$work/release" -czf "$work/archive.tar.gz" "agentclip_${version}_${os}_${arch}"
+printf '#!/bin/sh\necho %s\n' "$version" >"$work/release/agentport_${version}_${os}_${arch}/agentport"
+chmod +x "$work/release/agentport_${version}_${os}_${arch}/agentport"
+tar -C "$work/release" -czf "$work/archive.tar.gz" "agentport_${version}_${os}_${arch}"
 if command -v sha256sum >/dev/null 2>&1; then
   digest="$(sha256sum "$work/archive.tar.gz" | awk '{ print $1 }')"
 else
@@ -100,7 +100,7 @@ case "$url" in
     serve "$WORK/attestation.jsonl"
     ;;
   */checksums.txt) serve "$WORK/checksums.txt" ;;
-  */agentclip_*.tar.gz) serve "$WORK/archive.tar.gz" ;;
+  */agentport_*.tar.gz) serve "$WORK/archive.tar.gz" ;;
   https://api.github.com/*/attestations/sha256:*)
     echo "$url" >>"$WORK/api.log"
     [ "${API_UNREACHABLE:-0}" = "1" ] && exit 7
@@ -131,7 +131,7 @@ run_install() {
   : >"$work/api.log"
   : >"$work/gh.log"
   set +e
-  env WORK="$work" PATH="$work/bin:$work/tools" AGENTCLIP_REPOSITORY="$repository" AGENTCLIP_INSTALL_DIR="$work/install" "$@" \
+  env WORK="$work" PATH="$work/bin:$work/tools" AGENTPORT_REPOSITORY="$repository" AGENTPORT_INSTALL_DIR="$work/install" "$@" \
     sh "$installer" --version "$version" >"$work/out.log" 2>&1
   code=$?
   set -e
@@ -140,7 +140,7 @@ run_install() {
     sed 's/^/     | /' "$work/out.log"
   fi
 }
-installed() { [ -x "$work/install/agentclip" ]; }
+installed() { [ -x "$work/install/agentport" ]; }
 gh_ran_verify() { grep -q '^attestation verify /' "$work/gh.log"; }
 api_was_queried() { [ -s "$work/api.log" ]; }
 good_api() { api_body "$digest" "refs/tags/$version" "$repository" ".github/workflows/release.yml" >"$work/api.json"; }
@@ -171,7 +171,7 @@ api_body "$digest" "refs/heads/main" "$repository" ".github/workflows/release.ym
 run_install "attestation made from a branch: refuses" 1
 api_body "$digest" "refs/tags/v9.9.9" "$repository" ".github/workflows/release.yml" >"$work/api.json"
 run_install "attestation made for another tag: refuses" 1
-api_body "$digest" "refs/tags/$version" "attacker/agentclip" ".github/workflows/release.yml" >"$work/api.json"
+api_body "$digest" "refs/tags/$version" "attacker/agentport" ".github/workflows/release.yml" >"$work/api.json"
 run_install "attestation made in another repository: refuses" 1
 api_body "$digest" "refs/tags/$version" "$repository" ".github/workflows/evil.yml" >"$work/api.json"
 run_install "attestation made by another workflow: refuses" 1
@@ -182,38 +182,38 @@ if installed; then fail "  nothing was installed"; else pass "  nothing was inst
 good_api
 run_install "no attestation (HTTP 404): refuses" 1 API_STATUS=404
 run_install "API rate limited (HTTP 403): refuses and explains the opt-out" 1 API_STATUS=403
-expect "  the message mentions AGENTCLIP_SKIP_ATTESTATION" grep -q AGENTCLIP_SKIP_ATTESTATION "$work/out.log"
+expect "  the message mentions AGENTPORT_SKIP_ATTESTATION" grep -q AGENTPORT_SKIP_ATTESTATION "$work/out.log"
 run_install "API unreachable: refuses" 1 API_UNREACHABLE=1
 
-run_install "explicit opt-out installs with only the SHA-256 check" 0 API_STATUS=404 AGENTCLIP_SKIP_ATTESTATION=1
-expect "  the opt-out was announced" grep -q 'AGENTCLIP_SKIP_ATTESTATION=1' "$work/out.log"
+run_install "explicit opt-out installs with only the SHA-256 check" 0 API_STATUS=404 AGENTPORT_SKIP_ATTESTATION=1
+expect "  the opt-out was announced" grep -q 'AGENTPORT_SKIP_ATTESTATION=1' "$work/out.log"
 if api_was_queried; then fail "  the API is not consulted after the opt-out"; else pass "  the API is not consulted after the opt-out"; fi
 
 # A release that predates attestations cannot have one.
 version="v0.7.0"
-asset="agentclip_${version}_${os}_${arch}.tar.gz"
-mkdir -p "$work/release/agentclip_${version}_${os}_${arch}"
-cp "$work/release/agentclip_v0.7.1_${os}_${arch}/agentclip" "$work/release/agentclip_${version}_${os}_${arch}/agentclip"
-tar -C "$work/release" -czf "$work/archive.tar.gz" "agentclip_${version}_${os}_${arch}"
+asset="agentport_${version}_${os}_${arch}.tar.gz"
+mkdir -p "$work/release/agentport_${version}_${os}_${arch}"
+cp "$work/release/agentport_v0.7.1_${os}_${arch}/agentport" "$work/release/agentport_${version}_${os}_${arch}/agentport"
+tar -C "$work/release" -czf "$work/archive.tar.gz" "agentport_${version}_${os}_${arch}"
 if command -v sha256sum >/dev/null 2>&1; then digest="$(sha256sum "$work/archive.tar.gz" | awk '{ print $1 }')"; else digest="$(shasum -a 256 "$work/archive.tar.gz" | awk '{ print $1 }')"; fi
 printf '%s  %s\n' "$digest" "$asset" >"$work/checksums.txt"
 run_install "release before v0.7.1-rc.1 installs with a warning" 0 API_STATUS=404
 expect "  the warning says it predates attestations" grep -q 'predates build attestations' "$work/out.log"
 
-# The language is chosen by AGENTCLIP_LANG alone: Portuguese only when asked,
+# The language is chosen by AGENTPORT_LANG alone: Portuguese only when asked,
 # and English for anything else, including a system locale.
-run_install "the same install in Brazilian Portuguese" 0 API_STATUS=404 AGENTCLIP_LANG=pt-BR
+run_install "the same install in Brazilian Portuguese" 0 API_STATUS=404 AGENTPORT_LANG=pt-BR
 expect "  the warning is in Portuguese" grep -q 'anterior aos atestados' "$work/out.log"
 expect "  the PATH instruction is in Portuguese" grep -q 'ao PATH e abra um novo terminal' "$work/out.log"
-expect "  and no English status line is left" sh -c '! grep -q "Downloading AgentClip\|Version found\|Binary available\|to PATH\|Installed version\|predates" "$1"' _ "$work/out.log"
-run_install "an unsupported language is English" 0 API_STATUS=404 AGENTCLIP_LANG=fr LANG=pt_BR.UTF-8 LC_ALL=pt_BR.UTF-8
+expect "  and no English status line is left" sh -c '! grep -q "Downloading agentport\|Version found\|Binary available\|to PATH\|Installed version\|predates" "$1"' _ "$work/out.log"
+run_install "an unsupported language is English" 0 API_STATUS=404 AGENTPORT_LANG=fr LANG=pt_BR.UTF-8 LC_ALL=pt_BR.UTF-8
 expect "  the system locale is not consulted" grep -q 'predates build attestations' "$work/out.log"
-expect "  the status lines are English" grep -q 'Downloading AgentClip' "$work/out.log"
+expect "  the status lines are English" grep -q 'Downloading agentport' "$work/out.log"
 expect "  the PATH instruction is English" grep -q 'to PATH, then open a new terminal' "$work/out.log"
 
 # A checksum mismatch is still fatal, before any attestation is consulted.
 printf '%s  %s\n' "0000000000000000000000000000000000000000000000000000000000000000" "$asset" >"$work/checksums.txt"
-run_install "SHA-256 mismatch: refuses" 1 AGENTCLIP_SKIP_ATTESTATION=1
+run_install "SHA-256 mismatch: refuses" 1 AGENTPORT_SKIP_ATTESTATION=1
 
 echo
 if [ "$failures" -ne 0 ]; then

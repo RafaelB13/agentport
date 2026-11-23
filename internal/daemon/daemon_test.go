@@ -17,7 +17,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/bridge"
 )
 
 func validPNG(t *testing.T) []byte {
@@ -216,7 +216,7 @@ func TestInboundTextContentRequiresControlToken(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/octet-stream" || response.Header.Get("X-AgentClip-Previewable") != "true" {
+	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/octet-stream" || response.Header.Get("X-agentport-Previewable") != "true" {
 		t.Fatalf("content status = %d %q", response.StatusCode, response.Header.Get("Content-Type"))
 	}
 	if data, err := io.ReadAll(response.Body); err != nil || !bytes.Equal(data, contents) {

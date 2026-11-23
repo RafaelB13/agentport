@@ -98,8 +98,8 @@ func TestReadmesAgreeOnTheAttestationSettings(t *testing.T) {
 		}
 	}
 	for _, name := range []string{"README.md", "README.en.md"} {
-		if !strings.Contains(read(t, name), "AGENTCLIP_SKIP_ATTESTATION=1") {
-			t.Errorf("%s does not document AGENTCLIP_SKIP_ATTESTATION=1", name)
+		if !strings.Contains(read(t, name), "AGENTPORT_SKIP_ATTESTATION=1") {
+			t.Errorf("%s does not document AGENTPORT_SKIP_ATTESTATION=1", name)
 		}
 	}
 }

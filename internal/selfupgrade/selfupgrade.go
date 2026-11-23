@@ -1,4 +1,4 @@
-// Package selfupgrade orchestrates `agentclip upgrade`: it updates every
+// Package selfupgrade orchestrates `agentport upgrade`: it updates every
 // configured server, then replaces the running executable and restarts the
 // Companions that were active. The effects (SSH, processes, the filesystem) are
 // injected, so every ordering and recovery path can be tested without them.
@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/i18n"
-	"github.com/wendellrocha/agentclip/internal/release"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/release"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 // Runner holds the steps of an upgrade. Every field is required except the
@@ -67,11 +67,11 @@ func (r Runner) Run(ctx context.Context) error {
 
 	tag, err := r.LatestTag(ctx)
 	if err != nil {
-		return fmt.Errorf("resolve latest AgentClip release: %w", err)
+		return fmt.Errorf("resolve latest agentport release: %w", err)
 	}
 	executable, err := r.Executable()
 	if err != nil {
-		return fmt.Errorf("locate running AgentClip executable: %w", err)
+		return fmt.Errorf("locate running agentport executable: %w", err)
 	}
 	if r.localIsCurrent(tag) {
 		return r.updateServersOnly(tag, stdout)
@@ -79,10 +79,10 @@ func (r Runner) Run(ctx context.Context) error {
 	// Downloading and verifying this machine's binary comes first and takes a
 	// while, so it is announced: without a line here the output would seem to
 	// start with the servers.
-	fmt.Fprintln(stdout, i18n.T("Downloading and verifying AgentClip %s for this machine...", tag))
+	fmt.Fprintln(stdout, i18n.T("Downloading and verifying agentport %s for this machine...", tag))
 	staged, err := r.Prepare(ctx, tag, executable)
 	if err != nil {
-		return fmt.Errorf("prepare AgentClip %s: %w", tag, err)
+		return fmt.Errorf("prepare agentport %s: %w", tag, err)
 	}
 	if staged.Notice != "" {
 		fmt.Fprintln(stderr, i18n.T("warning:"), staged.Notice)
@@ -120,7 +120,7 @@ func (r Runner) Run(ctx context.Context) error {
 		if HasFailure(results) {
 			return errors.New("one or more remote hosts could not be updated; the local update will finish shortly")
 		}
-		fmt.Fprintln(stdout, i18n.T("AgentClip %s will replace itself and restart %d Companion(s) shortly.", tag, len(active)))
+		fmt.Fprintln(stdout, i18n.T("agentport %s will replace itself and restart %d Companion(s) shortly.", tag, len(active)))
 		return nil
 	}
 	// The servers are done and the Companions are stopped; only now does this
@@ -130,7 +130,7 @@ func (r Runner) Run(ctx context.Context) error {
 	if err := r.Replace(staged.Path, staged.Target); err != nil {
 		staged.Cleanup()
 		_ = r.RestartCompanions(active)
-		return fmt.Errorf("replace AgentClip executable: %w", err)
+		return fmt.Errorf("replace agentport executable: %w", err)
 	}
 	if len(active) > 0 {
 		fmt.Fprintln(stdout, i18n.T("Restarting %d Companion(s)...", len(active)))
@@ -143,7 +143,7 @@ func (r Runner) Run(ctx context.Context) error {
 	if HasFailure(results) {
 		return errors.New("one or more remote hosts could not be updated")
 	}
-	fmt.Fprintln(stdout, i18n.T("AgentClip updated to %s.", tag))
+	fmt.Fprintln(stdout, i18n.T("agentport updated to %s.", tag))
 	return nil
 }
 
@@ -173,7 +173,7 @@ func (r Runner) updateServersOnly(tag string, stdout io.Writer) error {
 	if HasFailure(results) {
 		return errors.New("one or more remote hosts could not be updated")
 	}
-	fmt.Fprintln(stdout, i18n.T("AgentClip is already up to date (%s).", r.CurrentVersion))
+	fmt.Fprintln(stdout, i18n.T("agentport is already up to date (%s).", r.CurrentVersion))
 	return nil
 }
 

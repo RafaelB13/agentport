@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 // fastTunnel makes the reconnection quick enough to watch in a test.
@@ -49,10 +49,10 @@ func fakeSSH(t *testing.T, failures, dropAt int, dropAfter time.Duration) fakeTu
 	}
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 	t.Setenv(fakeSSHEnv, "1")
-	t.Setenv("AGENTCLIP_TEST_FAKE_SSH_DIR", dir)
-	t.Setenv("AGENTCLIP_TEST_FAKE_SSH_FAILURES", strconv.Itoa(failures))
-	t.Setenv("AGENTCLIP_TEST_FAKE_SSH_DROP_AT", strconv.Itoa(dropAt))
-	t.Setenv("AGENTCLIP_TEST_FAKE_SSH_DROP_AFTER", dropAfter.String())
+	t.Setenv("AGENTPORT_TEST_FAKE_SSH_DIR", dir)
+	t.Setenv("AGENTPORT_TEST_FAKE_SSH_FAILURES", strconv.Itoa(failures))
+	t.Setenv("AGENTPORT_TEST_FAKE_SSH_DROP_AT", strconv.Itoa(dropAt))
+	t.Setenv("AGENTPORT_TEST_FAKE_SSH_DROP_AFTER", dropAfter.String())
 	return fakeTunnel{dir: dir}
 }
 

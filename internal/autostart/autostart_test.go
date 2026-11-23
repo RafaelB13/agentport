@@ -8,7 +8,7 @@ import (
 )
 
 func spec() Spec {
-	return Spec{Profile: "vortx", Executable: "/Users/me/.local/bin/agentclip", HomeDir: "/Users/me", UID: 501, LogPath: "/Users/me/Library/Caches/agentclip/logs/vortx.autostart.log"}
+	return Spec{Profile: "vortx", Executable: "/Users/me/.local/bin/agentport", HomeDir: "/Users/me", UID: 501, LogPath: "/Users/me/Library/Caches/agentport/logs/vortx.autostart.log"}
 }
 
 func TestPlanForRefusesWhatCouldEscapeAFileNameOrACommand(t *testing.T) {
@@ -20,7 +20,7 @@ func TestPlanForRefusesWhatCouldEscapeAFileNameOrACommand(t *testing.T) {
 		}
 	}
 	relative := spec()
-	relative.Executable = "agentclip"
+	relative.Executable = "agentport"
 	if _, err := PlanFor("linux", relative); err == nil {
 		t.Error("a relative executable path was accepted")
 	}
@@ -35,15 +35,15 @@ func TestDarwinPlanIsAValidLaunchAgentThatRunsTheCompanionAtLogin(t *testing.T) 
 		t.Fatal(err)
 	}
 	file := plan.Files[0]
-	if file.Path != "/Users/me/Library/LaunchAgents/com.wendellrocha.agentclip.vortx.plist" {
+	if file.Path != "/Users/me/Library/LaunchAgents/com.rafaelb13.agentport.vortx.plist" {
 		t.Errorf("path = %s", file.Path)
 	}
 	if err := xml.Unmarshal([]byte(file.Content), new(struct{ XMLName xml.Name })); err != nil {
 		t.Fatalf("the property list is not well-formed XML: %v\n%s", err, file.Content)
 	}
 	for _, want := range []string{
-		"<string>com.wendellrocha.agentclip.vortx</string>",
-		"<string>/Users/me/.local/bin/agentclip</string>\n\t\t<string>companion</string>\n\t\t<string>serve</string>\n\t\t<string>vortx</string>",
+		"<string>com.rafaelb13.agentport.vortx</string>",
+		"<string>/Users/me/.local/bin/agentport</string>\n\t\t<string>companion</string>\n\t\t<string>serve</string>\n\t\t<string>vortx</string>",
 		"<key>RunAtLoad</key>\n\t<true/>",
 		"<key>SuccessfulExit</key>\n\t\t<false/>",
 	} {
@@ -51,10 +51,10 @@ func TestDarwinPlanIsAValidLaunchAgentThatRunsTheCompanionAtLogin(t *testing.T) 
 			t.Errorf("the property list lacks %q:\n%s", want, file.Content)
 		}
 	}
-	if got := plan.Enable[0].String(); got != "launchctl bootstrap gui/501 /Users/me/Library/LaunchAgents/com.wendellrocha.agentclip.vortx.plist" {
+	if got := plan.Enable[0].String(); got != "launchctl bootstrap gui/501 /Users/me/Library/LaunchAgents/com.rafaelb13.agentport.vortx.plist" {
 		t.Errorf("enable = %s", got)
 	}
-	if got := plan.Disable[0].String(); got != "launchctl bootout gui/501/com.wendellrocha.agentclip.vortx" {
+	if got := plan.Disable[0].String(); got != "launchctl bootout gui/501/com.rafaelb13.agentport.vortx" {
 		t.Errorf("disable = %s", got)
 	}
 }
@@ -63,7 +63,7 @@ func TestDarwinPlanIsAValidLaunchAgentThatRunsTheCompanionAtLogin(t *testing.T) 
 // smuggle in another argument.
 func TestDarwinPlanEscapesThePathsItWrites(t *testing.T) {
 	s := spec()
-	s.Executable = "/Users/me/A&B <x>/agentclip"
+	s.Executable = "/Users/me/A&B <x>/agentport"
 	plan, err := PlanFor("darwin", s)
 	if err != nil {
 		t.Fatal(err)
@@ -72,7 +72,7 @@ func TestDarwinPlanEscapesThePathsItWrites(t *testing.T) {
 	if err := xml.Unmarshal([]byte(content), new(struct{ XMLName xml.Name })); err != nil {
 		t.Fatalf("not well-formed after escaping: %v", err)
 	}
-	if !strings.Contains(content, "/Users/me/A&amp;B &lt;x&gt;/agentclip") || strings.Contains(content, "<x>") {
+	if !strings.Contains(content, "/Users/me/A&amp;B &lt;x&gt;/agentport") || strings.Contains(content, "<x>") {
 		t.Errorf("the path was not escaped:\n%s", content)
 	}
 }
@@ -83,10 +83,10 @@ func TestLinuxPlanIsASystemdUserUnit(t *testing.T) {
 		t.Fatal(err)
 	}
 	file := plan.Files[0]
-	if file.Path != "/Users/me/.config/systemd/user/agentclip-vortx.service" {
+	if file.Path != "/Users/me/.config/systemd/user/agentport-vortx.service" {
 		t.Errorf("path = %s", file.Path)
 	}
-	for _, want := range []string{"ExecStart=/Users/me/.local/bin/agentclip companion serve vortx", "Restart=on-failure", "WantedBy=default.target"} {
+	for _, want := range []string{"ExecStart=/Users/me/.local/bin/agentport companion serve vortx", "Restart=on-failure", "WantedBy=default.target"} {
 		if !strings.Contains(file.Content, want) {
 			t.Errorf("the unit lacks %q:\n%s", want, file.Content)
 		}
@@ -95,7 +95,7 @@ func TestLinuxPlanIsASystemdUserUnit(t *testing.T) {
 	for _, command := range plan.Enable {
 		enable = append(enable, command.String())
 	}
-	if strings.Join(enable, ";") != "systemctl --user daemon-reload;systemctl --user enable --now agentclip-vortx.service" {
+	if strings.Join(enable, ";") != "systemctl --user daemon-reload;systemctl --user enable --now agentport-vortx.service" {
 		t.Errorf("enable = %v", enable)
 	}
 }
@@ -104,12 +104,12 @@ func TestLinuxPlanIsASystemdUserUnit(t *testing.T) {
 // of them is quoted and escaped rather than trusted.
 func TestSystemdQuoteProtectsSpacesAndSpecifiers(t *testing.T) {
 	for word, want := range map[string]string{
-		"/usr/bin/agentclip":          "/usr/bin/agentclip",
-		"/home/me/my tools/agentclip": `"/home/me/my tools/agentclip"`,
-		"/opt/100%/agentclip":         `"/opt/100%%/agentclip"`,
-		"/opt/$HOME/agentclip":        `"/opt/$$HOME/agentclip"`,
-		`/opt/a"b/agentclip`:          `"/opt/a\"b/agentclip"`,
-		`/opt/a\b/agentclip`:          `"/opt/a\\b/agentclip"`,
+		"/usr/bin/agentport":          "/usr/bin/agentport",
+		"/home/me/my tools/agentport": `"/home/me/my tools/agentport"`,
+		"/opt/100%/agentport":         `"/opt/100%%/agentport"`,
+		"/opt/$HOME/agentport":        `"/opt/$$HOME/agentport"`,
+		`/opt/a"b/agentport`:          `"/opt/a\"b/agentport"`,
+		`/opt/a\b/agentport`:          `"/opt/a\\b/agentport"`,
 		"":                            `""`,
 	} {
 		if got := systemdQuote(word); got != want {
@@ -120,7 +120,7 @@ func TestSystemdQuoteProtectsSpacesAndSpecifiers(t *testing.T) {
 
 func TestWindowsPlanCreatesALogonTaskWithoutFiles(t *testing.T) {
 	s := spec()
-	s.Executable = `C:\Program Files\AgentClip\agentclip.exe`
+	s.Executable = `C:\Program Files\agentport\agentport.exe`
 	plan, err := PlanFor("windows", s)
 	if err != nil {
 		t.Fatal(err)
@@ -129,12 +129,12 @@ func TestWindowsPlanCreatesALogonTaskWithoutFiles(t *testing.T) {
 		t.Fatalf("plan = %+v", plan)
 	}
 	create := plan.Enable[0].String()
-	for _, want := range []string{"/SC ONLOGON", "/RL LIMITED", "/TN com.wendellrocha.agentclip.vortx", `/TR "C:\Program Files\AgentClip\agentclip.exe" companion serve vortx`} {
+	for _, want := range []string{"/SC ONLOGON", "/RL LIMITED", "/TN com.rafaelb13.agentport.vortx", `/TR "C:\Program Files\agentport\agentport.exe" companion serve vortx`} {
 		if !strings.Contains(create, want) {
 			t.Errorf("create task %q lacks %q", create, want)
 		}
 	}
-	if got := plan.Disable[0].String(); !strings.Contains(got, "/Delete /F /TN com.wendellrocha.agentclip.vortx") {
+	if got := plan.Disable[0].String(); !strings.Contains(got, "/Delete /F /TN com.rafaelb13.agentport.vortx") {
 		t.Errorf("delete = %s", got)
 	}
 }
@@ -222,7 +222,7 @@ func TestDarwinEnableCreatesTheLogDirectoryBeforeLoadingTheAgent(t *testing.T) {
 	if err := f.runner("darwin").Enable(spec()); err != nil {
 		t.Fatal(err)
 	}
-	if len(f.dirs) != 1 || f.dirs[0] != "/Users/me/Library/Caches/agentclip/logs" {
+	if len(f.dirs) != 1 || f.dirs[0] != "/Users/me/Library/Caches/agentport/logs" {
 		t.Fatalf("directories = %v, want the directory of the log", f.dirs)
 	}
 	mkdir, bootstrap := -1, -1
@@ -336,7 +336,7 @@ func TestWindowsEnabledAsksTheTaskScheduler(t *testing.T) {
 // lookup depends on is written into the definition.
 func TestEnvironmentIsWrittenIntoTheServiceDefinition(t *testing.T) {
 	s := spec()
-	s.Environment = map[string]string{"AGENTCLIP_CONFIG_DIR": "/data/my config & more/%h"}
+	s.Environment = map[string]string{"AGENTPORT_CONFIG_DIR": "/data/my config & more/%h"}
 	darwin, err := PlanFor("darwin", s)
 	if err != nil {
 		t.Fatal(err)
@@ -344,17 +344,17 @@ func TestEnvironmentIsWrittenIntoTheServiceDefinition(t *testing.T) {
 	if err := xml.Unmarshal([]byte(darwin.Files[0].Content), new(struct{ XMLName xml.Name })); err != nil {
 		t.Fatalf("plist: %v", err)
 	}
-	if !strings.Contains(darwin.Files[0].Content, "<key>EnvironmentVariables</key>") || !strings.Contains(darwin.Files[0].Content, "<key>AGENTCLIP_CONFIG_DIR</key>\n\t\t<string>/data/my config &amp; more/%h</string>") {
+	if !strings.Contains(darwin.Files[0].Content, "<key>EnvironmentVariables</key>") || !strings.Contains(darwin.Files[0].Content, "<key>AGENTPORT_CONFIG_DIR</key>\n\t\t<string>/data/my config &amp; more/%h</string>") {
 		t.Errorf("plist lacks the environment:\n%s", darwin.Files[0].Content)
 	}
 	linux, err := PlanFor("linux", s)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(linux.Files[0].Content, `Environment="AGENTCLIP_CONFIG_DIR=/data/my config & more/%%h"`) {
+	if !strings.Contains(linux.Files[0].Content, `Environment="AGENTPORT_CONFIG_DIR=/data/my config & more/%%h"`) {
 		t.Errorf("unit lacks the quoted environment (specifiers doubled):\n%s", linux.Files[0].Content)
 	}
-	if _, err := PlanFor("windows", s); err == nil || !strings.Contains(err.Error(), "AGENTCLIP_CONFIG_DIR") {
+	if _, err := PlanFor("windows", s); err == nil || !strings.Contains(err.Error(), "AGENTPORT_CONFIG_DIR") {
 		t.Errorf("a Windows task cannot carry the environment; err = %v", err)
 	}
 	plain, _ := PlanFor("darwin", spec())

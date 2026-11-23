@@ -375,12 +375,12 @@ func (b *Bridge) pruneInboundLocked(now time.Time) {
 func writeInboundFile(profile, offerID, name string, size int64, checksum string, body io.Reader) (string, error) {
 	cache, err := os.UserCacheDir()
 	if err != nil {
-		return "", fmt.Errorf("find local AgentClip inbox: %w", err)
+		return "", fmt.Errorf("find local agentport inbox: %w", err)
 	}
 	if !validInboundProfile(profile) || !inboundComponentPattern.MatchString(offerID) || !validInboundName(name) {
 		return "", errInboundStorage
 	}
-	root := filepath.Join(cache, "agentclip", "received")
+	root := filepath.Join(cache, "agentport", "received")
 	directory := filepath.Join(root, profile, offerID)
 	if !within(root, directory) {
 		return "", errInboundStorage
@@ -391,7 +391,7 @@ func writeInboundFile(profile, offerID, name string, size int64, checksum string
 	if err := os.Chmod(directory, 0700); err != nil {
 		return "", err
 	}
-	temporary, err := os.CreateTemp(directory, ".agentclip-inbound-")
+	temporary, err := os.CreateTemp(directory, ".agentport-inbound-")
 	if err != nil {
 		return "", err
 	}

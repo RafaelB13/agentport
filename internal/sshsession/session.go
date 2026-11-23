@@ -1,4 +1,4 @@
-// Package sshsession builds the SSH invocation that connects AgentClip's local
+// Package sshsession builds the SSH invocation that connects agentport's local
 // bridge to an interactive remote shell.
 package sshsession
 
@@ -81,9 +81,9 @@ func remoteShell(remotePort int, session Session, remoteCommand []string) string
 	// Session values use RawURLEncoding and the port is an integer, so they do
 	// not require shell interpolation or quote escaping.
 	commands := []string{
-		"export AGENTCLIP_SESSION=" + session.ID,
-		"export AGENTCLIP_BRIDGE_PORT=" + strconv.Itoa(remotePort),
-		"export AGENTCLIP_SESSION_TOKEN=" + session.Token,
+		"export AGENTPORT_SESSION=" + session.ID,
+		"export AGENTPORT_BRIDGE_PORT=" + strconv.Itoa(remotePort),
+		"export AGENTPORT_SESSION_TOKEN=" + session.Token,
 	}
 	if len(remoteCommand) == 0 {
 		commands = append(commands, `exec "${SHELL:-/bin/sh}" -l`)

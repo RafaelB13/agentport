@@ -139,7 +139,7 @@ func TestDeliveryUsesTheDefaultFolderWhenTheSessionNamesAnUnsafeProfile(t *testi
 		t.Fatalf("received = %+v", status.Received)
 	}
 	path := status.Received[0].Path
-	root := filepath.Join(cache, "agentclip", "received")
+	root := filepath.Join(cache, "agentport", "received")
 	if !within(root, path) || !strings.HasPrefix(path, filepath.Join(root, "default")+string(filepath.Separator)) {
 		t.Fatalf("file landed in %q, want it under %q", path, filepath.Join(root, "default"))
 	}
@@ -166,7 +166,7 @@ func TestWriteInboundFileRefusesAnUnsafeDestinationBeforeTouchingTheDisk(t *test
 			}
 		})
 	}
-	if _, err := os.Stat(filepath.Join(cache, "agentclip", "x")); err == nil {
+	if _, err := os.Stat(filepath.Join(cache, "agentport", "x")); err == nil {
 		t.Fatal("a refused write still created a directory outside the inbox")
 	}
 }

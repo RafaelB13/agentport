@@ -1,8 +1,8 @@
-const base = document.querySelector('meta[name="agentclip-base"]').content;
-const lang = document.querySelector('meta[name="agentclip-lang"]').content;
+const base = document.querySelector('meta[name="agentport-base"]').content;
+const lang = document.querySelector('meta[name="agentport-lang"]').content;
 // The server sends the translations for the page's language (none for English,
 // which is the text written here). t() falls back to the English text it is given.
-const messages = JSON.parse(document.querySelector('meta[name="agentclip-i18n"]').content);
+const messages = JSON.parse(document.querySelector('meta[name="agentport-i18n"]').content);
 function t(message, ...args) {
   let text = messages[message] ?? message;
   for (const arg of args) text = text.replace(/%[sd]/, String(arg));
@@ -97,7 +97,7 @@ function statusRows(s, connected) {
     statusRow(t('Expires'), s.clipboard?.armed && s.clipboard?.expires_at ? text(formatDateTime(s.clipboard.expires_at)) : '—'),
   ];
   if (s.tunnel?.last_error) rows.push(statusRow(t('Last error'), h('span', {class: 'bad'}, text(s.tunnel.last_error))));
-  if (s.release?.update_available) rows.push(statusRow(t('Update available'), h('span', {class: 'bad'}, h('code', null, text(s.release.latest_version)), t(' · run '), h('code', null, 'agentclip upgrade'))));
+  if (s.release?.update_available) rows.push(statusRow(t('Update available'), h('span', {class: 'bad'}, h('code', null, text(s.release.latest_version)), t(' · run '), h('code', null, 'agentport upgrade'))));
   else if (s.release?.error) rows.push(statusRow(t('Update'), h('span', {class: 'muted'}, text(s.release.error))));
   return rows;
 }

@@ -12,20 +12,20 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
-// binaryPath is the agentclip executable built once for these tests. They run
+// binaryPath is the agentport executable built once for these tests. They run
 // the real binary, so the dispatch in main and the exit codes users and scripts
 // depend on are covered, not only the helpers behind them.
 var binaryPath string
 
 func TestMain(m *testing.M) {
-	directory, err := os.MkdirTemp("", "agentclip-cli-")
+	directory, err := os.MkdirTemp("", "agentport-cli-")
 	if err != nil {
 		panic(err)
 	}
-	binaryPath = filepath.Join(directory, "agentclip")
+	binaryPath = filepath.Join(directory, "agentport")
 	if runtime.GOOS == "windows" {
 		binaryPath += ".exe"
 	}
@@ -33,7 +33,7 @@ func TestMain(m *testing.M) {
 	// cache stays where it is.
 	if output, err := exec.Command("go", "build", "-o", binaryPath, ".").CombinedOutput(); err != nil {
 		os.RemoveAll(directory)
-		panic("build agentclip: " + err.Error() + "\n" + string(output))
+		panic("build agentport: " + err.Error() + "\n" + string(output))
 	}
 	// os.Exit skips deferred calls, so clean up before it.
 	code := testenv.Main(m)
@@ -65,7 +65,7 @@ func runCLIEnv(t *testing.T, env []string, args ...string) cliResult {
 	case errors.As(err, &exit):
 		result.exitCode = exit.ExitCode()
 	default:
-		t.Fatalf("agentclip %v: %v", args, err)
+		t.Fatalf("agentport %v: %v", args, err)
 	}
 	return result
 }
@@ -80,16 +80,16 @@ func TestCLIVersionAndHelp(t *testing.T) {
 	for _, args := range [][]string{nil, {"help"}, {"-h"}, {"--help"}} {
 		result := runCLI(t, args...)
 		if result.exitCode != 0 || result.stderr != "" {
-			t.Fatalf("agentclip %v = exit %d, stderr %q, want a quiet exit 0", args, result.exitCode, result.stderr)
+			t.Fatalf("agentport %v = exit %d, stderr %q, want a quiet exit 0", args, result.exitCode, result.stderr)
 		}
-		for _, want := range []string{"Usage:", "agentclip help [command]", "setup", "upgrade", "companion", "Set up a server:", "AGENTCLIP_LANG"} {
+		for _, want := range []string{"Usage:", "agentport help [command]", "setup", "upgrade", "companion", "Set up a server:", "AGENTPORT_LANG"} {
 			if !strings.Contains(result.stdout, want) {
-				t.Errorf("agentclip %v does not mention %q:\n%s", args, want, result.stdout)
+				t.Errorf("agentport %v does not mention %q:\n%s", args, want, result.stdout)
 			}
 		}
 	}
 	// An unknown command is a mistake: it says so, points at help and exits 2.
-	if result := runCLI(t, "bogus"); result.exitCode != 2 || !strings.Contains(result.stderr, `unknown command "bogus"`) || !strings.Contains(result.stderr, "agentclip help") {
+	if result := runCLI(t, "bogus"); result.exitCode != 2 || !strings.Contains(result.stderr, `unknown command "bogus"`) || !strings.Contains(result.stderr, "agentport help") {
 		t.Fatalf("unknown command = %+v", result)
 	}
 	if result := runCLI(t, "help", "bogus"); result.exitCode != 2 || !strings.Contains(result.stderr, `unknown command "bogus"`) {
@@ -102,26 +102,26 @@ func TestCLICommandHelp(t *testing.T) {
 	for _, args := range [][]string{{"help", "setup"}, {"setup", "--help"}, {"setup", "-h"}, {"setup", "help"}} {
 		result := runCLI(t, args...)
 		if result.exitCode != 0 || result.stderr != "" {
-			t.Fatalf("agentclip %v = exit %d, stderr %q", args, result.exitCode, result.stderr)
+			t.Fatalf("agentport %v = exit %d, stderr %q", args, result.exitCode, result.stderr)
 		}
-		for _, want := range []string{"Usage:", "agentclip setup <ssh-destination>", "--profile NAME", "--no-start", "Install and configure a server in one step"} {
+		for _, want := range []string{"Usage:", "agentport setup <ssh-destination>", "--profile NAME", "--no-start", "Install and configure a server in one step"} {
 			if !strings.Contains(result.stdout, want) {
-				t.Errorf("agentclip %v does not mention %q:\n%s", args, want, result.stdout)
+				t.Errorf("agentport %v does not mention %q:\n%s", args, want, result.stdout)
 			}
 		}
 	}
 	// An alias reaches the same help, and says it is an alias.
-	if result := runCLI(t, "help", "disconnect"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentclip uninstall <profile>") || !strings.Contains(result.stdout, "Also known as: disconnect") {
+	if result := runCLI(t, "help", "disconnect"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentport uninstall <profile>") || !strings.Contains(result.stdout, "Also known as: disconnect") {
 		t.Fatalf("help for an alias = %+v", result)
 	}
-	if result := runCLI(t, "companion", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "autostart") || !strings.Contains(result.stdout, "agentclip companion <accept|reject>") {
+	if result := runCLI(t, "companion", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "autostart") || !strings.Contains(result.stdout, "agentport companion <accept|reject>") {
 		t.Fatalf("companion help = %+v", result)
 	}
 	// help is a command of its own, and is listed like the others.
-	if result := runCLI(t, "help", "help"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentclip help [command]") || !strings.Contains(result.stdout, "agentclip <command> --help") {
+	if result := runCLI(t, "help", "help"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentport help [command]") || !strings.Contains(result.stdout, "agentport <command> --help") {
 		t.Fatalf("help for help = %+v", result)
 	}
-	if result := runCLI(t, "help", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentclip help [command]") {
+	if result := runCLI(t, "help", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentport help [command]") {
 		t.Fatalf("help --help = %+v", result)
 	}
 	if result := runCLI(t); !strings.Contains(result.stdout, "\n  help ") {
@@ -133,11 +133,11 @@ func TestCLICommandHelp(t *testing.T) {
 	}
 }
 
-// The language is chosen by AGENTCLIP_LANG alone; anything unknown is English.
+// The language is chosen by AGENTPORT_LANG alone; anything unknown is English.
 func TestCLISpeaksPortugueseOnlyWhenAsked(t *testing.T) {
-	pt := []string{"AGENTCLIP_LANG=pt-BR"}
+	pt := []string{"AGENTPORT_LANG=pt-BR"}
 	help := runCLIEnv(t, pt)
-	for _, want := range []string{"Uso:", "Configurar um servidor:", "Atualiza esta máquina", "Defina AGENTCLIP_LANG=en-US"} {
+	for _, want := range []string{"Uso:", "Configurar um servidor:", "Atualiza esta máquina", "Defina AGENTPORT_LANG=en-US"} {
 		if !strings.Contains(help.stdout, want) {
 			t.Errorf("Portuguese help lacks %q:\n%s", want, help.stdout)
 		}
@@ -155,7 +155,7 @@ func TestCLISpeaksPortugueseOnlyWhenAsked(t *testing.T) {
 		t.Fatalf("Portuguese error = %+v", result)
 	}
 	// The syntax is not translated, and an unsupported or empty value is English.
-	for _, value := range []string{"AGENTCLIP_LANG=fr", "AGENTCLIP_LANG=", "AGENTCLIP_LANG=nonsense"} {
+	for _, value := range []string{"AGENTPORT_LANG=fr", "AGENTPORT_LANG=", "AGENTPORT_LANG=nonsense"} {
 		if result := runCLIEnv(t, []string{value}); !strings.Contains(result.stdout, "Usage:") {
 			t.Errorf("%s did not give English help:\n%s", value, result.stdout)
 		}
@@ -169,23 +169,23 @@ func TestCLICommandsRejectMissingArguments(t *testing.T) {
 		args []string
 		want string
 	}{
-		{[]string{"companion"}, "usage: agentclip companion"},
-		{[]string{"companion", "status"}, "usage: agentclip companion"},
-		{[]string{"companion", "bogus", "p"}, "usage: agentclip companion"},
-		{[]string{"logs"}, "usage: agentclip logs"},
-		{[]string{"pair"}, "usage: agentclip pair"},
-		{[]string{"pair", "p"}, "usage: agentclip pair"},
-		{[]string{"setup"}, "usage: agentclip setup"},
-		{[]string{"connect"}, "usage: agentclip connect"},
-		{[]string{"uninstall"}, "usage: agentclip uninstall"},
-		{[]string{"uninstall", "p"}, "usage: agentclip uninstall"},
-		{[]string{"harness"}, "usage: agentclip harness"},
-		{[]string{"harness", "install", "pi"}, "usage: agentclip harness"},
-		{[]string{"ssh"}, "usage: agentclip ssh"},
-		{[]string{"upgrade", "--bogus"}, "usage: agentclip upgrade"},
-		{[]string{"companion", "autostart"}, "usage: agentclip companion autostart"},
-		{[]string{"companion", "autostart", "enable"}, "usage: agentclip companion autostart"},
-		{[]string{"companion", "autostart", "bogus", "p"}, "usage: agentclip companion autostart"},
+		{[]string{"companion"}, "usage: agentport companion"},
+		{[]string{"companion", "status"}, "usage: agentport companion"},
+		{[]string{"companion", "bogus", "p"}, "usage: agentport companion"},
+		{[]string{"logs"}, "usage: agentport logs"},
+		{[]string{"pair"}, "usage: agentport pair"},
+		{[]string{"pair", "p"}, "usage: agentport pair"},
+		{[]string{"setup"}, "usage: agentport setup"},
+		{[]string{"connect"}, "usage: agentport connect"},
+		{[]string{"uninstall"}, "usage: agentport uninstall"},
+		{[]string{"uninstall", "p"}, "usage: agentport uninstall"},
+		{[]string{"harness"}, "usage: agentport harness"},
+		{[]string{"harness", "install", "pi"}, "usage: agentport harness"},
+		{[]string{"ssh"}, "usage: agentport ssh"},
+		{[]string{"upgrade", "--bogus"}, "usage: agentport upgrade"},
+		{[]string{"companion", "autostart"}, "usage: agentport companion autostart"},
+		{[]string{"companion", "autostart", "enable"}, "usage: agentport companion autostart"},
+		{[]string{"companion", "autostart", "bogus", "p"}, "usage: agentport companion autostart"},
 	} {
 		t.Run(strings.Join(test.args, " "), func(t *testing.T) {
 			result := runCLI(t, test.args...)
@@ -232,10 +232,10 @@ func TestCLICommandsOnAnUnknownProfileFailWithoutSideEffects(t *testing.T) {
 		t.Fatalf("logs of an unknown profile = exit %d, stderr %q", result.exitCode, result.stderr)
 	}
 	if cache, err := os.UserCacheDir(); err == nil {
-		if _, err := os.Stat(filepath.Join(cache, "agentclip", "bridge.json")); err == nil {
+		if _, err := os.Stat(filepath.Join(cache, "agentport", "bridge.json")); err == nil {
 			t.Error("a failed command left a bridge state file behind")
 		}
-		if _, err := os.Stat(filepath.Join(cache, "agentclip", "logs", "nope.log")); err == nil {
+		if _, err := os.Stat(filepath.Join(cache, "agentport", "logs", "nope.log")); err == nil {
 			t.Error("asking for the logs of an unknown profile created a log file")
 		}
 	}

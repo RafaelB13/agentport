@@ -11,9 +11,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/clipboard"
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/clipboard"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 type imageFake struct {
@@ -152,7 +152,7 @@ func TestLoggerWritesLevelsEscapesNewlinesAndExportsPrivately(t *testing.T) {
 
 func TestDebugLoggingIsOptInThroughTheEnvironment(t *testing.T) {
 	testenv.IsolateUserDirs(t)
-	t.Setenv("AGENTCLIP_LOG_LEVEL", "debug")
+	t.Setenv("AGENTPORT_LOG_LEVEL", "debug")
 	logger, err := NewLogger("verbose")
 	if err != nil {
 		t.Fatal(err)

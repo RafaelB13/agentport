@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/clipboard"
+	"github.com/rafaelb13/agentport/internal/clipboard"
 )
 
 // Watcher snapshots only new clipboard images. It keeps pixels local until

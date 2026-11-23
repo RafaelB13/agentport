@@ -10,12 +10,12 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/wendellrocha/agentclip/internal/autostart"
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/autostart"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
-const autostartUsage = "usage: agentclip companion autostart <enable|disable|status> <profile>"
+const autostartUsage = "usage: agentport companion autostart <enable|disable|status> <profile>"
 
 // runAutostart turns on, off or reports the start of a profile's Companion at
 // login. The profile must exist to enable it; it need not to disable, so a
@@ -38,7 +38,7 @@ func runAutostart(arguments []string, stdout io.Writer) error {
 		if err := runner.Enable(spec); err != nil {
 			return fmt.Errorf("turn on autostart for %q: %w", name, err)
 		}
-		fmt.Fprintln(stdout, i18n.T("Companion %q will start when you log in. Turn it off with: agentclip companion autostart disable %s", name, name))
+		fmt.Fprintln(stdout, i18n.T("Companion %q will start when you log in. Turn it off with: agentport companion autostart disable %s", name, name))
 	case "disable":
 		if err := runner.Disable(spec); err != nil {
 			return fmt.Errorf("turn off autostart for %q: %w", name, err)
@@ -63,7 +63,7 @@ func runAutostart(arguments []string, stdout io.Writer) error {
 func autostartSpec(name string) (autostart.Spec, error) {
 	executable, err := os.Executable()
 	if err != nil {
-		return autostart.Spec{}, fmt.Errorf("locate AgentClip executable: %w", err)
+		return autostart.Spec{}, fmt.Errorf("locate agentport executable: %w", err)
 	}
 	// The service should keep working when the binary is replaced in place by
 	// an upgrade, so name the path the user runs, not a versioned location.
@@ -75,10 +75,10 @@ func autostartSpec(name string) (autostart.Spec, error) {
 		return autostart.Spec{}, fmt.Errorf("locate the home directory: %w", err)
 	}
 	spec := autostart.Spec{Profile: name, Executable: executable, HomeDir: home, UID: os.Getuid(), LogPath: companionLogPath(name) + ".autostart"}
-	// The profile lives where AGENTCLIP_CONFIG_DIR says; a login service does not
+	// The profile lives where AGENTPORT_CONFIG_DIR says; a login service does not
 	// inherit this shell, so it has to be written into the service.
-	if directory := strings.TrimSpace(os.Getenv("AGENTCLIP_CONFIG_DIR")); directory != "" {
-		spec.Environment = map[string]string{"AGENTCLIP_CONFIG_DIR": directory}
+	if directory := strings.TrimSpace(os.Getenv("AGENTPORT_CONFIG_DIR")); directory != "" {
+		spec.Environment = map[string]string{"AGENTPORT_CONFIG_DIR": directory}
 	}
 	return spec, nil
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/i18n"
+	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
 type trackedReadCloser struct {
@@ -63,7 +63,7 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(string(markup), "AgentClip Companion") {
+	if !strings.Contains(string(markup), "agentport Companion") {
 		t.Fatal("dashboard markup missing")
 	}
 	// The renderer lives in its own script, served next to the page.
@@ -77,7 +77,7 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	markup = append(markup, script...)
-	for _, expected := range []string{"btn-accept", "btn-reject", "Open content", "Copy content", "Download", "Copy path", "Awaiting your approval", "Received at", "Received files", "formatDateTime", "formatBytes", "Update", "agentclip upgrade"} {
+	for _, expected := range []string{"btn-accept", "btn-reject", "Open content", "Copy content", "Download", "Copy path", "Awaiting your approval", "Received at", "Received files", "formatDateTime", "formatBytes", "Update", "agentport upgrade"} {
 		if !strings.Contains(string(markup), expected) {
 			t.Fatalf("dashboard markup missing %q", expected)
 		}
@@ -119,7 +119,7 @@ func TestControlServerServesDashboardBrandAssets(t *testing.T) {
 		path        string
 		contentType string
 	}{
-		{"assets/agentclip-mark.svg", "image/svg+xml"},
+		{"assets/agentport-mark.svg", "image/svg+xml"},
 		{"assets/favicon.svg", "image/svg+xml"},
 		{"assets/styles.css", "text/css; charset=utf-8"},
 		{"assets/app.js", "text/javascript; charset=utf-8"},
@@ -342,7 +342,7 @@ func pageMeta(t *testing.T, page, name string) string {
 }
 
 // The page is English unless the person asks otherwise: with ?lang=, with what
-// their browser prefers, or with AGENTCLIP_LANG for the process. Every message in
+// their browser prefers, or with AGENTPORT_LANG for the process. Every message in
 // the markup is filled in, and the script receives the translations it needs.
 func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
@@ -355,7 +355,7 @@ func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 	url := ViewURL(control.State)
 
 	english, headers := fetchPage(t, url, nil)
-	if !strings.Contains(english, `<html lang="en-US">`) || !strings.Contains(english, "Received files") || pageMeta(t, english, "agentclip-i18n") != "{}" {
+	if !strings.Contains(english, `<html lang="en-US">`) || !strings.Contains(english, "Received files") || pageMeta(t, english, "agentport-i18n") != "{}" {
 		t.Errorf("the default page is not plain English:\n%s", english)
 	}
 	if !strings.Contains(headers.Get("Vary"), "Accept-Language") {
@@ -381,10 +381,10 @@ func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 			t.Errorf("%s: an unfilled placeholder is left in the page", name)
 		}
 		var catalog map[string]string
-		if err := json.Unmarshal([]byte(pageMeta(t, portuguese, "agentclip-i18n")), &catalog); err != nil || catalog["Open content"] != "Abrir conteúdo" {
+		if err := json.Unmarshal([]byte(pageMeta(t, portuguese, "agentport-i18n")), &catalog); err != nil || catalog["Open content"] != "Abrir conteúdo" {
 			t.Errorf("%s: the script's translations are %v (%v)", name, catalog, err)
 		}
-		if pageMeta(t, portuguese, "agentclip-lang") != "pt-BR" {
+		if pageMeta(t, portuguese, "agentport-lang") != "pt-BR" {
 			t.Errorf("%s: the script would format dates for the wrong language", name)
 		}
 	}
@@ -395,7 +395,7 @@ func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 	}
 	i18n.SetLanguage(i18n.Portuguese)
 	if page, _ := fetchPage(t, url, map[string]string{"Accept-Language": "fr"}); !strings.Contains(page, `<html lang="pt-BR">`) {
-		t.Error("AGENTCLIP_LANG did not set the language of the page when the browser asks for none")
+		t.Error("AGENTPORT_LANG did not set the language of the page when the browser asks for none")
 	}
 }
 
@@ -408,9 +408,9 @@ func TestRenderDashboardEscapesEverythingItSubstitutes(t *testing.T) {
 		t.Errorf("a language value became markup: %s", hostile)
 	}
 
-	page := renderDashboard(`<meta name="agentclip-i18n" content="{{I18N}}">`, "/view/x", i18n.Portuguese)
+	page := renderDashboard(`<meta name="agentport-i18n" content="{{I18N}}">`, "/view/x", i18n.Portuguese)
 	var roundTrip map[string]string
-	if err := json.Unmarshal([]byte(pageMeta(t, page, "agentclip-i18n")), &roundTrip); err != nil {
+	if err := json.Unmarshal([]byte(pageMeta(t, page, "agentport-i18n")), &roundTrip); err != nil {
 		t.Fatal(err)
 	}
 	want := scriptCatalog(i18n.Portuguese)

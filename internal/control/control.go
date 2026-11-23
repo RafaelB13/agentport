@@ -19,10 +19,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/bridge"
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/daemon"
-	"github.com/wendellrocha/agentclip/internal/release"
+	"github.com/rafaelb13/agentport/internal/bridge"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/daemon"
+	"github.com/rafaelb13/agentport/internal/release"
 )
 
 type ArmResponse struct {
@@ -136,7 +136,7 @@ func InboundText(state daemon.State, offerID string) (companion.InboundFileConte
 		response.Body.Close()
 		return companion.InboundFileContent{}, errors.New("received file is unavailable")
 	}
-	return companion.InboundFileContent{Name: parameters["filename"], Size: response.ContentLength, Previewable: response.Header.Get("X-AgentClip-Previewable") == "true", Reader: response.Body}, nil
+	return companion.InboundFileContent{Name: parameters["filename"], Size: response.ContentLength, Previewable: response.Header.Get("X-agentport-Previewable") == "true", Reader: response.Body}, nil
 }
 
 func Post(state daemon.State, path string, payload []byte, output any) error {

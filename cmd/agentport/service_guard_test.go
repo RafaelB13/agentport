@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 // A service started at login must not open a second Companion for a profile
@@ -107,7 +107,7 @@ func TestProfileStartLockSerialisesStartsOfOneProfile(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	crashed := filepath.Join(cache, "agentclip", "companions", "d.start.lock")
+	crashed := filepath.Join(cache, "agentport", "companions", "d.start.lock")
 	if err := os.WriteFile(crashed, nil, 0o600); err != nil {
 		t.Fatal(err)
 	}

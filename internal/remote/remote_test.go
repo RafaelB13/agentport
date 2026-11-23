@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/wendellrocha/agentclip/internal/companion"
-	"github.com/wendellrocha/agentclip/internal/testenv"
-	"github.com/wendellrocha/agentclip/internal/upgrader"
+	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/testenv"
+	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 func TestRemotePreflightPassesTheWholeCheckAsOneRemoteCommand(t *testing.T) {
@@ -20,7 +20,7 @@ func TestRemotePreflightPassesTheWholeCheckAsOneRemoteCommand(t *testing.T) {
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
-	if !strings.HasPrefix(command.Args[2], "sh -lc '") || !strings.Contains(command.Args[2], "command -v agentclip") || !strings.Contains(command.Args[2], "codex") {
+	if !strings.HasPrefix(command.Args[2], "sh -lc '") || !strings.Contains(command.Args[2], "command -v agentport") || !strings.Contains(command.Args[2], "codex") {
 		t.Fatalf("remote command = %q", command.Args[2])
 	}
 }
@@ -30,7 +30,7 @@ func TestRemoteSupportedAgentsChecksOnlyBuiltInHarnesses(t *testing.T) {
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
-	for _, required := range []string{"command -v agentclip", "codex", "claude", "gemini", "agy", "opencode", "pi", "agentclip_harness"} {
+	for _, required := range []string{"command -v agentport", "codex", "claude", "gemini", "agy", "opencode", "pi", "agentport_harness"} {
 		if !strings.Contains(command.Args[2], required) {
 			t.Fatalf("remote command = %q; missing %q", command.Args[2], required)
 		}
@@ -44,7 +44,7 @@ func TestRemoteSupportedAgentsScriptSucceedsWhenSomeHarnessesAreAbsent(t *testin
 }
 
 func TestRemoteLoginCommandEscapesArgumentsInsideLoginShell(t *testing.T) {
-	command := remoteLoginCommand("bastion-m2", "codex", "mcp", "add", "agentclip-m2", "--env", "TOKEN=has'aquote")
+	command := remoteLoginCommand("bastion-m2", "codex", "mcp", "add", "agentport-m2", "--env", "TOKEN=has'aquote")
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
@@ -55,19 +55,19 @@ func TestRemoteLoginCommandEscapesArgumentsInsideLoginShell(t *testing.T) {
 
 func TestPlatformFromOutputMapsServersAndRefusesTheRest(t *testing.T) {
 	for output, want := range map[string]string{
-		"agentclip-platform=Linux x86_64\n":  "linux/amd64",
-		"agentclip-platform=Linux aarch64\n": "linux/arm64",
-		"agentclip-platform=Darwin arm64\n":  "darwin/arm64",
-		"agentclip-platform=Darwin x86_64\n": "darwin/amd64",
+		"agentport-platform=Linux x86_64\n":  "linux/amd64",
+		"agentport-platform=Linux aarch64\n": "linux/arm64",
+		"agentport-platform=Darwin arm64\n":  "darwin/arm64",
+		"agentport-platform=Darwin x86_64\n": "darwin/amd64",
 		// A login shell may print a banner before the marked line.
-		"Welcome to host\nLinux 6.1 is great\nagentclip-platform=Linux x86_64\n": "linux/amd64",
+		"Welcome to host\nLinux 6.1 is great\nagentport-platform=Linux x86_64\n": "linux/amd64",
 	} {
 		goos, goarch, err := PlatformFromOutput(output)
 		if err != nil || goos+"/"+goarch != want {
 			t.Errorf("PlatformFromOutput(%q) = %s/%s, %v; want %s", output, goos, goarch, err, want)
 		}
 	}
-	for _, output := range []string{"", "Linux x86_64\n", "agentclip-platform=FreeBSD amd64\n", "agentclip-platform=Linux riscv64\n", "agentclip-platform=Linux\n", "agentclip-platform=\n"} {
+	for _, output := range []string{"", "Linux x86_64\n", "agentport-platform=FreeBSD amd64\n", "agentport-platform=Linux riscv64\n", "agentport-platform=Linux\n", "agentport-platform=\n"} {
 		if _, _, err := PlatformFromOutput(output); err == nil {
 			t.Errorf("PlatformFromOutput(%q) was accepted", output)
 		}
@@ -89,7 +89,7 @@ func stubFetch(t *testing.T, content string, notice string, captured *upgrader.O
 		if captured != nil {
 			*captured = options
 		}
-		path := filepath.Join(t.TempDir(), "agentclip")
+		path := filepath.Join(t.TempDir(), "agentport")
 		if err := os.WriteFile(path, []byte(content), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -105,7 +105,7 @@ func TestInstallVerifiedSendsTheVerifiedBinaryWithoutRunningAScriptFromTheNetwor
 	if changed, err := InstallVerified(context.Background(), "host", "", "v0.7.2", &stderr); err != nil || !changed {
 		t.Fatalf("changed = %v, err = %v", changed, err)
 	}
-	installed := filepath.Join(home, ".local", "bin", "agentclip")
+	installed := filepath.Join(home, ".local", "bin", "agentport")
 	data, err := os.ReadFile(installed)
 	if err != nil || string(data) != "verified binary" {
 		t.Fatalf("installed = %q, %v", data, err)
@@ -119,7 +119,7 @@ func TestInstallVerifiedSendsTheVerifiedBinaryWithoutRunningAScriptFromTheNetwor
 	if !strings.Contains(stderr.String(), "no attestation for this release") {
 		t.Errorf("the notice was not shown: %q", stderr.String())
 	}
-	leftovers, _ := filepath.Glob(filepath.Join(home, ".local", "bin", ".agentclip-new.*"))
+	leftovers, _ := filepath.Glob(filepath.Join(home, ".local", "bin", ".agentport-new.*"))
 	if len(leftovers) != 0 {
 		t.Errorf("temporary files left behind: %v", leftovers)
 	}
@@ -140,7 +140,7 @@ func TestInstallVerifiedNeverDowngradesAndSkipsWhatIsAlreadyThere(t *testing.T) 
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			home := fakeSSH(t)
-			installed := filepath.Join(home, ".local", "bin", "agentclip")
+			installed := filepath.Join(home, ".local", "bin", "agentport")
 			if err := os.MkdirAll(filepath.Dir(installed), 0o755); err != nil {
 				t.Fatal(err)
 			}
@@ -195,7 +195,7 @@ func TestInstallVerifiedForwardsTheAttestationOptOutOnlyWhenExplicitlySet(t *tes
 // arrives damaged never replaces the working one.
 func TestInstallVerifiedRefusesUnverifiedAndDamagedBinaries(t *testing.T) {
 	home := fakeSSH(t)
-	installed := filepath.Join(home, ".local", "bin", "agentclip")
+	installed := filepath.Join(home, ".local", "bin", "agentport")
 	if err := os.MkdirAll(filepath.Dir(installed), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -226,13 +226,13 @@ func TestInstallVerifiedRefusesUnverifiedAndDamagedBinaries(t *testing.T) {
 	if data, _ := os.ReadFile(installed); string(data) != "previous" {
 		t.Fatalf("a damaged upload replaced the installed binary: %q", data)
 	}
-	if leftovers, _ := filepath.Glob(filepath.Join(filepath.Dir(installed), ".agentclip-new.*")); len(leftovers) != 0 {
+	if leftovers, _ := filepath.Glob(filepath.Join(filepath.Dir(installed), ".agentport-new.*")); len(leftovers) != 0 {
 		t.Fatalf("temporary files left behind: %v", leftovers)
 	}
 }
 
 func TestManagedSSHCommandsUseDedicatedIdentityWithoutPrompts(t *testing.T) {
-	identity := filepath.Join(t.TempDir(), "agentclip-key")
+	identity := filepath.Join(t.TempDir(), "agentport-key")
 	install := uploadCommand(context.Background(), "bastion-m2", identity, strings.Repeat("0", 64))
 	login := remoteLoginCommandWithIdentity("bastion-m2", identity, "true")
 	for _, command := range []*exec.Cmd{install, login, sshKeyCheckCommand("bastion-m2", identity)} {
@@ -246,7 +246,7 @@ func TestManagedSSHCommandsUseDedicatedIdentityWithoutPrompts(t *testing.T) {
 }
 
 func TestBootstrapSSHKeyCommandIsIdempotentAndLimitsPasswordPrompts(t *testing.T) {
-	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest agentclip:dev"
+	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest agentport:dev"
 	command := bootstrapSSHKeyCommand("bastion-m2", key)
 	arguments := strings.Join(command.Args, " ")
 	for _, required := range []string{"NumberOfPasswordPrompts=1", "grep -qxF", "authorized_keys", key} {
@@ -271,12 +271,12 @@ func TestSSHAuthenticationFailureRecognition(t *testing.T) {
 	}
 }
 
-func TestEnsureAgentClipSSHKeyCreatesPrivateEd25519Key(t *testing.T) {
+func TestEnsureagentportSSHKeyCreatesPrivateEd25519Key(t *testing.T) {
 	if _, err := exec.LookPath("ssh-keygen"); err != nil {
 		t.Skip("ssh-keygen is not available")
 	}
-	t.Setenv("AGENTCLIP_CONFIG_DIR", t.TempDir())
-	identity, publicKey, err := ensureAgentClipSSHKey("dev")
+	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
+	identity, publicKey, err := ensureagentportSSHKey("dev")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +292,7 @@ func TestEnsureAgentClipSSHKeyCreatesPrivateEd25519Key(t *testing.T) {
 			t.Fatalf("key permissions for %s = %o, want 600", path, info.Mode().Perm())
 		}
 	}
-	if secondIdentity, secondPublicKey, err := ensureAgentClipSSHKey("dev"); err != nil || secondIdentity != identity || secondPublicKey != publicKey {
+	if secondIdentity, secondPublicKey, err := ensureagentportSSHKey("dev"); err != nil || secondIdentity != identity || secondPublicKey != publicKey {
 		t.Fatalf("key reuse = (%q, %q, %v), want existing key", secondIdentity, secondPublicKey, err)
 	}
 }
@@ -311,11 +311,11 @@ func TestCheckVersionAcceptsCurrentAndRefusesOldOrUnreadableServers(t *testing.T
 	}
 	for _, output := range []string{marked("v0.4.9"), marked("0.1.0"), marked("v0.5.0-rc.1"), "v0.1.0\n" + marked("v0.4.0")} {
 		err := CheckVersion("host", output)
-		if err == nil || !strings.Contains(err.Error(), "agentclip upgrade") || !strings.Contains(err.Error(), MinRemoteVersion) {
+		if err == nil || !strings.Contains(err.Error(), "agentport upgrade") || !strings.Contains(err.Error(), MinRemoteVersion) {
 			t.Errorf("CheckVersion(%q) = %v, want a refusal that says how to update", output, err)
 		}
 	}
-	for _, output := range []string{"", marked(""), marked("dev"), marked("agentclip: command not found"), marked("v1"), "v0.7.1\n", "Welcome\n"} {
+	for _, output := range []string{"", marked(""), marked("dev"), marked("agentport: command not found"), marked("v1"), "v0.7.1\n", "Welcome\n"} {
 		err := CheckVersion("host", output)
 		if err == nil || !strings.Contains(err.Error(), "could not read") {
 			t.Errorf("CheckVersion(%q) = %v, want it refused as unreadable", output, err)
@@ -323,10 +323,10 @@ func TestCheckVersionAcceptsCurrentAndRefusesOldOrUnreadableServers(t *testing.T
 	}
 }
 
-func TestVersionForProfileRunsAgentclipVersionThroughALoginShell(t *testing.T) {
+func TestVersionForProfileRunsAgentportVersionThroughALoginShell(t *testing.T) {
 	command := VersionForProfile(companion.Profile{Destination: "bastion-m2", SSHIdentityFile: "/keys/m2"})
 	arguments := strings.Join(command.Args, " ")
-	for _, want := range []string{"bastion-m2", "/keys/m2", "sh -lc", ".local/bin", "agentclip version", versionMarker} {
+	for _, want := range []string{"bastion-m2", "/keys/m2", "sh -lc", ".local/bin", "agentport version", versionMarker} {
 		if !strings.Contains(arguments, want) {
 			t.Errorf("version command %q lacks %q", arguments, want)
 		}
@@ -353,7 +353,7 @@ func TestInstallVerifiedStopsWhenItsContextIsDone(t *testing.T) {
 	if fetched {
 		t.Error("a release was downloaded although the context was already done")
 	}
-	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "agentclip")); err == nil {
+	if _, err := os.Stat(filepath.Join(home, ".local", "bin", "agentport")); err == nil {
 		t.Error("something was installed although the context was already done")
 	}
 }
