@@ -12,6 +12,7 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/rafaelb13/agentport/internal/companion"
+	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 // TestServerTerminalAgainstSSHD opens the panel's terminal endpoint against the
@@ -19,7 +20,7 @@ import (
 // terminal leaves no ssh process behind.
 func TestServerTerminalAgainstSSHD(t *testing.T) {
 	f := fixtureFor(t)
-	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())
+	testenv.IsolateCacheDirs(t)
 	control, err := companion.StartControlWith(companion.ControlOptions{
 		Profile: "e2e",
 		Status:  func() any { return map[string]any{} },
