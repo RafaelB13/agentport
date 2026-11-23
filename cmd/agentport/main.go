@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"math/big"
-	"net/http"
 	"os"
 	"os/exec"
 	"os/signal"
@@ -26,9 +25,7 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/rafaelb13/agentport/internal/agents"
-	"github.com/rafaelb13/agentport/internal/bridge"
 	"github.com/rafaelb13/agentport/internal/buildinfo"
-	"github.com/rafaelb13/agentport/internal/clipboard"
 	"github.com/rafaelb13/agentport/internal/companion"
 	"github.com/rafaelb13/agentport/internal/control"
 	"github.com/rafaelb13/agentport/internal/daemon"
@@ -39,20 +36,17 @@ import (
 	"github.com/rafaelb13/agentport/internal/remote"
 	"github.com/rafaelb13/agentport/internal/selfupgrade"
 	"github.com/rafaelb13/agentport/internal/setup"
-	"github.com/rafaelb13/agentport/internal/sshsession"
 	"github.com/rafaelb13/agentport/internal/upgrader"
 )
 
 const (
-	clipboardTimeout = 5 * time.Second
-	startupTimeout   = 3 * time.Second
-	remotePortMin    = 32000
-	remotePortMax    = 44999
+	startupTimeout = 3 * time.Second
+	remotePortMin  = 32000
+	remotePortMax  = 44999
 )
 
 type bridgeBootstrap struct {
-	Image        *daemon.Image `json:"image,omitempty"`
-	ControlToken string        `json:"control_token"`
+	ControlToken string `json:"control_token"`
 }
 
 func main() {
@@ -81,36 +75,6 @@ func main() {
 		}
 		log.Fatal(err)
 	}
-}
-
-func runArm() error {
-	ctx, cancel := context.WithTimeout(context.Background(), clipboardTimeout)
-	defer cancel()
-	image, err := clipboard.Capture(ctx, clipboard.NativeReader{})
-	if err != nil {
-		return fmt.Errorf("capture clipboard image: %w", err)
-	}
-	armed := daemon.Image{PNG: image.PNG, Width: image.Width, Height: image.Height}
-	unlock, err := acquireBridgeLock()
-	if err != nil {
-		return err
-	}
-	defer unlock()
-
-	state, err := daemon.LoadState()
-	if err == nil && control.Healthy(state) {
-		response, err := control.Arm(state, armed)
-		if err != nil {
-			return err
-		}
-		fmt.Println(i18n.T("Armed image: %dx%d PNG, expires at %s.", image.Width, image.Height, response.ExpiresAt.Local().Format(time.Kitchen)))
-		return nil
-	}
-	if _, err := startBridge(&armed); err != nil {
-		return err
-	}
-	fmt.Println(i18n.T("Armed image: %dx%d PNG, expires in %s.", image.Width, image.Height, 90*time.Second))
-	return nil
 }
 
 func acquireBridgeLock() (func(), error) {
@@ -142,43 +106,12 @@ func acquireBridgeLock() (func(), error) {
 	}, nil
 }
 
-func runSSH(arguments []string) error {
-	if len(arguments) == 0 || arguments[0] == "--" {
-		return errors.New("usage: agentport ssh <ssh-destination> [-- <ssh arguments>]")
-	}
-	state, err := daemon.LoadState()
-	if err != nil || !control.Healthy(state) {
-		return errors.New("no local agentport bridge; copy an image and run `agentport arm` first")
-	}
-	session, err := control.Session(state)
-	if err != nil {
-		return fmt.Errorf("create bridge session: %w", err)
-	}
-	remotePort, err := randomPort()
-	if err != nil {
-		return err
-	}
-	sshArgs := arguments[1:]
-	if len(sshArgs) > 0 && sshArgs[0] == "--" {
-		sshArgs = sshArgs[1:]
-	}
-	command, err := sshsession.Command(sshsession.Options{
-		Destination: arguments[0], SSHArgs: sshArgs, LocalPort: control.Port(state), RemotePort: remotePort,
-		Session: sshsession.Session{ID: session.ID, Token: session.Token},
-	})
-	if err != nil {
-		return err
-	}
-	command.Stdin, command.Stdout, command.Stderr = os.Stdin, os.Stdout, os.Stderr
-	return command.Run()
-}
-
 func runMCP() error {
 	port, err := strconv.Atoi(os.Getenv("AGENTPORT_BRIDGE_PORT"))
 	if err != nil {
 		return fmt.Errorf("read AGENTPORT_BRIDGE_PORT: %w", err)
 	}
-	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTPORT_SESSION_TOKEN"), os.Getenv("AGENTPORT_UPLOAD_TOKEN"))
+	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTPORT_SESSION_TOKEN"))
 	if err != nil {
 		return err
 	}
@@ -194,7 +127,6 @@ func runHarness(arguments []string) error {
 	name := settings.String("name", "", "agentport MCP entry name")
 	port := settings.Int("port", 0, "bridge loopback port")
 	token := settings.String("token", "", "bridge session token")
-	uploadToken := settings.String("upload-token", "", "host upload token")
 	if err := settings.Parse(arguments[2:]); err != nil {
 		return fmt.Errorf("parse harness options: %w", err)
 	}
@@ -210,7 +142,7 @@ func runHarness(arguments []string) error {
 		if *port < 1 || *port > 65535 || strings.TrimSpace(*token) == "" {
 			return errors.New("harness install requires --port and --token")
 		}
-		return harness.Install(home, arguments[1], *name, *port, *token, *uploadToken)
+		return harness.Install(home, arguments[1], *name, *port, *token)
 	case "remove":
 		return harness.Remove(home, arguments[1], *name)
 	default:
@@ -325,13 +257,9 @@ func pairProfileWithIdentity(name, destination string, remotePort int, agent str
 	if err != nil {
 		return companion.Profile{}, err
 	}
-	uploadToken, err := randomToken(32)
-	if err != nil {
-		return companion.Profile{}, err
-	}
 	profile := companion.Profile{
 		Name: name, Destination: destination, RemotePort: remotePort,
-		Token: token, UploadToken: uploadToken, SSHIdentityFile: identityFile, CreatedAt: time.Now().UTC(),
+		Token: token, SSHIdentityFile: identityFile, CreatedAt: time.Now().UTC(),
 	}
 	if err := profile.Validate(); err != nil {
 		return companion.Profile{}, err
@@ -354,7 +282,7 @@ func runCompanion(arguments []string) error {
 		return runAutostart(arguments[1:], os.Stdout)
 	}
 	if len(arguments) < 2 || len(arguments) > 4 {
-		return errors.New("usage: agentport companion <start|stop|status|open|view|run|inbox> <profile> [--verbose] | agentport companion <accept|reject> <profile> <offer-id> | agentport companion autostart <enable|disable|status> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run> <profile> [--verbose] | agentport companion autostart <enable|disable|status> <profile>")
 	}
 	verbose := false
 	if len(arguments) == 3 && arguments[2] == "--verbose" && (arguments[0] == "start" || arguments[0] == "run" || arguments[0] == "serve") {
@@ -377,15 +305,8 @@ func runCompanion(arguments []string) error {
 			os.Setenv("AGENTPORT_LOG_LEVEL", "debug")
 		}
 		return runCompanionService(arguments[1], arguments[0] == "run")
-	case "inbox":
-		return printCompanionInbox(arguments[1])
-	case "accept", "reject":
-		if len(arguments) != 3 {
-			return errors.New("usage: agentport companion <accept|reject> <profile> <offer-id>")
-		}
-		return companionInboundAction(arguments[1], arguments[2], arguments[0])
 	default:
-		return errors.New("usage: agentport companion <start|stop|status|open|view|run|inbox> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run> <profile>")
 	}
 }
 
@@ -622,24 +543,6 @@ func printCompanionStatus(name string) error {
 	return nil
 }
 
-func printCompanionInbox(name string) error { return printCompanionStatus(name) }
-
-func companionInboundAction(name, offerID, action string) error {
-	state, err := companion.LoadRuntime(name)
-	if err != nil || !companion.RuntimeHealthy(state) {
-		return fmt.Errorf("Companion %q is not running", name)
-	}
-	if err := companion.InboundAction(state, offerID, action); err != nil {
-		return fmt.Errorf("%s inbound offer: %w", action, err)
-	}
-	if action == "accept" {
-		fmt.Println(i18n.T("Inbound offer %q accepted.", offerID))
-	} else {
-		fmt.Println(i18n.T("Inbound offer %q rejected.", offerID))
-	}
-	return nil
-}
-
 func openCompanionView(name string) error {
 	state, err := companion.LoadRuntime(name)
 	if err != nil || !companion.RuntimeHealthy(state) {
@@ -663,27 +566,11 @@ func openCompanionView(name string) error {
 }
 
 type companionDashboardStatus struct {
-	Profile     string                    `json:"profile"`
-	Destination string                    `json:"destination"`
-	StartedAt   time.Time                 `json:"started_at"`
-	Tunnel      companion.TunnelStatus    `json:"tunnel"`
-	Clipboard   companionClipboardView    `json:"clipboard"`
-	Inbound     bridge.InboundLocalStatus `json:"inbound"`
-	Release     release.Status            `json:"release"`
-}
-
-type companionClipboardView struct {
-	Armed     bool                     `json:"armed"`
-	Consumed  bool                     `json:"consumed"`
-	ExpiresAt time.Time                `json:"expires_at,omitempty"`
-	Items     []companionClipboardItem `json:"items,omitempty"`
-	Error     string                   `json:"error,omitempty"`
-}
-
-type companionClipboardItem struct {
-	Kind string `json:"kind"`
-	Name string `json:"name,omitempty"`
-	Size int64  `json:"size"`
+	Profile     string                 `json:"profile"`
+	Destination string                 `json:"destination"`
+	StartedAt   time.Time              `json:"started_at"`
+	Tunnel      companion.TunnelStatus `json:"tunnel"`
+	Release     release.Status         `json:"release"`
 }
 
 func runCompanionService(name string, announce bool) error {
@@ -722,7 +609,7 @@ func runCompanionService(name string, announce bool) error {
 		logger.Error("bridge unavailable: %v", err)
 		return err
 	}
-	state, started, err := ensureBridge(nil)
+	state, started, err := ensureBridge()
 	unlock()
 	if err != nil {
 		return err
@@ -731,10 +618,9 @@ func runCompanionService(name string, announce bool) error {
 		defer func() { _ = control.Shutdown(state) }()
 	}
 	payload, err := json.Marshal(struct {
-		ID          string `json:"id"`
-		Token       string `json:"token"`
-		UploadToken string `json:"upload_token,omitempty"`
-	}{ID: "companion:" + profile.Name, Token: profile.Token, UploadToken: profile.UploadToken})
+		ID    string `json:"id"`
+		Token string `json:"token"`
+	}{ID: "companion:" + profile.Name, Token: profile.Token})
 	if err != nil {
 		return err
 	}
@@ -759,7 +645,7 @@ func runCompanionService(name string, announce bool) error {
 		tunnelMu.RUnlock()
 		return companionDashboardStatus{
 			Profile: profile.Name, Destination: profile.Destination, StartedAt: serviceStartedAt,
-			Tunnel: currentTunnel, Clipboard: companionClipboardStatus(state, profile.Token), Inbound: control.InboundStatus(state), Release: func() release.Status {
+			Tunnel: currentTunnel, Release: func() release.Status {
 				releaseMu.RLock()
 				defer releaseMu.RUnlock()
 				return releaseState
@@ -770,8 +656,6 @@ func runCompanionService(name string, announce bool) error {
 		case stop <- struct{}{}:
 		default:
 		}
-	}, func(action, offerID string) error { return control.InboundAction(state, offerID, action) }, func(offerID string) (companion.InboundFileContent, error) {
-		return control.InboundText(state, offerID)
 	})
 	if err != nil {
 		logger.Error("start Companion control server: %v", err)
@@ -790,14 +674,6 @@ func runCompanionService(name string, announce bool) error {
 	signal.Notify(signals, os.Interrupt, syscall.SIGTERM)
 	defer signal.Stop(signals)
 	errors := make(chan error, 2)
-	watcher := companion.SnapshotWatcher{
-		Source: companion.HostSnapshotSource{},
-		Arm: func(ctx context.Context, items []bridge.Item) error {
-			return control.ArmSnapshot(state, items)
-		},
-		Log: logger,
-	}
-	go func() { errors <- watcher.Run(ctx) }()
 	go func() {
 		errors <- companion.RunTunnelWithLogger(ctx, profile, control.Port(state), func(status companion.TunnelStatus) {
 			tunnelMu.Lock()
@@ -806,7 +682,7 @@ func runCompanionService(name string, announce bool) error {
 		}, logger)
 	}()
 	if announce {
-		fmt.Println(i18n.T("Companion %q is running; SSH normally, then ask your agent to inspect the clipboard.", profile.Name))
+		fmt.Println(i18n.T("Companion %q is running.", profile.Name))
 	}
 	var runErr error
 	received := 0
@@ -831,42 +707,15 @@ func runCompanionService(name string, announce bool) error {
 	return runErr
 }
 
-func companionClipboardStatus(state daemon.State, token string) companionClipboardView {
-	if !control.ValidLoopbackAddress(state.Address) {
-		return companionClipboardView{Error: "bridge unavailable"}
-	}
-	request, err := http.NewRequest(http.MethodGet, "http://"+state.Address+"/v1/status", nil)
-	if err != nil {
-		return companionClipboardView{Error: "bridge unavailable"}
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	response, err := (&http.Client{Timeout: time.Second}).Do(request)
-	if err != nil {
-		return companionClipboardView{Error: "bridge unavailable"}
-	}
-	defer response.Body.Close()
-	if response.StatusCode == http.StatusNotFound || response.StatusCode == http.StatusGone {
-		return companionClipboardView{}
-	}
-	if response.StatusCode != http.StatusOK {
-		return companionClipboardView{Error: "clipboard status unavailable"}
-	}
-	var view companionClipboardView
-	if err := json.NewDecoder(io.LimitReader(response.Body, 8*1024)).Decode(&view); err != nil {
-		return companionClipboardView{Error: "clipboard status unavailable"}
-	}
-	return view
-}
-
 func runBridge() error {
 	var bootstrap bridgeBootstrap
-	if err := json.NewDecoder(io.LimitReader(os.Stdin, clipboard.MaxBytes*2)).Decode(&bootstrap); err != nil {
+	if err := json.NewDecoder(io.LimitReader(os.Stdin, 64*1024)).Decode(&bootstrap); err != nil {
 		return fmt.Errorf("read bridge bootstrap: %w", err)
 	}
 	if bootstrap.ControlToken == "" {
 		return errors.New("bridge bootstrap did not include a control token")
 	}
-	d, err := daemon.Start(bootstrap.Image, bootstrap.ControlToken)
+	d, err := daemon.Start(bootstrap.ControlToken)
 	if err != nil {
 		return fmt.Errorf("start local bridge: %w", err)
 	}
@@ -889,27 +738,27 @@ func runBridge() error {
 func runDoctor() error {
 	state, err := daemon.LoadState()
 	if err != nil || !control.Healthy(state) {
-		return errors.New("bridge: unavailable (copy an image and run `agentport arm`)")
+		return errors.New("bridge: unavailable (start the Companion with `agentport companion start <profile>`)")
 	}
 	fmt.Println(i18n.T("bridge: healthy at %s (PID %d)", state.Address, state.PID))
 	return nil
 }
 
-func ensureBridge(initial *daemon.Image) (daemon.State, bool, error) {
+func ensureBridge() (daemon.State, bool, error) {
 	state, err := daemon.LoadState()
 	if err == nil && control.Healthy(state) {
 		return state, false, nil
 	}
-	state, err = startBridge(initial)
+	state, err = startBridge()
 	return state, true, err
 }
 
-func startBridge(image *daemon.Image) (daemon.State, error) {
+func startBridge() (daemon.State, error) {
 	token, err := randomToken(32)
 	if err != nil {
 		return daemon.State{}, err
 	}
-	payload, err := json.Marshal(bridgeBootstrap{Image: image, ControlToken: token})
+	payload, err := json.Marshal(bridgeBootstrap{ControlToken: token})
 	if err != nil {
 		return daemon.State{}, fmt.Errorf("encode bridge bootstrap: %w", err)
 	}

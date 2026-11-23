@@ -16,7 +16,7 @@
     <header class="nav">
       <div class="brand-lockup">
         <span class="brand-mark" aria-hidden="true"><img src="{{BASE}}/assets/agentport-mark.svg" alt=""></span>
-        <div class="brand-copy"><h1 class="h1">agentport Companion</h1><p class="t2">{{t:Manage your connection and shared files}}</p></div>
+        <div class="brand-copy"><h1 class="h1">agentport Companion</h1><p class="t2">{{t:Keep the connection to your server running}}</p></div>
       </div>
       <div class="header-meta"><span class="connection-pill" id="connection">{{t:Connecting…}}</span><span class="updated" id="updated">{{t:Loading…}}</span></div>
     </header>
@@ -26,16 +26,8 @@
           <div class="section-heading"><div><p class="eyebrow">{{t:OVERVIEW}}</p><h2 class="h2">{{t:Companion status}}</h2></div><span class="live-indicator" id="live-indicator" aria-label="{{t:Connecting}}"></span></div>
           <dl class="status-list" id="status"></dl>
         </section>
-        <section class="section-card approval-card">
-          <div class="section-heading"><div><p class="eyebrow">{{t:ACTIONS}}</p><h2 class="h2">{{t:Pending approval}}</h2></div><span class="count-badge" id="offer-count">0</span></div>
-          <div id="offers"></div>
-        </section>
         <section class="section-card stop-card"><div><h2 class="stop-title">{{t:End session}}</h2><p class="muted">{{t:Disconnects this Companion from the server.}}</p></div><button class="btn btn-danger" type="button" id="stop">{{t:Stop Companion}}</button></section>
       </aside>
-      <section class="files-section" aria-labelledby="files-title">
-        <div class="files-heading"><div><p class="eyebrow">{{t:LIBRARY}}</p><h2 class="h2" id="files-title">{{t:Received files}}</h2><p class="muted">{{t:Content available on this device.}}</p><span class="sr-only">{{t:Recently received}}</span></div><span class="files-count"><span class="count-number" id="file-count">0</span> {{t:files}}</span></div>
-        <div class="file-list" id="received"></div>
-      </section>
     </div>
     <footer class="footer"><span>agentport Companion</span><span>{{t:Protected connection}} <span class="footer-dot"></span></span></footer>
   </main>

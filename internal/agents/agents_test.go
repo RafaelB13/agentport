@@ -81,15 +81,15 @@ func TestDisplayAgents(t *testing.T) {
 	}
 }
 
-func TestAgentAdaptersPropagateUploadToken(t *testing.T) {
-	profile := companion.Profile{Name: "m2", Destination: "host", RemotePort: 39123, Token: "read-token", UploadToken: "upload-token"}
+func TestAgentAdaptersPropagateSessionToken(t *testing.T) {
+	profile := companion.Profile{Name: "m2", Destination: "host", RemotePort: 39123, Token: "session-token"}
 	arguments := agentEnvironmentArguments([]string{"codex", "mcp", "add"}, profile)
-	if !strings.Contains(strings.Join(arguments, " "), "AGENTPORT_UPLOAD_TOKEN=upload-token") {
-		t.Fatalf("adapter arguments omit upload token: %#v", arguments)
+	if !strings.Contains(strings.Join(arguments, " "), "AGENTPORT_SESSION_TOKEN=session-token") {
+		t.Fatalf("adapter arguments omit session token: %#v", arguments)
 	}
 	harness := harnessInstallArguments("agy", profile, "agentport-m2")
-	if !strings.Contains(strings.Join(harness, " "), "--upload-token upload-token") {
-		t.Fatalf("harness arguments omit upload token: %#v", harness)
+	if strings.Contains(strings.Join(harness, " "), "upload") {
+		t.Fatalf("harness arguments still carry an upload token: %#v", harness)
 	}
 }
 

@@ -1,225 +1,104 @@
 package daemon
 
 import (
-	"bytes"
-	"crypto/sha256"
-	"encoding/base64"
-	"encoding/hex"
 	"encoding/json"
-	"image"
-	"image/png"
-	"io"
 	"net/http"
-	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
-
-	"github.com/rafaelb13/agentport/internal/bridge"
 )
 
-func validPNG(t *testing.T) []byte {
+func send(t *testing.T, method, url, authorization, body string) *http.Response {
 	t.Helper()
-	var buffer bytes.Buffer
-	if err := png.Encode(&buffer, image.NewRGBA(image.Rect(0, 0, 2, 3))); err != nil {
-		t.Fatal(err)
-	}
-	return buffer.Bytes()
-}
-
-func TestControlEndpointsRequireTokenAndArm(t *testing.T) {
-	d, err := Start(nil, "secret")
+	request, err := http.NewRequest(method, url, strings.NewReader(body))
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer d.Close()
-	url := "http://" + d.State.Address + "/v1/control/arm"
-	body := `{"png":"` + base64.StdEncoding.EncodeToString(validPNG(t)) + `","width":2,"height":3}`
-	req, _ := http.NewRequest(http.MethodPost, url, strings.NewReader(body))
-	if res, err := http.DefaultClient.Do(req); err != nil || res.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("unauthorized: %v %v", err, res)
+	if authorization != "" {
+		request.Header.Set("Authorization", authorization)
 	}
-	req, _ = http.NewRequest(http.MethodPost, url, strings.NewReader(body))
-	req.Header.Set("Authorization", "Bearer secret")
-	res, err := http.DefaultClient.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer res.Body.Close()
-	if res.StatusCode != http.StatusOK {
-		t.Fatalf("arm status %d", res.StatusCode)
-	}
-}
-
-func TestReleaseControlPublishesAuthenticatedStatusWithoutClipboard(t *testing.T) {
-	d, err := Start(nil, "secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer d.Close()
-	baseURL := "http://" + d.State.Address
-	request, _ := http.NewRequest(http.MethodPost, baseURL+"/v1/control/release", strings.NewReader(`{"current_version":"1.0.0","latest_version":"v1.1.0","update_available":true}`))
-	request.Header.Set("Authorization", "Bearer secret")
 	response, err := http.DefaultClient.Do(request)
 	if err != nil {
 		t.Fatal(err)
 	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("publish status = %d", response.StatusCode)
-	}
-	if err := d.Bridge.RegisterPersistentSession("companion", "pair-token"); err != nil {
-		t.Fatal(err)
-	}
-	remote, _ := http.NewRequest(http.MethodGet, baseURL+"/v1/release", nil)
-	remote.Header.Set("Authorization", "Bearer pair-token")
-	response, err = http.DefaultClient.Do(remote)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || !strings.Contains(readResponse(t, response), `"latest_version":"v1.1.0"`) {
-		t.Fatalf("release response = %d", response.StatusCode)
-	}
+	t.Cleanup(func() { response.Body.Close() })
+	return response
 }
 
-func readResponse(t *testing.T, response *http.Response) string {
-	t.Helper()
-	payload, err := io.ReadAll(response.Body)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return string(payload)
-}
-
-func TestPersistentSessionCanReadLaterImage(t *testing.T) {
-	d, err := Start(nil, "secret")
+func TestControlEndpointsRequireToken(t *testing.T) {
+	d, err := Start("secret")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	baseURL := "http://" + d.State.Address
-	register, _ := http.NewRequest(http.MethodPost, baseURL+"/v1/control/persistent-session", strings.NewReader(`{"id":"companion:dev","token":"pair-token"}`))
-	register.Header.Set("Authorization", "Bearer secret")
-	response, err := http.DefaultClient.Do(register)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("register status %d", response.StatusCode)
-	}
-	armBody := `{"png":"` + base64.StdEncoding.EncodeToString(validPNG(t)) + `","width":2,"height":3}`
-	arm, _ := http.NewRequest(http.MethodPost, baseURL+"/v1/control/arm", strings.NewReader(armBody))
-	arm.Header.Set("Authorization", "Bearer secret")
-	response, err = http.DefaultClient.Do(arm)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("arm status %d", response.StatusCode)
-	}
-	image, _ := http.NewRequest(http.MethodGet, baseURL+"/v1/image", nil)
-	image.Header.Set("Authorization", "Bearer pair-token")
-	response, err = http.DefaultClient.Do(image)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("image status %d", response.StatusCode)
+	url := "http://" + d.State.Address + "/v1/control/persistent-session"
+	if response := send(t, http.MethodPost, url, "", `{"id":"companion:work","token":"t1"}`); response.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("unauthenticated control call: status %d, want 401", response.StatusCode)
 	}
 }
 
-func TestSnapshotControlArmsLocalFileReference(t *testing.T) {
-	d, err := Start(nil, "secret")
+func TestPersistentSessionGrantsBridgeAccess(t *testing.T) {
+	d, err := Start("secret")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	path := filepath.Join(t.TempDir(), "fixture.csv")
-	if err := os.WriteFile(path, []byte("a,b\n1,2\n"), 0600); err != nil {
-		t.Fatal(err)
+	base := "http://" + d.State.Address
+	register := base + "/v1/control/persistent-session"
+	if response := send(t, http.MethodPost, register, "Bearer secret", `{"id":"","token":""}`); response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("empty session: status %d, want 400", response.StatusCode)
 	}
-	item, err := bridge.FileItem(path, "text/csv")
-	if err != nil {
-		t.Fatal(err)
+	if response := send(t, http.MethodPost, register, "Bearer secret", `{"id":"companion:work","token":"t1"}`); response.StatusCode != http.StatusOK {
+		t.Fatalf("register: status %d, want 200", response.StatusCode)
 	}
-	body, err := json.Marshal(snapshotRequest{Items: []snapshotItemRequest{{Kind: item.Kind, MIMEType: item.MIMEType, Name: item.Name, Path: path}}})
-	if err != nil {
-		t.Fatal(err)
-	}
-	request, _ := http.NewRequest(http.MethodPost, "http://"+d.State.Address+"/v1/control/snapshot", bytes.NewReader(body))
-	request.Header.Set("Authorization", "Bearer secret")
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("snapshot status = %d", response.StatusCode)
-	}
-	_, token, err := d.Bridge.CreateSession(time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	status := httptest.NewRecorder()
-	remoteRequest := httptest.NewRequest(http.MethodGet, "/v1/status", nil)
-	remoteRequest.Header.Set("Authorization", "Bearer "+token)
-	d.Bridge.Handler().ServeHTTP(status, remoteRequest)
-	if status.Code != http.StatusOK || strings.Contains(status.Body.String(), path) || !strings.Contains(status.Body.String(), "fixture.csv") {
-		t.Fatalf("bridge status = %d %s", status.Code, status.Body.String())
+	if response := send(t, http.MethodGet, base+"/v1/status", "Bearer t1", ""); response.StatusCode != http.StatusOK {
+		t.Fatalf("bridge status with registered token: %d", response.StatusCode)
 	}
 }
 
-func TestInboundTextContentRequiresControlToken(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	d, err := Start(nil, "secret")
+func TestReleaseControlPublishesStatusToBridge(t *testing.T) {
+	d, err := Start("secret")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer d.Close()
-	if err := d.Bridge.RegisterPersistentSessionWithUpload("companion:dev", "read-token", "upload-token"); err != nil {
+	base := "http://" + d.State.Address
+	if response := send(t, http.MethodPost, base+"/v1/control/persistent-session", "Bearer secret", `{"id":"companion:work","token":"t1"}`); response.StatusCode != http.StatusOK {
+		t.Fatalf("register: %d", response.StatusCode)
+	}
+	release := base + "/v1/control/release"
+	if response := send(t, http.MethodPost, release, "Bearer secret", `{"current_version":"v1.0.0","latest_version":"v1.1.0","update_available":true}`); response.StatusCode != http.StatusOK {
+		t.Fatalf("release publish: %d", response.StatusCode)
+	}
+	if response := send(t, http.MethodPost, release, "Bearer secret", `{"latest_version":"v1.1.0"}`); response.StatusCode != http.StatusBadRequest {
+		t.Fatalf("release without current_version: %d, want 400", response.StatusCode)
+	}
+	response := send(t, http.MethodGet, base+"/v1/status", "Bearer t1", "")
+	var body struct {
+		Release struct {
+			LatestVersion string `json:"latest_version"`
+		} `json:"release"`
+	}
+	if err := json.NewDecoder(response.Body).Decode(&body); err != nil {
 		t.Fatal(err)
 	}
-	contents := []byte("a,b\n1,2\n")
-	hash := sha256.Sum256(contents)
-	offer, err := d.Bridge.CreateInboundOffer("companion:dev", "report.csv", int64(len(contents)), hex.EncodeToString(hash[:]))
+	if body.Release.LatestVersion != "v1.1.0" {
+		t.Fatalf("published release not visible: %+v", body)
+	}
+}
+
+func TestStateIsRemovedOnClose(t *testing.T) {
+	d, err := Start("secret")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.Bridge.AcceptInboundOffer(offer.ID); err != nil {
+	state, err := LoadState()
+	if err != nil || state.Address != d.State.Address || state.ControlToken != "secret" {
+		t.Fatalf("state = %+v, err %v", state, err)
+	}
+	if err := d.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := d.Bridge.DeliverInboundOffer("companion:dev", offer.ID, bytes.NewReader(contents), int64(len(contents))); err != nil {
-		t.Fatal(err)
-	}
-	url := "http://" + d.State.Address + "/v1/control/inbound/" + offer.ID + "/file"
-	response, err := http.Get(url)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusUnauthorized {
-		t.Fatalf("unauthorized content status = %d", response.StatusCode)
-	}
-	request, err := http.NewRequest(http.MethodGet, url, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	request.Header.Set("Authorization", "Bearer secret")
-	response, err = http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "application/octet-stream" || response.Header.Get("X-agentport-Previewable") != "true" {
-		t.Fatalf("content status = %d %q", response.StatusCode, response.Header.Get("Content-Type"))
-	}
-	if data, err := io.ReadAll(response.Body); err != nil || !bytes.Equal(data, contents) {
-		t.Fatalf("content = %q, %v", data, err)
+	if _, err := LoadState(); err == nil {
+		t.Fatal("state file survived Close")
 	}
 }

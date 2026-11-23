@@ -44,7 +44,7 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 		t.Fatal(err)
 	}
 	profile, err := companion.LoadProfile("e2e")
-	if err != nil || profile.Destination != "bastion-e2e" || profile.Token == "" || profile.UploadToken == "" {
+	if err != nil || profile.Destination != "bastion-e2e" || profile.Token == "" {
 		t.Fatalf("saved profile = %+v, %v", profile, err)
 	}
 	if downloads != 1 {
@@ -57,7 +57,7 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 	if len(calls) != 2 || calls[0] != "codex mcp remove agentport-e2e" || !strings.Contains(calls[1], "codex mcp add agentport-e2e") {
 		t.Fatalf("harness calls after setup = %q, want a removal then an addition", calls)
 	}
-	for _, secret := range []string{"AGENTPORT_SESSION_TOKEN=" + profile.Token, "AGENTPORT_UPLOAD_TOKEN=" + profile.UploadToken} {
+	for _, secret := range []string{"AGENTPORT_SESSION_TOKEN=" + profile.Token} {
 		if !strings.Contains(calls[1], secret) {
 			t.Errorf("the server was registered without %s", strings.SplitN(secret, "=", 2)[0])
 		}

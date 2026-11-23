@@ -36,7 +36,7 @@ func (s *server) calls() []string {
 }
 
 func profileFor() companion.Profile {
-	return companion.Profile{Name: "m2", Destination: "bastion-m2", RemotePort: 39123, Token: "session-token", UploadToken: "upload-token"}
+	return companion.Profile{Name: "m2", Destination: "bastion-m2", RemotePort: 39123, Token: "session-token"}
 }
 
 func TestConfigureRegistersAgentportWithTheChosenHarness(t *testing.T) {
@@ -58,7 +58,7 @@ func TestConfigureRegistersAgentportWithTheChosenHarness(t *testing.T) {
 	if calls[0] != "codex mcp remove agentport-m2" {
 		t.Errorf("first call = %q, want the removal of agentport's own entry", calls[0])
 	}
-	for _, want := range []string{"codex mcp add agentport-m2", "AGENTPORT_BRIDGE_PORT=39123", "AGENTPORT_SESSION_TOKEN=session-token", "AGENTPORT_UPLOAD_TOKEN=upload-token", "-- agentport mcp"} {
+	for _, want := range []string{"codex mcp add agentport-m2", "AGENTPORT_BRIDGE_PORT=39123", "AGENTPORT_SESSION_TOKEN=session-token", "-- agentport mcp"} {
 		if !strings.Contains(calls[1], want) {
 			t.Errorf("addition %q lacks %q", calls[1], want)
 		}

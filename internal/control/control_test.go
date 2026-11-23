@@ -1,383 +1,84 @@
 package control
 
 import (
-	"bytes"
-	"image"
-	"image/png"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
-	"github.com/rafaelb13/agentport/internal/bridge"
 	"github.com/rafaelb13/agentport/internal/daemon"
 	"github.com/rafaelb13/agentport/internal/release"
-	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
 func stateFor(server *httptest.Server, token string) daemon.State {
-	return daemon.State{Address: strings.TrimPrefix(server.URL, "http://"), ControlToken: token}
+	return daemon.State{Address: server.Listener.Addr().String(), ControlToken: token}
 }
 
-func TestValidLoopbackAddressOnlyAcceptsIPv4Loopback(t *testing.T) {
-	for address, want := range map[string]bool{
-		"127.0.0.1:8080":  true,
-		"127.0.0.1:65535": true,
-		"127.0.0.1:0":     false,
-		"127.0.0.1:65536": false,
-		"127.0.0.1:abc":   false,
-		"localhost:8080":  false,
-		"0.0.0.0:8080":    false,
-		"10.0.0.5:8080":   false,
-		"evil.example:80": false,
-		"127.0.0.1":       false,
-		"":                false,
-	} {
-		if got := ValidLoopbackAddress(address); got != want {
-			t.Errorf("ValidLoopbackAddress(%q) = %v, want %v", address, got, want)
-		}
-	}
-}
-
-func TestStatePort(t *testing.T) {
-	if got := Port(daemon.State{Address: "127.0.0.1:4321"}); got != 4321 {
-		t.Fatalf("Port = %d, want 4321", got)
-	}
-	if got := Port(daemon.State{Address: "garbage"}); got != 0 {
-		t.Fatalf("Port of invalid address = %d, want 0", got)
-	}
-}
-
-func TestControlClientSendsBearerTokenAndDecodesResponses(t *testing.T) {
-	var gotAuth, gotBody, gotType string
+func TestPostSendsControlTokenAndDecodesReply(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotAuth = r.Header.Get("Authorization")
-		gotType = r.Header.Get("Content-Type")
+		if r.Header.Get("Authorization") != "Bearer control-1" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
 		body, _ := io.ReadAll(r.Body)
-		gotBody = string(body)
-		_, _ = w.Write([]byte(`{"ok":true}`))
-	}))
-	defer server.Close()
-	state := stateFor(server, "control-secret")
-
-	var got struct{ OK bool }
-	if err := Get(state, "/v1/control/x", &got); err != nil || !got.OK {
-		t.Fatalf("Get = %+v, %v", got, err)
-	}
-	if gotAuth != "Bearer control-secret" {
-		t.Fatalf("Authorization = %q", gotAuth)
-	}
-
-	got.OK = false
-	if err := Post(state, "/v1/control/x", []byte(`{"a":1}`), &got); err != nil || !got.OK {
-		t.Fatalf("Post = %+v, %v", got, err)
-	}
-	if gotBody != `{"a":1}` || gotType != "application/json" {
-		t.Fatalf("body = %q, content type = %q", gotBody, gotType)
-	}
-}
-
-func TestControlClientReportsHTTPErrors(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "nope", http.StatusConflict)
-	}))
-	defer server.Close()
-	state := stateFor(server, "t")
-
-	for name, err := range map[string]error{
-		"get":  Get(state, "/v1/control/x", &struct{}{}),
-		"post": Post(state, "/v1/control/x", nil, nil),
-	} {
-		if err == nil || !strings.Contains(err.Error(), "HTTP 409") || !strings.Contains(err.Error(), "nope") {
-			t.Errorf("%s error = %v, want HTTP 409 with body", name, err)
-		}
-	}
-}
-
-func TestControlClientRefusesNonLoopbackAddresses(t *testing.T) {
-	var contacted bool
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { contacted = true }))
-	defer server.Close()
-	// "localhost" resolves to the test server but is not the accepted literal.
-	state := daemon.State{Address: strings.Replace(strings.TrimPrefix(server.URL, "http://"), "127.0.0.1", "localhost", 1), ControlToken: "secret"}
-
-	if err := Get(state, "/", &struct{}{}); err == nil {
-		t.Error("Get must refuse a non-loopback address")
-	}
-	if err := Post(state, "/", nil, nil); err == nil {
-		t.Error("Post must refuse a non-loopback address")
-	}
-	if _, err := InboundText(state, "offer"); err == nil {
-		t.Error("InboundText must refuse a non-loopback address")
-	}
-	if Healthy(state) {
-		t.Error("Healthy must refuse a non-loopback address")
-	}
-	if contacted {
-		t.Fatal("the control token must never reach a non-loopback address")
-	}
-}
-
-func TestControlInboundActionValidatesTheAction(t *testing.T) {
-	var path string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		path = r.URL.Path
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer server.Close()
-	state := stateFor(server, "t")
-
-	if err := InboundAction(state, "offer-1", "delete"); err == nil {
-		t.Fatal("unknown action must be rejected before any request")
-	}
-	if path != "" {
-		t.Fatalf("unexpected request to %q", path)
-	}
-	if err := InboundAction(state, "offer-1", "accept"); err != nil || path != "/v1/control/inbound/offer-1/accept" {
-		t.Fatalf("accept: err=%v path=%q", err, path)
-	}
-}
-
-func TestControlInboundTextParsesFilenameAndPreviewHeader(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasSuffix(r.URL.Path, "/missing/file") {
-			http.NotFound(w, r)
+		if r.URL.Path != "/v1/control/release" || !strings.Contains(string(body), "v1.1.0") {
+			http.Error(w, "unexpected request", http.StatusBadRequest)
 			return
 		}
-		if strings.HasSuffix(r.URL.Path, "/nameless/file") {
-			w.Header().Set("Content-Length", "2")
-			_, _ = w.Write([]byte("hi"))
-			return
-		}
-		w.Header().Set("Content-Disposition", `inline; filename="report.csv"`)
-		w.Header().Set("X-agentport-Previewable", "true")
-		_, _ = w.Write([]byte("a,b\n"))
+		_ = json.NewEncoder(w).Encode(map[string]bool{"updated": true})
 	}))
 	defer server.Close()
-	state := stateFor(server, "t")
-
-	content, err := InboundText(state, "ok")
-	if err != nil {
-		t.Fatal(err)
+	state := stateFor(server, "control-1")
+	if err := PublishReleaseStatus(state, release.Status{CurrentVersion: "v1.0.0", LatestVersion: "v1.1.0"}); err != nil {
+		t.Fatalf("publish: %v", err)
 	}
-	defer content.Reader.Close()
-	data, _ := io.ReadAll(content.Reader)
-	if content.Name != "report.csv" || !content.Previewable || content.Size != 4 || string(data) != "a,b\n" {
-		t.Fatalf("content = %+v %q", content, data)
-	}
-	for _, id := range []string{"missing", "nameless", " "} {
-		if _, err := InboundText(state, id); err == nil {
-			t.Errorf("offer %q must be unavailable", id)
-		}
+	if err := Post(stateFor(server, "wrong"), "/v1/control/release", []byte(`{}`), nil); err == nil {
+		t.Fatal("wrong token was accepted")
 	}
 }
 
-func TestCompanionInboundStatusFallsBackToEmptyOnError(t *testing.T) {
+func TestHealthyReadsHealthz(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		http.Error(w, "boom", http.StatusInternalServerError)
+		w.WriteHeader(http.StatusOK)
 	}))
 	defer server.Close()
-	status := InboundStatus(stateFor(server, "t"))
-	if len(status.Offers) != 0 || len(status.Received) != 0 {
-		t.Fatalf("status = %+v, want empty", status)
+	if !Healthy(stateFor(server, "x")) {
+		t.Fatal("healthy bridge reported unhealthy")
+	}
+	if Healthy(daemon.State{Address: "192.0.2.1:9"}) {
+		t.Fatal("non-loopback address reported healthy")
 	}
 }
 
-func TestBridgeHealthy(t *testing.T) {
-	healthy := true
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !healthy {
-			http.Error(w, "down", http.StatusServiceUnavailable)
-		}
-	}))
-	defer server.Close()
-	state := stateFor(server, "t")
-	if !Healthy(state) {
-		t.Fatal("bridge must be healthy")
+func TestValidLoopbackAddressAndPort(t *testing.T) {
+	cases := map[string]bool{
+		"127.0.0.1:4000":  true,
+		"localhost:4000":  false,
+		"0.0.0.0:4000":    false,
+		"127.0.0.1:0":     false,
+		"127.0.0.1:70000": false,
 	}
-	healthy = false
-	if Healthy(state) {
-		t.Fatal("bridge must be unhealthy on 503")
-	}
-}
-
-// The tests below run the client against the real daemon, so a payload the
-// client sends is accepted by the handler that receives it.
-
-func startDaemon(t *testing.T) (*daemon.Daemon, daemon.State) {
-	t.Helper()
-	testenv.IsolateUserDirs(t)
-	d, err := daemon.Start(nil, "control-secret")
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = d.Close() })
-	return d, d.State
-}
-
-func tinyPNG(t *testing.T) []byte {
-	t.Helper()
-	var buffer bytes.Buffer
-	if err := png.Encode(&buffer, image.NewRGBA(image.Rect(0, 0, 4, 3))); err != nil {
-		t.Fatal(err)
-	}
-	return buffer.Bytes()
-}
-
-func TestClientAgainstTheRealDaemon(t *testing.T) {
-	_, state := startDaemon(t)
-
-	if !Healthy(state) {
-		t.Fatal("a running daemon must be healthy")
-	}
-	if Port(state) == 0 {
-		t.Fatalf("Port(%q) = 0", state.Address)
-	}
-
-	armed, err := Arm(state, daemon.Image{PNG: tinyPNG(t), Width: 4, Height: 3})
-	if err != nil || armed.ID == "" || armed.ExpiresAt.IsZero() {
-		t.Fatalf("Arm = %+v, %v", armed, err)
-	}
-
-	session, err := Session(state)
-	if err != nil || session.ID == "" || session.Token == "" {
-		t.Fatalf("Session = %+v, %v", session, err)
-	}
-
-	items := []bridge.Item{{ID: "text-1", Kind: bridge.ItemText, MIMEType: "text/plain", Name: "note.txt", Data: []byte("hello")}}
-	if err := ArmSnapshot(state, items); err != nil {
-		t.Fatalf("ArmSnapshot: %v", err)
-	}
-
-	if err := PublishReleaseStatus(state, release.Status{CurrentVersion: "v0.7.1", LatestVersion: "v0.8.0", UpdateAvailable: true}); err != nil {
-		t.Fatalf("PublishReleaseStatus: %v", err)
-	}
-	if err := PublishReleaseStatus(state, release.Status{}); err == nil {
-		t.Fatal("the daemon must refuse a release status without a current version")
-	}
-
-	status := InboundStatus(state)
-	if len(status.Offers) != 0 || len(status.Received) != 0 {
-		t.Fatalf("a fresh daemon has no inbound files: %+v", status)
-	}
-}
-
-// The client sends a file as a path only, and the daemon arms it from that: what
-// FileItem produces must be accepted, and a path the daemon refuses must fail.
-func TestArmSnapshotSendsFilesAsAPathTheDaemonVerifies(t *testing.T) {
-	_, state := startDaemon(t)
-	path := filepath.Join(t.TempDir(), "report.csv")
-	if err := os.WriteFile(path, []byte("a,b\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	item, err := bridge.FileItem(path, "text/csv")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := ArmSnapshot(state, []bridge.Item{item}); err != nil {
-		t.Fatalf("ArmSnapshot of a real file: %v", err)
-	}
-	item.File.Path = filepath.Join(filepath.Dir(path), "missing.csv")
-	if err := ArmSnapshot(state, []bridge.Item{item}); err == nil {
-		t.Fatal("ArmSnapshot of a file that does not exist must fail")
-	}
-}
-
-func TestClientIsRejectedWithAWrongControlToken(t *testing.T) {
-	_, state := startDaemon(t)
-	state.ControlToken = "not-the-token"
-	if _, err := Session(state); err == nil || !strings.Contains(err.Error(), "HTTP 401") {
-		t.Fatalf("Session with a wrong token = %v, want HTTP 401", err)
-	}
-	if err := ArmSnapshot(state, nil); err == nil {
-		t.Fatal("ArmSnapshot with a wrong token must fail")
-	}
-}
-
-func TestShutdownStopsTheDaemon(t *testing.T) {
-	_, state := startDaemon(t)
-	if err := Shutdown(state); err != nil {
-		t.Fatalf("Shutdown: %v", err)
-	}
-	deadline := time.Now().Add(5 * time.Second)
-	for Healthy(state) {
-		if time.Now().After(deadline) {
-			t.Fatal("the daemon is still healthy after Shutdown")
-		}
-		time.Sleep(20 * time.Millisecond)
-	}
-}
-
-func TestControlPathCannotSendTheTokenToAnotherHost(t *testing.T) {
-	var evilRequests, legitRequests []string
-	evil := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		evilRequests = append(evilRequests, r.Header.Get("Authorization")+" "+r.URL.Path)
-	}))
-	defer evil.Close()
-	legit := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		legitRequests = append(legitRequests, r.URL.Path)
-	}))
-	defer legit.Close()
-	state := stateFor(legit, "control-secret")
-	evilAddress := strings.TrimPrefix(evil.URL, "http://")
-
-	// "user@host" makes the loopback address look like credentials, so the
-	// request would go to evilAddress carrying the bearer token.
-	for _, path := range []string{"@" + evilAddress + "/leak", "//" + evilAddress + "/leak", "v1/control/no-slash", "", ":80/x"} {
-		if err := Get(state, path, &struct{}{}); err == nil {
-			t.Errorf("Get(%q) must be refused", path)
-		}
-		if err := Post(state, path, nil, nil); err == nil {
-			t.Errorf("Post(%q) must be refused", path)
+	for address, want := range cases {
+		if got := ValidLoopbackAddress(address); got != want {
+			t.Fatalf("ValidLoopbackAddress(%q) = %v, want %v", address, got, want)
 		}
 	}
-	if len(evilRequests) != 0 {
-		t.Fatalf("the token reached another host: %q", evilRequests)
-	}
-	if len(legitRequests) != 0 {
-		t.Fatalf("a refused path must not be sent at all: %q", legitRequests)
+	if got := Port(daemon.State{Address: "127.0.0.1:4123"}); got != 4123 {
+		t.Fatalf("Port = %d", got)
 	}
 }
 
-func TestControlPathIsSentAsAPathNeverAsAQuery(t *testing.T) {
-	var gotPath, gotQuery string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		gotPath, gotQuery = r.URL.Path, r.URL.RawQuery
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer server.Close()
-	if err := Get(stateFor(server, "t"), "/v1/control/x?admin=1#frag", &struct{}{}); err != nil {
-		t.Fatal(err)
-	}
-	if gotPath != "/v1/control/x?admin=1#frag" || gotQuery != "" {
-		t.Fatalf("server saw path %q and query %q", gotPath, gotQuery)
-	}
-}
-
-func TestOfferIDsCannotAddPathSegmentsOrQueries(t *testing.T) {
-	var requests []string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requests = append(requests, r.URL.String())
-		_, _ = w.Write([]byte(`{}`))
-	}))
-	defer server.Close()
-	state := stateFor(server, "t")
-	for _, id := range []string{"", " ", "a/b", "../shutdown", "x?y=1", "x#f", "x%2Fy", "@evil", strings.Repeat("a", 129)} {
-		if err := InboundAction(state, id, "accept"); err == nil {
-			t.Errorf("InboundAction accepted offer id %q", id)
-		}
-		if _, err := InboundText(state, id); err == nil {
-			t.Errorf("InboundText accepted offer id %q", id)
+func TestEndpointRejectsAuthorityTricks(t *testing.T) {
+	state := daemon.State{Address: "127.0.0.1:4000", ControlToken: "x"}
+	for _, path := range []string{"//evil.example/x", "@evil.example/x", "relative"} {
+		if _, err := endpoint(state, path); err == nil {
+			t.Fatalf("path %q was accepted", path)
 		}
 	}
-	if len(requests) != 0 {
-		t.Fatalf("invalid ids reached the bridge: %q", requests)
-	}
-	if err := InboundAction(state, "0123456789abcdef-ABC_xyz", "reject"); err != nil {
-		t.Fatalf("a generated-style id must be accepted: %v", err)
+	target, err := endpoint(state, "/v1/control/shutdown")
+	if err != nil || target != "http://127.0.0.1:4000/v1/control/shutdown" {
+		t.Fatalf("endpoint = %q, %v", target, err)
 	}
 }

@@ -7,5 +7,5 @@ import (
 	"github.com/rafaelb13/agentport/internal/testenv"
 )
 
-// TestMain keeps these tests away from the developer's real inbox and cache.
+// TestMain keeps these tests away from the developer's real cache and config.
 func TestMain(m *testing.M) { os.Exit(testenv.Main(m)) }

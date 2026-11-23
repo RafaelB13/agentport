@@ -28,7 +28,7 @@ func findCommand(table []command, name string) (command, bool) {
 // printHelp writes the overview: what agentport is, then every command with its
 // summary, grouped, and how to get more.
 func printHelp(w io.Writer, table []command) {
-	fmt.Fprintln(w, i18n.T("agentport gives a coding agent on an SSH server access to your clipboard, with your approval."))
+	fmt.Fprintln(w, i18n.T("agentport connects a coding agent on an SSH server to this machine through a reverse tunnel. Work in progress."))
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, i18n.T("Usage:"))
 	fmt.Fprintln(w, "  agentport <command> [arguments]")

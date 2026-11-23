@@ -15,11 +15,11 @@ import (
 // that is already running: they would fight over the state file and the tunnel.
 func TestServiceDoesNotStartASecondCompanionForARunningProfile(t *testing.T) {
 	testenv.IsolateUserDirs(t)
-	profile := companion.Profile{Name: "dup", Destination: "host", RemotePort: 39123, Token: "t", UploadToken: "u"}
+	profile := companion.Profile{Name: "dup", Destination: "host", RemotePort: 39123, Token: "t"}
 	if err := companion.SaveProfile(profile); err != nil {
 		t.Fatal(err)
 	}
-	running, err := companion.StartControl("dup", func() any { return map[string]any{} }, func() {}, nil, nil)
+	running, err := companion.StartControl("dup", func() any { return map[string]any{} }, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}

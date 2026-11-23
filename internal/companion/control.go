@@ -9,8 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
-	"io"
-	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -32,20 +30,11 @@ type ControlServer struct {
 	listener net.Listener
 }
 
-// InboundFileContent is a verified local file that the Companion may serve
-// through its private view URL. Its reader is always closed by Control.
-type InboundFileContent struct {
-	Name        string
-	Size        int64
-	Previewable bool
-	Reader      io.ReadCloser
-}
-
-func StartControl(profile string, snapshot func() any, stop func(), inboundAction func(string, string) error, inboundContent func(string) (InboundFileContent, error)) (*ControlServer, error) {
+func StartControl(profile string, status func() any, stop func()) (*ControlServer, error) {
 	if !validProfileName(profile) {
 		return nil, fmt.Errorf("invalid companion profile %q", profile)
 	}
-	if snapshot == nil || stop == nil {
+	if status == nil || stop == nil {
 		return nil, fmt.Errorf("Companion control callbacks are required")
 	}
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -79,7 +68,7 @@ func StartControl(profile string, snapshot func() any, stop func(), inboundActio
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		writeJSON(w, snapshot())
+		writeJSON(w, status())
 	}))
 	mux.HandleFunc("/v1/control/stop", control.requireControl(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -125,56 +114,12 @@ func StartControl(profile string, snapshot func() any, stop func(), inboundActio
 			return
 		}
 		if r.URL.Path == prefix+"/api/status" && r.Method == http.MethodGet {
-			writeJSON(w, snapshot())
+			writeJSON(w, status())
 			return
 		}
 		if r.URL.Path == prefix+"/api/stop" && r.Method == http.MethodPost {
 			writeJSON(w, map[string]bool{"stopping": true})
 			go stop()
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, prefix+"/api/inbound/") && r.Method == http.MethodGet {
-			parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/api/inbound/"), "/")
-			if inboundContent == nil || len(parts) != 2 || parts[0] == "" || (parts[1] != "content" && parts[1] != "download") {
-				http.NotFound(w, r)
-				return
-			}
-			content, err := inboundContent(parts[0])
-			if content.Reader != nil {
-				defer content.Reader.Close()
-			}
-			if err != nil || content.Reader == nil || content.Size < 0 || (parts[1] == "content" && !content.Previewable) {
-				http.Error(w, "received file is unavailable", http.StatusNotFound)
-				return
-			}
-			dispositionType, contentType := "attachment", "application/octet-stream"
-			if parts[1] == "content" {
-				dispositionType, contentType = "inline", "text/plain; charset=utf-8"
-			}
-			disposition := mime.FormatMediaType(dispositionType, map[string]string{"filename": content.Name})
-			w.Header().Set("Content-Type", contentType)
-			w.Header().Set("Content-Disposition", disposition)
-			w.Header().Set("Content-Length", fmt.Sprintf("%d", content.Size))
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			w.Header().Set("Content-Security-Policy", "default-src 'none'; sandbox")
-			_, _ = io.Copy(w, io.LimitReader(content.Reader, content.Size))
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, prefix+"/api/inbound/") && r.Method == http.MethodPost {
-			if inboundAction == nil {
-				http.NotFound(w, r)
-				return
-			}
-			parts := strings.Split(strings.TrimPrefix(r.URL.Path, prefix+"/api/inbound/"), "/")
-			if len(parts) != 2 || parts[0] == "" || (parts[1] != "accept" && parts[1] != "reject") {
-				http.NotFound(w, r)
-				return
-			}
-			if err := inboundAction(parts[1], parts[0]); err != nil {
-				http.Error(w, err.Error(), http.StatusConflict)
-				return
-			}
-			writeJSON(w, map[string]bool{"updated": true})
 			return
 		}
 		http.NotFound(w, r)

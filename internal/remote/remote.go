@@ -38,8 +38,7 @@ func remotePreflightCommandWithIdentity(destination, identityFile, agentExecutab
 	return remoteSSHCommand(destination, identityFile, "sh -lc "+shellQuote(check))
 }
 
-// MinRemoteVersion is the oldest remote agentport that understands what setup
-// configures: the upload token for files sent from the server arrived in v0.5.0.
+// MinRemoteVersion is the oldest remote agentport that setup can configure.
 // An older one registers the MCP entry and then fails on the tools, silently.
 const MinRemoteVersion = "v0.5.0"
 

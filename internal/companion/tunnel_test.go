@@ -92,7 +92,7 @@ func (l *statusLog) snapshot() []TunnelStatus {
 }
 
 func profileForTunnel() Profile {
-	return Profile{Name: "t", Destination: "host", RemotePort: 39123, Token: "token", UploadToken: "upload"}
+	return Profile{Name: "t", Destination: "host", RemotePort: 39123, Token: "token"}
 }
 
 func waitFor(t *testing.T, what string, condition func() bool) {

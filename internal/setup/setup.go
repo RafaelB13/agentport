@@ -173,6 +173,6 @@ func (r Runner) Run(options Options) error {
 	if err := r.StartCompanion(profile.Name); err != nil {
 		return err
 	}
-	fmt.Fprintln(stdout, i18n.T("Setup complete for %q. SSH normally, then ask your agent to inspect the clipboard.", profile.Name))
+	fmt.Fprintln(stdout, i18n.T("Setup complete for %q. SSH normally; your agent can check the link with agentport_status.", profile.Name))
 	return nil
 }

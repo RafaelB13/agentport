@@ -26,7 +26,7 @@ const (
 var semanticTag = regexp.MustCompile(`^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?(?:\+[0-9A-Za-z.-]+)?$`)
 
 // Status is deliberately safe to expose to a remote MCP client. It contains
-// neither authentication material nor any clipboard information.
+// neither authentication material nor any private content.
 type Status struct {
 	CurrentVersion  string    `json:"current_version"`
 	LatestVersion   string    `json:"latest_version,omitempty"`

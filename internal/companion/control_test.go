@@ -28,7 +28,7 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 	stopped := make(chan struct{}, 1)
 	control, err := StartControl("dev", func() any {
 		return map[string]any{"profile": "dev", "tunnel": map[string]bool{"connected": true}}
-	}, func() { stopped <- struct{}{} }, nil, nil)
+	}, func() { stopped <- struct{}{} })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -77,25 +77,10 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 		t.Fatal(err)
 	}
 	markup = append(markup, script...)
-	for _, expected := range []string{"btn-accept", "btn-reject", "Open content", "Copy content", "Download", "Copy path", "Awaiting your approval", "Received at", "Received files", "formatDateTime", "formatBytes", "Update", "agentport upgrade"} {
+	for _, expected := range []string{"Companion status", "Tunnel connected", "Stop the Companion?", "formatDateTime", "Update available", "agentport upgrade"} {
 		if !strings.Contains(string(markup), expected) {
 			t.Fatalf("dashboard markup missing %q", expected)
 		}
-	}
-	// The copy action belongs to previewable files only: it lives in its own
-	// function, which the file card calls only under o.previewable.
-	source := string(script)
-	cardStart := strings.Index(source, "function fileCard(o){")
-	cardEnd := strings.Index(source, "function offerRow(")
-	if cardStart < 0 || cardEnd < cardStart {
-		t.Fatal("dashboard file card renderer missing")
-	}
-	card := source[cardStart:cardEnd]
-	if strings.Contains(card, "Copy content") || !strings.Contains(card, "o.previewable ? previewActions(o) : []") {
-		t.Fatal("Copy content must be rendered only inside the previewable file branch")
-	}
-	if !strings.Contains(source, "function previewActions(o)") || strings.Count(source, "Copy content") != 1 {
-		t.Fatal("Copy content must exist once, in previewActions")
 	}
 	if err := StopRuntime(state); err != nil {
 		t.Fatal(err)
@@ -109,7 +94,7 @@ func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 
 func TestControlServerServesDashboardBrandAssets(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, nil, nil)
+	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,7 +129,7 @@ func TestControlServerServesDashboardBrandAssets(t *testing.T) {
 // would not run even if the manual escaping missed a field.
 func TestDashboardCSPForbidsInlineCodeAndThePageNeedsNone(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, nil, nil)
+	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -217,100 +202,6 @@ func TestDashboardScriptNeverBuildsMarkupFromStrings(t *testing.T) {
 	}
 }
 
-func TestControlServerAllowsInboundActionFromPrivateView(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	actions := make(chan string, 1)
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, func(action, offerID string) error {
-		actions <- action + ":" + offerID
-		return nil
-	}, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer control.Close()
-	request, err := http.NewRequest(http.MethodPost, ViewURL(control.State)+"api/inbound/offer-1/accept", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response, err := http.DefaultClient.Do(request)
-	if err != nil {
-		t.Fatal(err)
-	}
-	response.Body.Close()
-	if response.StatusCode != http.StatusOK {
-		t.Fatalf("action status = %d", response.StatusCode)
-	}
-	select {
-	case action := <-actions:
-		if action != "accept:offer-1" {
-			t.Fatalf("action = %q", action)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("inbound action was not called")
-	}
-}
-
-func TestControlServerServesPrivateInboundTextContent(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, nil, func(offerID string) (InboundFileContent, error) {
-		if offerID != "offer-1" {
-			t.Fatalf("offer ID = %q", offerID)
-		}
-		return InboundFileContent{Name: "report.csv", Size: 8, Previewable: true, Reader: io.NopCloser(strings.NewReader("a,b\n1,2\n"))}, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer control.Close()
-	response, err := http.Get(ViewURL(control.State) + "api/inbound/offer-1/content")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusOK || response.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
-		t.Fatalf("content response = %d %q", response.StatusCode, response.Header.Get("Content-Type"))
-	}
-	data, err := io.ReadAll(response.Body)
-	if err != nil || string(data) != "a,b\n1,2\n" {
-		t.Fatalf("content = %q, %v", data, err)
-	}
-	download, err := http.Get(ViewURL(control.State) + "api/inbound/offer-1/download")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer download.Body.Close()
-	if download.StatusCode != http.StatusOK || !strings.HasPrefix(download.Header.Get("Content-Disposition"), "attachment;") {
-		t.Fatalf("download response = %d %q", download.StatusCode, download.Header.Get("Content-Disposition"))
-	}
-	if data, err := io.ReadAll(download.Body); err != nil || string(data) != "a,b\n1,2\n" {
-		t.Fatalf("download = %q, %v", data, err)
-	}
-}
-
-func TestControlServerDoesNotServeNonPreviewableInboundContent(t *testing.T) {
-	t.Setenv("XDG_CACHE_HOME", t.TempDir())
-	reader := &trackedReadCloser{Reader: strings.NewReader("data")}
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, nil, func(string) (InboundFileContent, error) {
-		return InboundFileContent{Name: "image.png", Size: 4, Previewable: false, Reader: reader}, nil
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer control.Close()
-
-	response, err := http.Get(ViewURL(control.State) + "api/inbound/offer-1/content")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer response.Body.Close()
-	if response.StatusCode != http.StatusNotFound {
-		t.Fatalf("non-previewable content status = %d, want %d", response.StatusCode, http.StatusNotFound)
-	}
-	if !reader.closed {
-		t.Fatal("rejected non-previewable content reader was not closed")
-	}
-}
-
 func fetchPage(t *testing.T, url string, header map[string]string) (string, http.Header) {
 	t.Helper()
 	request, err := http.NewRequest(http.MethodGet, url, nil)
@@ -347,7 +238,7 @@ func pageMeta(t *testing.T, page, name string) string {
 func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	defer i18n.SetLanguage(i18n.English)
-	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {}, nil, nil)
+	control, err := StartControl("dev", func() any { return map[string]any{} }, func() {})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,7 +246,7 @@ func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 	url := ViewURL(control.State)
 
 	english, headers := fetchPage(t, url, nil)
-	if !strings.Contains(english, `<html lang="en-US">`) || !strings.Contains(english, "Received files") || pageMeta(t, english, "agentport-i18n") != "{}" {
+	if !strings.Contains(english, `<html lang="en-US">`) || !strings.Contains(english, "Companion status") || pageMeta(t, english, "agentport-i18n") != "{}" {
 		t.Errorf("the default page is not plain English:\n%s", english)
 	}
 	if !strings.Contains(headers.Get("Vary"), "Accept-Language") {
@@ -374,14 +265,14 @@ func TestDashboardIsEnglishByDefaultAndPortugueseOnRequest(t *testing.T) {
 		"query beats header": {url + "?lang=pt", map[string]string{"Accept-Language": "en-US"}},
 	} {
 		portuguese, _ := fetchPage(t, page.url, page.header)
-		if !strings.Contains(portuguese, `<html lang="pt-BR">`) || !strings.Contains(portuguese, "Arquivos recebidos") || strings.Contains(portuguese, ">Received files<") {
+		if !strings.Contains(portuguese, `<html lang="pt-BR">`) || !strings.Contains(portuguese, "Status do companion") || strings.Contains(portuguese, ">Companion status<") {
 			t.Errorf("%s: the page is not in Portuguese:\n%s", name, portuguese)
 		}
 		if strings.Contains(portuguese, "{{") {
 			t.Errorf("%s: an unfilled placeholder is left in the page", name)
 		}
 		var catalog map[string]string
-		if err := json.Unmarshal([]byte(pageMeta(t, portuguese, "agentport-i18n")), &catalog); err != nil || catalog["Open content"] != "Abrir conteúdo" {
+		if err := json.Unmarshal([]byte(pageMeta(t, portuguese, "agentport-i18n")), &catalog); err != nil || catalog["Tunnel connected"] != "Túnel conectado" {
 			t.Errorf("%s: the script's translations are %v (%v)", name, catalog, err)
 		}
 		if pageMeta(t, portuguese, "agentport-lang") != "pt-BR" {
@@ -414,7 +305,7 @@ func TestRenderDashboardEscapesEverythingItSubstitutes(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := scriptCatalog(i18n.Portuguese)
-	if len(want) < 30 || len(roundTrip) != len(want) {
+	if len(want) < 5 || len(roundTrip) != len(want) {
 		t.Fatalf("the script receives %d translations, want the %d it asks for", len(roundTrip), len(want))
 	}
 	if _, help := roundTrip["Usage:"]; help {

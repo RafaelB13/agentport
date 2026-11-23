@@ -27,20 +27,13 @@ type openCodeMCPEntry struct {
 }
 
 // Install registers agentport with a supported harness under the given home.
-func Install(home, harness, name string, port int, token string, uploadTokens ...string) error {
+func Install(home, harness, name string, port int, token string) error {
 	if strings.TrimSpace(name) == "" {
 		return errors.New("harness entry name is required")
-	}
-	uploadToken := ""
-	if len(uploadTokens) > 0 {
-		uploadToken = uploadTokens[0]
 	}
 	environment := map[string]string{
 		"AGENTPORT_BRIDGE_PORT":   strconv.Itoa(port),
 		"AGENTPORT_SESSION_TOKEN": token,
-	}
-	if strings.TrimSpace(uploadToken) != "" {
-		environment["AGENTPORT_UPLOAD_TOKEN"] = uploadToken
 	}
 	switch strings.ToLower(strings.TrimSpace(harness)) {
 	case "agy", "antigravity":
@@ -50,7 +43,7 @@ func Install(home, harness, name string, port int, token string, uploadTokens ..
 		path := filepath.Join(home, ".config", "opencode", "opencode.json")
 		return updateJSONMCPEntry(path, "mcp", name, openCodeMCPEntry{Type: "local", Command: []string{"agentport", "mcp"}, Environment: environment, Enabled: true})
 	case "pi":
-		return writePiExtension(home, name, port, token, uploadToken)
+		return writePiExtension(home, name, port, token)
 	default:
 		return fmt.Errorf("unsupported harness %q; supported harnesses: agy, opencode, pi", harness)
 	}
@@ -173,13 +166,13 @@ func writeJSONObject(path string, root map[string]json.RawMessage) error {
 	return os.Chmod(path, 0600)
 }
 
-func writePiExtension(home, name string, port int, token, uploadToken string) error {
+func writePiExtension(home, name string, port int, token string) error {
 	directory := filepath.Join(home, ".pi", "agent", "extensions")
 	if err := os.MkdirAll(directory, 0700); err != nil {
 		return fmt.Errorf("create Pi extension directory: %w", err)
 	}
 	path := filepath.Join(directory, name+".ts")
-	if err := os.WriteFile(path, []byte(piExtensionSource(port, token, uploadToken)), 0600); err != nil {
+	if err := os.WriteFile(path, []byte(piExtensionSource(port, token)), 0600); err != nil {
 		return fmt.Errorf("write Pi extension: %w", err)
 	}
 	return os.Chmod(path, 0600)
@@ -188,10 +181,9 @@ func writePiExtension(home, name string, port int, token, uploadToken string) er
 //go:embed pi_extension.ts.tmpl
 var piExtensionTemplate string
 
-func piExtensionSource(port int, token, uploadToken string) string {
+func piExtensionSource(port int, token string) string {
 	return strings.NewReplacer(
 		"__PORT__", strconv.Itoa(port),
 		"__TOKEN__", strconv.Quote(token),
-		"__UPLOAD_TOKEN__", strconv.Quote(uploadToken),
 	).Replace(piExtensionTemplate)
 }

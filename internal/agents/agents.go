@@ -163,9 +163,6 @@ func Resolve(agentID string) (Adapter, error) {
 
 func harnessInstallArguments(harness string, profile companion.Profile, name string) []string {
 	arguments := []string{"agentport", "harness", "install", harness, "--name", name, "--port", strconv.Itoa(profile.RemotePort), "--token", profile.Token}
-	if profile.HasUploadToken() {
-		arguments = append(arguments, "--upload-token", profile.UploadToken)
-	}
 	return arguments
 }
 
@@ -174,9 +171,6 @@ func agentEnvironmentArguments(arguments []string, profile companion.Profile) []
 		"--env", fmt.Sprintf("AGENTPORT_BRIDGE_PORT=%d", profile.RemotePort),
 		"--env", "AGENTPORT_SESSION_TOKEN="+profile.Token,
 	)
-	if profile.HasUploadToken() {
-		arguments = append(arguments, "--env", "AGENTPORT_UPLOAD_TOKEN="+profile.UploadToken)
-	}
 	return arguments
 }
 

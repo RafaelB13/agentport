@@ -4,12 +4,9 @@ package daemon
 import (
 	"context"
 	"crypto/subtle"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"os"
@@ -21,35 +18,11 @@ import (
 	"github.com/rafaelb13/agentport/internal/release"
 )
 
-type Image struct {
-	PNG    []byte `json:"-"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-}
-type armRequest struct {
-	PNG    string `json:"png"`
-	Width  int    `json:"width"`
-	Height int    `json:"height"`
-}
-type snapshotRequest struct {
-	Items []snapshotItemRequest `json:"items"`
-}
-type snapshotItemRequest struct {
-	ID       string          `json:"id"`
-	Kind     bridge.ItemKind `json:"kind"`
-	MIMEType string          `json:"mime_type"`
-	Name     string          `json:"name"`
-	Data     string          `json:"data,omitempty"`
-	Width    int             `json:"width,omitempty"`
-	Height   int             `json:"height,omitempty"`
-	// Path names a local file to arm. Its size, time and SHA-256 are measured by
-	// the bridge, never supplied by the caller.
-	Path string `json:"path,omitempty"`
-}
+const bridgeTransferTimeout = 30 * time.Second
+
 type persistentSessionRequest struct {
-	ID          string `json:"id"`
-	Token       string `json:"token"`
-	UploadToken string `json:"upload_token,omitempty"`
+	ID    string `json:"id"`
+	Token string `json:"token"`
 }
 
 type State struct {
@@ -66,18 +39,13 @@ type Daemon struct {
 	listener net.Listener
 }
 
-// Start launches a loopback daemon. initial may be nil. The control token is
-// required for both control endpoints and is never accepted from a remote bind.
-func Start(initial *Image, controlToken string) (*Daemon, error) {
+// Start launches a loopback daemon. The control token is required for the
+// control endpoints and is never accepted from a remote bind.
+func Start(controlToken string) (*Daemon, error) {
 	if controlToken == "" {
 		return nil, errors.New("control token is required")
 	}
-	b := bridge.New(bridge.DefaultTTL)
-	if initial != nil {
-		if _, err := b.Arm(initial.PNG, initial.Width, initial.Height); err != nil {
-			return nil, err
-		}
-	}
+	b := bridge.New()
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -85,20 +53,15 @@ func Start(initial *Image, controlToken string) (*Daemon, error) {
 	d := &Daemon{Bridge: b, listener: l}
 	d.State = State{Address: l.Addr().String(), ControlToken: controlToken, PID: os.Getpid(), UpdatedAt: time.Now().UTC()}
 	mux := http.NewServeMux()
-	mux.HandleFunc("/v1/control/arm", d.arm)
-	mux.HandleFunc("/v1/control/snapshot", d.snapshot)
-	mux.HandleFunc("/v1/control/sessions", d.session)
 	mux.HandleFunc("/v1/control/persistent-session", d.persistentSession)
 	mux.HandleFunc("/v1/control/release", d.release)
-	mux.HandleFunc("/v1/control/inbound", d.inbound)
-	mux.HandleFunc("/v1/control/inbound/", d.inboundAction)
 	mux.HandleFunc("/v1/control/shutdown", d.shutdown)
 	mux.Handle("/", b.Handler())
 	d.server = &http.Server{
 		Handler:           noStore(authControl(controlToken, mux)),
 		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       bridge.InboundTransferTimeout,
-		WriteTimeout:      bridge.InboundTransferTimeout,
+		ReadTimeout:       bridgeTransferTimeout,
+		WriteTimeout:      bridgeTransferTimeout,
 	}
 	if err := saveState(d.State); err != nil {
 		l.Close()
@@ -136,6 +99,7 @@ func (d *Daemon) Close() error {
 	}
 	return err
 }
+
 func LoadState() (State, error) {
 	p, err := statePath()
 	if err != nil {
@@ -150,74 +114,6 @@ func LoadState() (State, error) {
 	return s, json.NewDecoder(f).Decode(&s)
 }
 
-func (d *Daemon) arm(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodPost) {
-		return
-	}
-	var req armRequest
-	if !decodeJSON(w, r, bridge.MaxImageBytes*2, &req) {
-		return
-	}
-	png, err := base64.StdEncoding.DecodeString(req.PNG)
-	if err != nil {
-		http.Error(w, "png must be base64", http.StatusBadRequest)
-		return
-	}
-	im, err := d.Bridge.Arm(png, req.Width, req.Height)
-	if err != nil {
-		http.Error(w, bridge.Reason(err), http.StatusBadRequest)
-		return
-	}
-	writeJSON(w, map[string]any{"id": im.ID, "expires_at": im.ExpiresAt})
-}
-func (d *Daemon) snapshot(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodPost) {
-		return
-	}
-	var request snapshotRequest
-	if !decodeJSON(w, r, bridge.MaxImageBytes*2, &request) {
-		return
-	}
-	items := make([]bridge.Item, 0, len(request.Items))
-	for _, input := range request.Items {
-		var data []byte
-		var err error
-		if input.Data != "" {
-			data, err = base64.StdEncoding.DecodeString(input.Data)
-			if err != nil {
-				http.Error(w, "item data must be base64", http.StatusBadRequest)
-				return
-			}
-		}
-		item := bridge.Item{ID: input.ID, Kind: input.Kind, MIMEType: input.MIMEType, Name: input.Name, Data: data, Width: input.Width, Height: input.Height}
-		if input.Kind == bridge.ItemFile {
-			file, err := bridge.FileItem(input.Path, input.MIMEType)
-			if err != nil {
-				http.Error(w, bridge.Reason(err), http.StatusBadRequest)
-				return
-			}
-			item.File = file.File
-		}
-		items = append(items, item)
-	}
-	snapshot, err := d.Bridge.ArmItems(items)
-	if err != nil {
-		http.Error(w, bridge.Reason(err), http.StatusBadRequest)
-		return
-	}
-	writeJSON(w, snapshot)
-}
-func (d *Daemon) session(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodPost) {
-		return
-	}
-	s, t, err := d.Bridge.CreateSession(0)
-	if err != nil {
-		http.Error(w, bridge.Reason(err), http.StatusConflict)
-		return
-	}
-	writeJSON(w, map[string]any{"id": s.ID, "token": t, "expires_at": s.ExpiresAt})
-}
 func (d *Daemon) persistentSession(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return
@@ -226,65 +122,13 @@ func (d *Daemon) persistentSession(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, 4*1024, &request) {
 		return
 	}
-	if err := d.Bridge.RegisterPersistentSessionWithUpload(request.ID, request.Token, request.UploadToken); err != nil {
+	if err := d.Bridge.RegisterPersistentSession(request.ID, request.Token); err != nil {
 		http.Error(w, bridge.Reason(err), http.StatusBadRequest)
 		return
 	}
 	writeJSON(w, map[string]bool{"registered": true})
 }
 
-func (d *Daemon) inbound(w http.ResponseWriter, r *http.Request) {
-	if !requireMethod(w, r, http.MethodGet) {
-		return
-	}
-	writeJSON(w, d.Bridge.InboundLocalStatus())
-}
-
-func (d *Daemon) inboundAction(w http.ResponseWriter, r *http.Request) {
-	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/control/inbound/"), "/")
-	if len(parts) != 2 || parts[0] == "" {
-		http.NotFound(w, r)
-		return
-	}
-	if r.Method == http.MethodGet && parts[1] == "file" {
-		file, offer, err := d.Bridge.OpenInboundFile(parts[0])
-		if err != nil {
-			http.Error(w, "received file is unavailable", http.StatusNotFound)
-			return
-		}
-		defer file.Close()
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.Header().Set("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": offer.Name}))
-		w.Header().Set("Content-Length", fmt.Sprintf("%d", offer.Size))
-		w.Header().Set("X-Content-Type-Options", "nosniff")
-		if bridge.InboundTextPreviewable(offer.Name) {
-			w.Header().Set("X-agentport-Previewable", "true")
-		}
-		_, _ = io.Copy(w, io.LimitReader(file, offer.Size))
-		return
-	}
-	if !requireMethod(w, r, http.MethodPost) {
-		return
-	}
-	var (
-		offer any
-		err   error
-	)
-	switch parts[1] {
-	case "accept":
-		offer, err = d.Bridge.AcceptInboundOffer(parts[0])
-	case "reject":
-		offer, err = d.Bridge.RejectInboundOffer(parts[0])
-	default:
-		http.NotFound(w, r)
-		return
-	}
-	if err != nil {
-		http.Error(w, bridge.Reason(err), http.StatusConflict)
-		return
-	}
-	writeJSON(w, offer)
-}
 func (d *Daemon) shutdown(w http.ResponseWriter, r *http.Request) {
 	if !requireMethod(w, r, http.MethodPost) {
 		return
@@ -292,6 +136,7 @@ func (d *Daemon) shutdown(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]bool{"stopping": true})
 	go func() { _ = d.Close() }()
 }
+
 func authControl(token string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/v1/control/") {
@@ -303,12 +148,14 @@ func authControl(token string, next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 	})
 }
+
 func noStore(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		next.ServeHTTP(w, r)
 	})
 }
+
 func writeJSON(w http.ResponseWriter, v any) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(v)
@@ -321,6 +168,7 @@ func statePath() (string, error) {
 	}
 	return filepath.Join(dir, "agentport", "bridge.json"), nil
 }
+
 func saveState(s State) error {
 	p, err := statePath()
 	if err != nil {

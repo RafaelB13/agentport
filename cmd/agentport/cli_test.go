@@ -114,7 +114,7 @@ func TestCLICommandHelp(t *testing.T) {
 	if result := runCLI(t, "help", "disconnect"); result.exitCode != 0 || !strings.Contains(result.stdout, "agentport uninstall <profile>") || !strings.Contains(result.stdout, "Also known as: disconnect") {
 		t.Fatalf("help for an alias = %+v", result)
 	}
-	if result := runCLI(t, "companion", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "autostart") || !strings.Contains(result.stdout, "agentport companion <accept|reject>") {
+	if result := runCLI(t, "companion", "--help"); result.exitCode != 0 || !strings.Contains(result.stdout, "autostart") || !strings.Contains(result.stdout, "agentport companion <start|stop|status|open|view|run>") {
 		t.Fatalf("companion help = %+v", result)
 	}
 	// help is a command of its own, and is listed like the others.
@@ -181,7 +181,6 @@ func TestCLICommandsRejectMissingArguments(t *testing.T) {
 		{[]string{"uninstall", "p"}, "usage: agentport uninstall"},
 		{[]string{"harness"}, "usage: agentport harness"},
 		{[]string{"harness", "install", "pi"}, "usage: agentport harness"},
-		{[]string{"ssh"}, "usage: agentport ssh"},
 		{[]string{"upgrade", "--bogus"}, "usage: agentport upgrade"},
 		{[]string{"companion", "autostart"}, "usage: agentport companion autostart"},
 		{[]string{"companion", "autostart", "enable"}, "usage: agentport companion autostart"},
@@ -203,8 +202,6 @@ func TestCLICommandsOnAnUnknownProfileFailWithoutSideEffects(t *testing.T) {
 		{"companion", "status", "nope"},
 		{"companion", "stop", "nope"},
 		{"companion", "open", "nope"},
-		{"companion", "inbox", "nope"},
-		{"companion", "accept", "nope", "offer"},
 	}
 	for _, args := range notRunning {
 		t.Run(strings.Join(args, " "), func(t *testing.T) {

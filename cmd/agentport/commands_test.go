@@ -38,7 +38,7 @@ func TestCommandTableIsConsistent(t *testing.T) {
 		}
 	}
 	// Everything that worked before the table still does.
-	for _, name := range []string{"arm", "ssh", "pair", "setup", "connect", "uninstall", "disconnect", "companion", "mcp", "harness", "bridge", "doctor", "logs", "upgrade", "help", "-h", "--help", "version", "--version", "-v"} {
+	for _, name := range []string{"pair", "setup", "connect", "uninstall", "disconnect", "companion", "mcp", "harness", "bridge", "doctor", "logs", "upgrade", "help", "-h", "--help", "version", "--version", "-v"} {
 		if _, ok := findCommand(commandTable(), name); !ok {
 			t.Errorf("the command %q is gone", name)
 		}

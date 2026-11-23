@@ -1,21 +1,12 @@
 package companion
 
 import (
-	"bytes"
-	"context"
-	"errors"
-	"image"
-	"image/color"
-	"image/png"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync"
 	"testing"
 	"time"
-
-	"github.com/rafaelb13/agentport/internal/clipboard"
 )
 
 func TestSaveAndLoadProfileUsesPrivateConfigFile(t *testing.T) {
@@ -96,62 +87,6 @@ func TestTunnelCommandUsesManagedIdentityWithoutPrompts(t *testing.T) {
 			t.Errorf("command %q does not contain %q", arguments, expected)
 		}
 	}
-}
-
-func TestWatcherArmsInitialAndNewImage(t *testing.T) {
-	first := pngFixture(t, color.RGBA{R: 1, A: 255})
-	second := pngFixture(t, color.RGBA{B: 1, A: 255})
-	reader := &fakeReader{responses: [][]byte{first, first, second}}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	var mu sync.Mutex
-	var armed []string
-	watcher := Watcher{
-		Reader: reader, Interval: time.Millisecond,
-		Arm: func(_ context.Context, image clipboard.Image) error {
-			mu.Lock()
-			armed = append(armed, image.SHA256)
-			shouldStop := len(armed) == 2
-			mu.Unlock()
-			if shouldStop {
-				cancel()
-			}
-			return nil
-		},
-	}
-	if err := watcher.Run(ctx); err != nil {
-		t.Fatal(err)
-	}
-	mu.Lock()
-	defer mu.Unlock()
-	if len(armed) != 2 || armed[0] == armed[1] {
-		t.Fatalf("armed = %#v", armed)
-	}
-}
-
-type fakeReader struct {
-	responses [][]byte
-	index     int
-}
-
-func (r *fakeReader) ReadImage(context.Context) ([]byte, error) {
-	if r.index >= len(r.responses) {
-		return nil, errors.New("no image")
-	}
-	image := r.responses[r.index]
-	r.index++
-	return image, nil
-}
-
-func pngFixture(t *testing.T, fill color.RGBA) []byte {
-	t.Helper()
-	canvas := image.NewRGBA(image.Rect(0, 0, 2, 2))
-	canvas.SetRGBA(0, 0, fill)
-	var output bytes.Buffer
-	if err := png.Encode(&output, canvas); err != nil {
-		t.Fatal(err)
-	}
-	return output.Bytes()
 }
 
 func TestLoggerRotatesAndKeepsOneLinePerEvent(t *testing.T) {

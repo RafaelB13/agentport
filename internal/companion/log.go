@@ -12,7 +12,7 @@ import (
 )
 
 // Logger writes private, human-readable Companion diagnostics. It deliberately
-// records metadata and errors only; clipboard bytes and pairing credentials
+// records metadata and errors only; file contents and pairing credentials
 // must never be written here.
 type Logger struct {
 	mu       sync.Mutex

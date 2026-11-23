@@ -100,25 +100,20 @@ a running Companion. "disconnect" is an alias.`),
 			name: "companion", group: groupCompanion, run: runCompanion,
 			summary: i18n.T("Run and manage the local Companion"),
 			usage: []string{
-				"agentport companion <start|stop|status|open|view|run|inbox> <profile> [--verbose]",
-				"agentport companion <accept|reject> <profile> <offer-id>",
+				"agentport companion <start|stop|status|open|view|run> <profile> [--verbose]",
 				"agentport companion autostart <enable|disable|status> <profile>",
 			},
-			details: i18n.T(`The Companion follows your clipboard, keeps the local bridge running and holds
-the reverse SSH tunnel to the server.
+			details: i18n.T(`The Companion keeps the local bridge running and holds the reverse SSH tunnel
+to the server.
 
   start      start the Companion in the background
   stop       stop it cleanly and close the tunnel
-  status     print its state as JSON: tunnel, clipboard items, update notice
+  status     print its state as JSON: tunnel and update notice
   open       open its local web page in your browser ("view" is the same)
   run        run in the foreground, for diagnosis
-  inbox      show files the server has offered and what was received
-  accept     approve a pending file offer without opening the browser
-  reject     refuse a pending file offer
   autostart  start it when you log in: "enable", "disable" or "status"
 
-Add --verbose to start or run to log clipboard and tunnel events (never tokens
-or content). The autostart uses a LaunchAgent on macOS, a systemd user unit on
+Add --verbose to start or run to log tunnel events (never tokens). The autostart uses a LaunchAgent on macOS, a systemd user unit on
 Linux and a Task Scheduler task on Windows.`),
 		},
 		{
@@ -147,7 +142,7 @@ Set AGENTPORT_SKIP_ATTESTATION=1 to skip the attestation check.`),
 			usage:   []string{"agentport doctor"},
 			details: i18n.T(`Checks for a healthy local bridge and prints its address and process ID. For the
 Companion workflow prefer "agentport companion status <profile>", which also
-reports the tunnel and the clipboard.`),
+reports the tunnel.`),
 		},
 		{
 			name: "help", aliases: []string{"-h", "--help"}, group: groupMaintenance, run: runHelp,
@@ -164,22 +159,6 @@ runs the command.`),
 			usage:   []string{"agentport version"},
 			details: i18n.T(`Prints the version of this binary. The installers use it to decide whether an
 update is needed.`),
-		},
-		{
-			name: "arm", group: groupAdvanced, run: func([]string) error { return runArm() },
-			summary: i18n.T("Arm an image from the clipboard for the standalone flow"),
-			usage:   []string{"agentport arm"},
-			details: i18n.T(`Captures an image from the clipboard and arms it on the local bridge for 90
-seconds, for the standalone flow with "agentport ssh". The Companion is the
-modern path, and it handles images, text and files.`),
-		},
-		{
-			name: "ssh", group: groupAdvanced, run: runSSH,
-			summary: i18n.T("Open an SSH session that shares the armed image"),
-			usage:   []string{"agentport ssh <ssh-destination> [-- <ssh arguments>]"},
-			details: i18n.T(`Opens a temporary SSH session for the image armed by "agentport arm" and
-forwards a reverse tunnel only for the length of that session. Arguments after
-"--" go to ssh unchanged.`),
 		},
 		{
 			name: "mcp", group: groupAdvanced, run: func([]string) error { return runMCP() },
