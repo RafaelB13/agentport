@@ -394,6 +394,15 @@ func runUpgrade(arguments []string) error {
 	if len(arguments) != 0 {
 		return errors.New("usage: agentport upgrade")
 	}
+	// Homebrew owns the files of its keg: replacing them here would leave the
+	// formula's record out of step. If the check itself fails, the normal upgrade
+	// runs, as it did before this check existed.
+	if executable, err := os.Executable(); err == nil {
+		if brew, err := selfupgrade.InstalledWithHomebrew(executable, os.Getenv); err == nil && brew {
+			fmt.Println(i18n.T("agentport was installed with Homebrew. Run: brew upgrade agentport"))
+			return nil
+		}
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
 	checker := release.NewChecker()
