@@ -95,7 +95,10 @@ Gerencia a parte local persistente do agentport.
 
 - `start`: inicia o Companion em background. Ele mantém o bridge local e abre
   o túnel SSH reverso.
-- `stop`: pede uma parada limpa do Companion e encerra o túnel.
+- `stop`: pede uma parada limpa do Companion e encerra o túnel. Se o Companion
+  não parar em 8 s, ele é encerrado à força (mais 3 s de espera). A saída diz
+  "parado" ou "não parou a tempo e foi encerrado à força". O bridge é encerrado
+  junto quando nenhum outro Companion está rodando.
 - `status`: imprime em JSON o perfil, o destino, o estado do túnel e o aviso de
   versão.
 - `open` ou `view`: abre a página web local do Companion no navegador padrão.
@@ -323,11 +326,15 @@ adaptadores. Não é necessário executá-lo diretamente em um terminal.
 
 ```text
 agentport bridge
+agentport bridge stop [--force]
 ```
 
-Processo interno que recebe a inicialização pelo `stdin` e mantém o bridge HTTP
-local. É iniciado pelo Companion; não deve ser executado
+`agentport bridge` é o processo interno que recebe a inicialização pelo `stdin`
+e mantém o bridge HTTP local. É iniciado pelo Companion; não deve ser executado
 manualmente.
+
+`agentport bridge stop` para um bridge que ainda esteja rodando. Ele se recusa
+enquanto algum Companion o usar; `--force` para mesmo assim.
 
 ## Após reinicializações
 
