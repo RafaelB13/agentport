@@ -1,0 +1,7 @@
+"System Idle Process","0","Services","0","8 K"
+"System","4","Services","0","144 K"
+"svchost.exe","1040","Services","0","12,300 K"
+"node.exe","12345","Console","1","98,112 K"
+"postgres.EXE","8120","Console","1","21,004 K"
+"Code, Helper.exe","555","Console","1","4,321 K"
+"explorer.exe","777","Console","1","80,000 K"

@@ -71,7 +71,12 @@ type execStarter struct{}
 type execProcess struct{ cmd *exec.Cmd }
 
 func (execStarter) Start(name string, args ...string) (Process, error) {
-	cmd := exec.Command(name, args...)
+	path, err := resolveCommand(name)
+	if err != nil {
+		return nil, err
+	}
+	cmd := exec.Command(path, args...)
+	hideConsole(cmd)
 	if err := cmd.Start(); err != nil {
 		return nil, err
 	}

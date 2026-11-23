@@ -351,8 +351,8 @@ func TestStopNilOwner(t *testing.T) {
 }
 
 func TestOSSignalerAliveForOwnProcess(t *testing.T) {
-	// The test process itself is alive; signal 0 must report it.
-	if !(osSignaler{}).Alive(os.Getpid()) {
+	// The test process itself is alive; the platform signaler must report it.
+	if !newSignaler(nil).Alive(os.Getpid()) {
 		t.Fatal("Alive(self) = false")
 	}
 }

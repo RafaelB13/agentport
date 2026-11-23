@@ -1,0 +1,8 @@
+"System","4","Services","0","144 K","Running","NT AUTHORITY\SYSTEM","0:00:10","N/A"
+"node.exe","12345","Console","1","98,112 K","Running","DESKTOP-K2\rafael","0:00:01","N/A"
+"postgres.exe","8120","Services","0","21,004 K","Running","DESKTOP-K2\rafael","0:00:02","N/A"
+"AdminTool.exe","6000","Console","1","9,000 K","Running","DESKTOP-K2\admin","0:00:00","N/A"
+"com.docker.backend.exe","7000","Console","1","300,000 K","Running","DESKTOP-K2\rafael","0:03:00","N/A"
+"ssh.exe","9001","Console","1","12,000 K","Running","DESKTOP-K2\rafael","0:00:00","N/A"
+"svchost.exe","2200","Services","0","12,300 K","Running","NT AUTHORITY\SYSTEM","0:00:04","N/A"
+INFO: Some processes could not be queried.
