@@ -159,6 +159,15 @@ permanece parado. Em Windows, a troca é concluída por um pequeno processo
 PowerShell depois que o comando termina, porque o `.exe` em execução fica
 bloqueado pelo sistema.
 
+Se o agentport foi instalado com o Homebrew, o comando não substitui o
+executável. Ele detecta a instalação pelo caminho real do executável (com os
+links simbólicos resolvidos): um caminho dentro de `Cellar/agentport/`, ou dentro
+de `HOMEBREW_PREFIX/Cellar/agentport/`. Nesse caso imprime
+`agentport foi instalado com o Homebrew. Execute: brew upgrade agentport` e sai
+com código 0, sem baixar nada e sem atualizar os servidores; a atualização
+passa a ser feita pelo `brew upgrade agentport`. Se a detecção falhar, o
+comando segue o caminho normal.
+
 ### Página web do Companion
 
 `agentport companion open m2` abre uma página local protegida por uma URL com

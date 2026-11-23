@@ -134,7 +134,11 @@ machine downloads and verifies the binary for the server's platform and sends
 it over SSH. A server that is already up to date is left alone, and only the
 Companions that were running are restarted.
 
-Set AGENTPORT_SKIP_ATTESTATION=1 to skip the attestation check.`),
+Set AGENTPORT_SKIP_ATTESTATION=1 to skip the attestation check.
+
+If agentport was installed with Homebrew, this command does not replace the
+executable: it prints "brew upgrade agentport" and exits. Homebrew owns that
+install.`),
 		},
 		{
 			name: "doctor", group: groupMaintenance, run: func([]string) error { return runDoctor() },
