@@ -50,12 +50,20 @@ type Bridge struct {
 	// traffic cannot grow the log without bound.
 	rejections map[string]*rejectionWindow
 	sessions   map[string]*Session
-	release    release.Status
-	now        func() time.Time
+	// upstreams maps a session ID to the Companion's loopback control API that
+	// serves the port protocol for that session. See ports.go.
+	upstreams map[string]upstream
+	release   release.Status
+	now       func() time.Time
 }
 
 func New() *Bridge {
-	return &Bridge{sessions: make(map[string]*Session), rejections: make(map[string]*rejectionWindow), now: time.Now}
+	return &Bridge{
+		sessions:   make(map[string]*Session),
+		upstreams:  make(map[string]upstream),
+		rejections: make(map[string]*rejectionWindow),
+		now:        time.Now,
+	}
 }
 
 // RegisterPersistentSession grants the token access to the bridge until it is
@@ -88,6 +96,10 @@ func (b *Bridge) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", b.health)
 	mux.HandleFunc("/v1/status", b.status)
+	for _, prefix := range []string{"/v1/sessions", "/v1/forwards"} {
+		mux.HandleFunc(prefix, b.proxyPorts)
+		mux.HandleFunc(prefix+"/", b.proxyPorts)
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		mux.ServeHTTP(w, r)
@@ -120,19 +132,25 @@ func (b *Bridge) status(w http.ResponseWriter, r *http.Request) {
 
 // authenticate returns an empty string when the request carries a live token.
 func (b *Bridge) authenticate(r *http.Request) string {
+	_, code := b.resolve(r)
+	return code
+}
+
+// resolve returns the session ID that owns the request's token, or an error code.
+func (b *Bridge) resolve(r *http.Request) (string, string) {
 	parts := strings.Fields(r.Header.Get("Authorization"))
 	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
-		return "UNAUTHORIZED"
+		return "", "UNAUTHORIZED"
 	}
 	hash := sha256.Sum256([]byte(parts[1]))
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	for _, session := range b.sessions {
 		if subtle.ConstantTimeCompare(hash[:], session.TokenHash[:]) == 1 {
-			return ""
+			return session.ID, ""
 		}
 	}
-	return "UNAUTHORIZED"
+	return "", "UNAUTHORIZED"
 }
 
 // logLocked must be called with b.mu held.
