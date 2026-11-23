@@ -104,10 +104,9 @@ jobs:
 
       # A CycloneDX inventory of the modules compiled into each binary, published
       # with the release and covered by the checksums and the attestation. There is
-      # one per platform because the dependencies differ: the clipboard library
-      # pulls in purego on macOS and not on Linux or Windows. The tool is installed
-      # once for the runner, since `go run` with GOOS set would build the tool
-      # itself for the target.
+      # one per platform because the compiled-in modules can differ by target. The
+      # tool is installed once for the runner, since `go run` with GOOS set would
+      # build the tool itself for the target.
       - name: Generate the SBOMs
         shell: bash
         run: |
@@ -196,3 +195,94 @@ jobs:
             dist/attestation.jsonl
             scripts/install.sh
             scripts/install.ps1
+
+  # The formula is rendered from the checksums this release has just published,
+  # so it carries the digests that the installers and the attestation already
+  # check. Pre-releases are skipped: the tap only serves what `brew install`
+  # should get by default.
+  homebrew:
+    name: Render the Homebrew formula
+    needs: release
+    if: ${{ !contains(inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ env.VERSION }}
+          persist-credentials: false
+
+      - name: Download the published checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" --pattern checksums.txt --dir release
+
+      - name: Render the formula
+        run: sh scripts/render-homebrew-formula.sh "$VERSION" release/checksums.txt > agentport.rb
+
+      - name: Check the formula syntax
+        run: ruby -c agentport.rb
+
+      - name: Upload the formula
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: homebrew-formula
+          path: agentport.rb
+          retention-days: 90
+
+  # Off until the tap exists and the repository variable HOMEBREW_TAP_ENABLED is
+  # "true". Pushing needs the HOMEBREW_TAP_TOKEN secret: a token with contents
+  # write access to rafaelb13/homebrew-tap, and no other permission.
+  homebrew-tap:
+    name: Publish the formula to the Homebrew tap
+    needs: homebrew
+    if: ${{ vars.HOMEBREW_TAP_ENABLED == 'true' && !contains(inputs.tag || github.ref_name, '-') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
+    env:
+      VERSION: ${{ inputs.tag || github.ref_name }}
+      TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+    steps:
+      - name: Require the tap token
+        run: |
+          if [[ -z "$TAP_TOKEN" ]]; then
+            echo "HOMEBREW_TAP_ENABLED is true but the HOMEBREW_TAP_TOKEN secret is not set." >&2
+            exit 1
+          fi
+
+      - name: Download the rendered formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run download "$GITHUB_RUN_ID" --repo "$GITHUB_REPOSITORY" --name homebrew-formula --dir formula
+
+      # The tap token is needed for the push, so this is the one checkout that
+      # keeps its credentials.
+      - name: Check out the tap
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: rafaelb13/homebrew-tap
+          token: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          path: tap
+          persist-credentials: true
+
+      - name: Commit and push the formula
+        run: |
+          set -euo pipefail
+          install -D formula/agentport.rb tap/Formula/agentport.rb
+          cd tap
+          git add Formula/agentport.rb
+          if git diff --cached --quiet; then
+            echo "The tap already has this formula."
+            exit 0
+          fi
+          git -c user.name="github-actions[bot]" \
+            -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+            commit -m "agentport ${VERSION#v}"
+          git push
