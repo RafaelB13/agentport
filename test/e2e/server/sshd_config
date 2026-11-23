@@ -1,4 +1,4 @@
-# sshd do servidor e2e. Só chave; sem senha, sem root; forwarding só local.
+# sshd do servidor e2e. Só chave; sem senha, sem root. Forwarding liberado: o tunnel do agentport usa -R.
 Port 22
 ListenAddress 0.0.0.0
 HostKey /etc/ssh/ssh_host_ed25519_key
@@ -12,7 +12,7 @@ PasswordAuthentication no
 KbdInteractiveAuthentication no
 UsePAM yes
 
-AllowTcpForwarding local
+AllowTcpForwarding yes
 X11Forwarding no
 PrintMotd no
 LogLevel VERBOSE
