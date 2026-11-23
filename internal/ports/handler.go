@@ -11,8 +11,8 @@ import (
 	"github.com/rafaelb13/agentport/internal/portsproto"
 )
 
-// SessionHeader carries the agent session ID on remote requests.
-const SessionHeader = "X-Agentport-Session"
+// SessionHeader carries the agent session ID on remote requests (see portsproto).
+const SessionHeader = portsproto.SessionHeader
 
 // approvalWait is how long a forward request may wait for the user. The bridge
 // and the control server extend their write deadlines to cover it.

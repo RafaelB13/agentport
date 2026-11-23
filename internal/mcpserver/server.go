@@ -26,12 +26,9 @@ type Status struct {
 
 var ErrNoProvider = errors.New("status provider is nil")
 
-// New constructs the MCP server. Its only tool today is agentport_status.
-//
-// TODO(ports): the port tools (ports_list, ports_forward, ports_unforward and
-// forwards_list) are registered here in a later phase, on top of the same
-// bridge provider.
-func New(provider StatusProvider) *mcp.Server {
+// New constructs the MCP server: agentport_status, and, when ports is set, the
+// port tools ports_list, ports_forward, ports_unforward and forwards_list.
+func New(provider StatusProvider, ports *PortTools) *mcp.Server {
 	s := mcp.NewServer(&mcp.Implementation{Name: "agentport", Version: buildinfo.Version}, nil)
 	mcp.AddTool(s, &mcp.Tool{
 		Name:        "agentport_status",
@@ -47,6 +44,9 @@ func New(provider StatusProvider) *mcp.Server {
 		data, _ := json.Marshal(status)
 		return &mcp.CallToolResult{Content: []mcp.Content{&mcp.TextContent{Text: string(data)}}}, nil, nil
 	})
+	if ports != nil {
+		registerPortTools(s, ports)
+	}
 	return s
 }
 

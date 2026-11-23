@@ -11,6 +11,9 @@ import (
 	"time"
 )
 
+// SessionHeader carries the agent session ID on remote requests.
+const SessionHeader = "X-Agentport-Session"
+
 // Version is the protocol version every request must carry in its "v" field.
 const Version = 1
 

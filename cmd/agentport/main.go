@@ -111,11 +111,19 @@ func runMCP() error {
 	if err != nil {
 		return fmt.Errorf("read AGENTPORT_BRIDGE_PORT: %w", err)
 	}
-	provider, err := mcpserver.NewHTTPProvider(port, os.Getenv("AGENTPORT_SESSION_TOKEN"))
+	token := os.Getenv("AGENTPORT_SESSION_TOKEN")
+	provider, err := mcpserver.NewHTTPProvider(port, token)
 	if err != nil {
 		return err
 	}
-	return mcpserver.New(provider).Run(context.Background(), &mcp.StdioTransport{})
+	client, err := mcpserver.NewBridgeClient(port, token, mcpserver.AgentFromEnv())
+	if err != nil {
+		return err
+	}
+	// Closing the client when stdio ends unregisters this agent session.
+	defer client.Close()
+	tools := &mcpserver.PortTools{Bridge: client, ExcludePorts: []int{port}}
+	return mcpserver.New(provider, tools).Run(context.Background(), &mcp.StdioTransport{})
 }
 
 func runHarness(arguments []string) error {
