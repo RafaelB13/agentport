@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/forward"
@@ -19,7 +18,7 @@ import (
 
 // controlMasterSupported is false where OpenSSH has no unix-socket ControlMaster
 // (Windows): forwards then run one ssh process each.
-var controlMasterSupported = runtime.GOOS != "windows"
+var controlMasterSupported = forward.ControlMasterSupported()
 
 // sweepInterval is how often time-based port rules run (silent sessions, grace
 // periods, expiry).

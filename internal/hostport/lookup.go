@@ -19,9 +19,14 @@ var pidLine = regexp.MustCompile(`(?m)^\s*pid = (\d+)\s*$`)
 //  3. a launchd job whose main pid is this process (macOS) → service
 //  4. a systemd --user unit whose cgroup holds this process (Linux) → service
 //  5. otherwise → proc, stopped with signals
+//
+// On Windows the rules are those of lookupWindows (winlookup.go).
 func lookupWith(ctx context.Context, e env, port int) (*Owner, error) {
 	if err := validPort(port); err != nil {
 		return nil, err
+	}
+	if e.goos == "windows" {
+		return lookupWindows(ctx, e, port)
 	}
 	out, err := e.run(ctx, "lsof", "-nP", "-iTCP:"+strconv.Itoa(port), "-sTCP:LISTEN", "-F", "pcuL")
 	recs, perr := parseLsof(out)

@@ -10,6 +10,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"os/user"
 	"runtime"
 	"strconv"
 	"syscall"
@@ -20,7 +21,8 @@ import (
 type Kind string
 
 const (
-	// KindProc is a plain process of the current user; stopped with SIGTERM, then SIGKILL.
+	// KindProc is a plain process of the current user; stopped with SIGTERM, then SIGKILL
+	// (taskkill without /F, then with /F, on Windows).
 	KindProc Kind = "proc"
 	// KindService restarts by itself (brew services, launchd LaunchAgent, systemd --user).
 	KindService Kind = "service"
@@ -38,7 +40,6 @@ var (
 	// ErrStillBusy is returned by Stop when the port still accepts listeners afterwards.
 	ErrStillBusy = errors.New("port still in use after stopping its owner")
 	// ErrUnsupported is returned on platforms without an implementation.
-	// TODO(windows): implement Lookup/Stop with netstat -ano and taskkill.
 	ErrUnsupported = errors.New("hostport: not supported on this platform")
 )
 
@@ -73,60 +74,62 @@ func Stop(ctx context.Context, o *Owner) error {
 	return stopWith(ctx, defaultEnv(), o)
 }
 
-func supported(goos string) bool { return goos == "darwin" || goos == "linux" }
+func supported(goos string) bool {
+	return goos == "darwin" || goos == "linux" || goos == "windows"
+}
 
 // runner runs an external command and returns its stdout.
 type runner func(ctx context.Context, name string, args ...string) ([]byte, error)
 
 // signaler sends signals to pids. It is an interface so tests can fake it.
+// On Windows the "signals" are taskkill requests; see signal_windows.go.
 type signaler interface {
 	Signal(pid int, sig syscall.Signal) error
 	Alive(pid int) bool
 }
 
-type osSignaler struct{}
-
-func (osSignaler) Signal(pid int, sig syscall.Signal) error {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	return p.Signal(sig)
-}
-
-func (osSignaler) Alive(pid int) bool {
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return false
-	}
-	return p.Signal(syscall.Signal(0)) == nil
-}
-
 // env holds everything Lookup and Stop touch outside the process, so tests can replace it.
 type env struct {
-	goos      string
-	uid       int
-	run       runner
-	sig       signaler
+	goos string
+	uid  int    // numeric uid on Unix; unused on Windows
+	user string // the current account on Windows ("DOMAIN\\name"), to tell our processes from others'
+	run  runner
+	sig  signaler
+	// listening reports whether something still accepts connections on the port.
 	listening func(port int) bool
 	grace     time.Duration // how long a process gets to exit after SIGTERM, and after SIGKILL
 	poll      time.Duration
 }
 
 func defaultEnv() env {
-	return env{
+	e := env{
 		goos:      runtime.GOOS,
 		uid:       os.Getuid(),
 		run:       execRun,
-		sig:       osSignaler{},
+		sig:       newSignaler(execRun),
 		listening: isListening,
 		grace:     5 * time.Second,
 		poll:      100 * time.Millisecond,
 	}
+	if runtime.GOOS == "windows" {
+		e.user = currentUser()
+	}
+	return e
+}
+
+// currentUser returns the account name the Companion runs as, or "" if unknown.
+func currentUser() string {
+	u, err := user.Current()
+	if err != nil {
+		return ""
+	}
+	return u.Username
 }
 
 func execRun(ctx context.Context, name string, args ...string) ([]byte, error) {
-	return exec.CommandContext(ctx, name, args...).Output()
+	cmd := exec.CommandContext(ctx, name, args...)
+	hideConsole(cmd)
+	return cmd.Output()
 }
 
 // isListening reports whether something accepts on 127.0.0.1:port.
