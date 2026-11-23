@@ -30,7 +30,9 @@ type ControlServer struct {
 	listener net.Listener
 }
 
-func StartControl(profile string, status func() any, stop func()) (*ControlServer, error) {
+// StartControl starts the loopback control server. An optional ports handler
+// is served under /v1/ports/ behind the same control token.
+func StartControl(profile string, status func() any, stop func(), ports ...http.Handler) (*ControlServer, error) {
 	if !validProfileName(profile) {
 		return nil, fmt.Errorf("invalid companion profile %q", profile)
 	}
@@ -126,6 +128,12 @@ func StartControl(profile string, status func() any, stop func()) (*ControlServe
 	}
 	mux.HandleFunc(prefix, viewHandler)
 	mux.HandleFunc(prefix+"/", viewHandler)
+	if len(ports) > 0 && ports[0] != nil {
+		portsHandler := ports[0]
+		mux.HandleFunc("/v1/ports/", control.requireControl(func(w http.ResponseWriter, r *http.Request) {
+			portsHandler.ServeHTTP(w, r)
+		}))
+	}
 	control.server = &http.Server{
 		Handler:           noStore(mux),
 		ReadHeaderTimeout: 5 * time.Second,

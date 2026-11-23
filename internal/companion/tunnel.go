@@ -29,16 +29,24 @@ func TunnelCommand(profile Profile, localPort int) (*exec.Cmd, error) {
 		return nil, fmt.Errorf("companion local port must be between 1 and 65535")
 	}
 	forward := fmt.Sprintf("127.0.0.1:%d:127.0.0.1:%d", profile.RemotePort, localPort)
+	controlPath, err := ControlPath(profile.Name)
+	if err != nil {
+		return nil, err
+	}
 	arguments := []string{}
 	if profile.SSHIdentityFile != "" {
 		arguments = append(arguments, "-i", profile.SSHIdentityFile, "-o", "IdentitiesOnly=yes", "-o", "BatchMode=yes")
 	}
+	// The tunnel process is also the ControlMaster: `ssh -O forward|cancel` adds
+	// and removes port forwards over this socket without a second connection.
 	arguments = append(arguments,
 		"-N",
 		"-R", forward,
 		"-o", "ExitOnForwardFailure=yes",
 		"-o", "ServerAliveInterval=30",
 		"-o", "ServerAliveCountMax=3",
+		"-o", "ControlMaster=auto",
+		"-o", "ControlPath="+controlPath,
 		profile.Destination,
 	)
 	return exec.Command("ssh", arguments...), nil
@@ -53,14 +61,21 @@ func RunTunnel(ctx context.Context, profile Profile, localPort int) error {
 // RunTunnelWithStatus reconnects after unexpected SSH exits and reports the
 // effective state to callers that render a dashboard.
 func RunTunnelWithStatus(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus)) error {
-	return runTunnelWithLogger(ctx, profile, localPort, observe, nil)
+	return runTunnelWithLogger(ctx, profile, localPort, observe, nil, nil)
 }
 
 func RunTunnelWithLogger(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger) error {
-	return runTunnelWithLogger(ctx, profile, localPort, observe, logger)
+	return runTunnelWithLogger(ctx, profile, localPort, observe, logger, nil)
 }
 
-func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger) error {
+// RunTunnelWithHooks is RunTunnelWithLogger plus onConnected, which runs each time
+// a tunnel process has started. The ControlMaster socket may not exist yet at
+// that moment, so the caller must wait for it before using it.
+func RunTunnelWithHooks(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger, onConnected func()) error {
+	return runTunnelWithLogger(ctx, profile, localPort, observe, logger, onConnected)
+}
+
+func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger, onConnected func()) error {
 	notify := func(connected bool, err error) {
 		if observe == nil {
 			return
@@ -88,6 +103,9 @@ func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, ob
 		logger.Debug("SSH tunnel started")
 		startedAt := time.Now()
 		notify(true, nil)
+		if onConnected != nil {
+			onConnected()
+		}
 		result := make(chan error, 1)
 		go func() { result <- command.Wait() }()
 		select {
