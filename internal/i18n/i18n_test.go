@@ -114,7 +114,7 @@ func repoRoot(t *testing.T) string {
 }
 
 // usedMessages finds every message the program can show: literals passed to
-// i18n.T (or Tr) in the Go source, t('...') in the dashboard script and
+// i18n.T (or Tr) in the Go source and
 // {{t:...}} in its page.
 func usedMessages(t *testing.T) map[string][]string {
 	t.Helper()
@@ -175,22 +175,9 @@ func usedMessages(t *testing.T) map[string][]string {
 			t.Fatal(err)
 		}
 	}
-	script, err := os.ReadFile(filepath.Join(root, "internal", "companion", "ui", "assets", "app.js"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, pattern := range []string{`\bt\(\s*'((?:[^'\\]|\\.)*)'`, `\bt\(\s*"((?:[^"\\]|\\.)*)"`} {
-		for _, match := range regexp.MustCompile(pattern).FindAllStringSubmatch(string(script), -1) {
-			add(match[1], "app.js")
-		}
-	}
-	page, err := os.ReadFile(filepath.Join(root, "internal", "companion", "ui", "index.html"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, match := range regexp.MustCompile(`\{\{t:(.*?)\}\}`).FindAllStringSubmatch(string(page), -1) {
-		add(match[1], "index.html")
-	}
+	// The Companion panel has its own catalogs (internal/companion/ui/assets/i18n),
+	// checked against its script and page by the companion package's tests, so its
+	// strings are not part of this catalog.
 	return used
 }
 
