@@ -1,0 +1,6 @@
+● app.service - Agentport test app
+     Loaded: loaded (/home/u/.config/systemd/user/app.service; enabled)
+     Active: active (running)
+   Main PID: 4242 (node)
+     CGroup: /user.slice/user@1000.service/app.slice/app.service
+             └─4242 node server.js

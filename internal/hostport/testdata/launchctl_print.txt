@@ -1,0 +1,6 @@
+gui/501/homebrew.mxcl.postgresql@16 = {
+	active count = 1
+	path = /Users/u/Library/LaunchAgents/homebrew.mxcl.postgresql@16.plist
+	pid = 4242
+	state = running
+}
