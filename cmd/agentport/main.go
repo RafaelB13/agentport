@@ -289,8 +289,11 @@ func runCompanion(arguments []string) error {
 	if len(arguments) > 0 && arguments[0] == "autostart" {
 		return runAutostart(arguments[1:], os.Stdout)
 	}
+	if len(arguments) == 2 && arguments[0] == "ensure" {
+		return ensureCompanion(arguments[1], os.Stdout, startCompanion)
+	}
 	if len(arguments) < 2 || len(arguments) > 4 {
-		return errors.New("usage: agentport companion <start|stop|status|open|view|run> <profile> [--verbose] | agentport companion autostart <enable|disable|status> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run|ensure> <profile> [--verbose] | agentport companion autostart <enable|disable|status> <profile>")
 	}
 	verbose := false
 	if len(arguments) == 3 && arguments[2] == "--verbose" && (arguments[0] == "start" || arguments[0] == "run" || arguments[0] == "serve") {
@@ -314,7 +317,7 @@ func runCompanion(arguments []string) error {
 		}
 		return runCompanionService(arguments[1], arguments[0] == "run")
 	default:
-		return errors.New("usage: agentport companion <start|stop|status|open|view|run> <profile>")
+		return errors.New("usage: agentport companion <start|stop|status|open|view|run|ensure> <profile>")
 	}
 }
 
@@ -570,26 +573,30 @@ func openCompanionView(name string) error {
 	if err != nil || !companion.RuntimeHealthy(state) {
 		return fmt.Errorf("Companion %q is not running", name)
 	}
-	url := companion.ViewURL(state)
-	var command *exec.Cmd
-	switch runtime.GOOS {
-	case "darwin":
-		command = exec.Command("open", url)
-	case "windows":
-		command = exec.Command("rundll32", "url.dll,FileProtocolHandler", url)
-	default:
-		command = exec.Command("xdg-open", url)
-	}
-	if err := command.Start(); err != nil {
+	if err := companion.OpenURL(companion.ViewURL(state)); err != nil {
 		return fmt.Errorf("open Companion view: %w", err)
 	}
-	_ = command.Process.Release()
 	return nil
+}
+
+// ensureCompanion starts the Companion of profile in the background when it is
+// not running. It is a no-op otherwise, so a login item or a shell hook can call it.
+func ensureCompanion(name string, stdout io.Writer, start func(name string, verbose bool) error) error {
+	if _, err := companion.LoadProfile(name); err != nil {
+		return err
+	}
+	if state, err := companion.LoadRuntime(name); err == nil && companion.RuntimeHealthy(state) {
+		fmt.Fprintln(stdout, i18n.T("Companion %q is already running.", name))
+		return nil
+	}
+	// start prints where the Companion runs and where its log is.
+	return start(name, false)
 }
 
 type companionDashboardStatus struct {
 	Profile     string                 `json:"profile"`
 	Destination string                 `json:"destination"`
+	Version     string                 `json:"version"`
 	StartedAt   time.Time              `json:"started_at"`
 	Tunnel      companion.TunnelStatus `json:"tunnel"`
 	Release     release.Status         `json:"release"`
@@ -672,7 +679,7 @@ func runCompanionService(name string, announce bool) error {
 		currentTunnel := tunnel
 		tunnelMu.RUnlock()
 		return companionDashboardStatus{
-			Profile: profile.Name, Destination: profile.Destination, StartedAt: serviceStartedAt,
+			Profile: profile.Name, Destination: profile.Destination, Version: buildinfo.Version, StartedAt: serviceStartedAt,
 			Tunnel: currentTunnel, Release: func() release.Status {
 				releaseMu.RLock()
 				defer releaseMu.RUnlock()
@@ -701,6 +708,23 @@ func runCompanionService(name string, announce bool) error {
 	if err := control.Post(state, "/v1/control/upstream", upstreamPayload, nil); err != nil {
 		logger.Error("register port API with the bridge: %v", err)
 	}
+	// A new request opens the panel when no tab is connected, as the profile's settings say.
+	autoOpen := &companion.AutoOpen{
+		URL: func() string { return companion.ViewURL(controlServer.State) },
+		Settings: func() companion.PanelSettings {
+			settings, err := companion.LoadPanelSettings(profile.Name)
+			if err != nil {
+				portErrors(err)
+				return companion.DefaultPanelSettings()
+			}
+			return settings
+		},
+		Clients: controlServer.PanelClients,
+		Open:    companion.OpenURL,
+		Notify:  companion.NotifyDesktop,
+		OnError: portErrors,
+	}
+	portManager.Store.SetOnPending(autoOpen.OnPending)
 	portManager.Start(ctx)
 	// The runtime state is written: a later start sees this Companion as running.
 	startReleased = true

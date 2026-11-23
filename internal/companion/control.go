@@ -12,8 +12,8 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/rafaelb13/agentport/internal/i18n"
@@ -22,23 +22,54 @@ import (
 //go:embed ui/index.html ui/assets/*
 var dashboardFiles embed.FS
 
-// ControlServer exposes a private loopback dashboard and lifecycle API for a
+// ControlServer exposes a private loopback panel and lifecycle API for a
 // running Companion. The view URL contains an unguessable local capability.
 type ControlServer struct {
 	State    RuntimeState
 	server   *http.Server
 	listener net.Listener
+	// panelClients counts the panel tabs with an open event stream.
+	panelClients atomic.Int64
+}
+
+// ControlOptions configures the control server. Zero hooks get the defaults
+// of the real Companion (the profile's settings file, the profile list).
+type ControlOptions struct {
+	Profile string
+	Status  func() any
+	Stop    func()
+	// Ports is the port API, served under /v1/ports/ (control token) and, for the
+	// panel, under the view prefix (view token).
+	Ports http.Handler
+	// Settings reads and writes the panel settings of this profile.
+	Settings    func() (PanelSettings, error)
+	SetSettings func(PanelSettings) error
+	// Profiles lists the profiles on this machine for the switch menu.
+	Profiles func() ([]ProfileEntry, error)
+	// CloseProfile closes every forward of another running profile.
+	CloseProfile func(profile string) (int, error)
 }
 
 // StartControl starts the loopback control server. An optional ports handler
 // is served under /v1/ports/ behind the same control token.
 func StartControl(profile string, status func() any, stop func(), ports ...http.Handler) (*ControlServer, error) {
+	options := ControlOptions{Profile: profile, Status: status, Stop: stop}
+	if len(ports) > 0 {
+		options.Ports = ports[0]
+	}
+	return StartControlWith(options)
+}
+
+// StartControlWith starts the loopback control server with explicit options.
+func StartControlWith(options ControlOptions) (*ControlServer, error) {
+	profile := options.Profile
 	if !validProfileName(profile) {
 		return nil, fmt.Errorf("invalid companion profile %q", profile)
 	}
-	if status == nil || stop == nil {
+	if options.Status == nil || options.Stop == nil {
 		return nil, fmt.Errorf("Companion control callbacks are required")
 	}
+	options = withPanelDefaults(options)
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
@@ -70,7 +101,7 @@ func StartControl(profile string, status func() any, stop func(), ports ...http.
 			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 			return
 		}
-		writeJSON(w, status())
+		writeJSON(w, options.Status())
 	}))
 	mux.HandleFunc("/v1/control/stop", control.requireControl(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -78,58 +109,13 @@ func StartControl(profile string, status func() any, stop func(), ports ...http.
 			return
 		}
 		writeJSON(w, map[string]bool{"stopping": true})
-		go stop()
+		go options.Stop()
 	}))
-	viewHandler := func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == prefix || r.URL.Path == prefix+"/" {
-			w.Header().Set("Content-Type", "text/html; charset=utf-8")
-			w.Header().Set("Cache-Control", "no-store")
-			w.Header().Set("Vary", "Accept-Language")
-			w.Header().Set("Content-Security-Policy", "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'")
-			page, err := dashboardFiles.ReadFile("ui/index.html")
-			if err != nil {
-				http.Error(w, "dashboard unavailable", http.StatusInternalServerError)
-				return
-			}
-			_, _ = w.Write([]byte(renderDashboard(string(page), prefix, dashboardLanguage(r))))
-			return
-		}
-		if strings.HasPrefix(r.URL.Path, prefix+"/assets/") && r.Method == http.MethodGet {
-			name := strings.TrimPrefix(r.URL.Path, prefix+"/")
-			asset, err := dashboardFiles.ReadFile("ui/" + name)
-			if err != nil {
-				http.NotFound(w, r)
-				return
-			}
-			contentType := "application/octet-stream"
-			switch {
-			case strings.HasSuffix(name, ".css"):
-				contentType = "text/css; charset=utf-8"
-			case strings.HasSuffix(name, ".js"):
-				contentType = "text/javascript; charset=utf-8"
-			case strings.HasSuffix(name, ".svg"):
-				contentType = "image/svg+xml"
-			}
-			w.Header().Set("Content-Type", contentType)
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			_, _ = w.Write(asset)
-			return
-		}
-		if r.URL.Path == prefix+"/api/status" && r.Method == http.MethodGet {
-			writeJSON(w, status())
-			return
-		}
-		if r.URL.Path == prefix+"/api/stop" && r.Method == http.MethodPost {
-			writeJSON(w, map[string]bool{"stopping": true})
-			go stop()
-			return
-		}
-		http.NotFound(w, r)
-	}
+	viewHandler := control.viewHandler(prefix, options)
 	mux.HandleFunc(prefix, viewHandler)
 	mux.HandleFunc(prefix+"/", viewHandler)
-	if len(ports) > 0 && ports[0] != nil {
-		portsHandler := ports[0]
+	if options.Ports != nil {
+		portsHandler := options.Ports
 		mux.HandleFunc("/v1/ports/", control.requireControl(func(w http.ResponseWriter, r *http.Request) {
 			portsHandler.ServeHTTP(w, r)
 		}))
@@ -146,6 +132,170 @@ func StartControl(profile string, status func() any, stop func(), ports ...http.
 	}
 	go func() { _ = control.server.Serve(listener) }()
 	return control, nil
+}
+
+// PanelClients is the number of panel tabs currently connected to the event stream.
+func (c *ControlServer) PanelClients() int { return int(c.panelClients.Load()) }
+
+// viewHandler serves the panel and its API. Everything under the view prefix is
+// reached through the view token, which is the only capability the page needs.
+func (c *ControlServer) viewHandler(prefix string, options ControlOptions) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == prefix || r.URL.Path == prefix+"/" {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Vary", "Accept-Language")
+			w.Header().Set("Content-Security-Policy", panelCSP)
+			w.Header().Set("Referrer-Policy", "no-referrer")
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			page, err := dashboardFiles.ReadFile("ui/index.html")
+			if err != nil {
+				http.Error(w, "dashboard unavailable", http.StatusInternalServerError)
+				return
+			}
+			_, _ = w.Write([]byte(renderDashboard(string(page), prefix, dashboardLanguage(r))))
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, prefix+"/assets/") && r.Method == http.MethodGet {
+			name := strings.TrimPrefix(r.URL.Path, prefix+"/")
+			asset, err := dashboardFiles.ReadFile("ui/" + name)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			w.Header().Set("Content-Type", assetContentType(name))
+			w.Header().Set("X-Content-Type-Options", "nosniff")
+			_, _ = w.Write(asset)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, prefix+"/api/ports/") {
+			if !panelRequestAllowed(r) {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+			if options.Ports == nil {
+				http.NotFound(w, r)
+				return
+			}
+			rest := strings.TrimPrefix(r.URL.Path, prefix+"/api/ports")
+			if rest == "/events" && r.Method == http.MethodGet {
+				c.panelClients.Add(1)
+				defer c.panelClients.Add(-1)
+			}
+			inner := r.Clone(r.Context())
+			inner.URL.Path = "/v1/ports" + rest
+			inner.URL.RawPath = ""
+			options.Ports.ServeHTTP(w, inner)
+			return
+		}
+		if r.URL.Path == prefix+"/api/settings" {
+			c.settingsAPI(w, r, options)
+			return
+		}
+		if r.URL.Path == prefix+"/api/profiles" && r.Method == http.MethodGet {
+			entries, err := options.Profiles()
+			if err != nil {
+				http.Error(w, "profiles unavailable", http.StatusInternalServerError)
+				return
+			}
+			writeJSON(w, map[string]any{"profiles": entries})
+			return
+		}
+		if r.URL.Path == prefix+"/api/profiles/close-all" && r.Method == http.MethodPost {
+			if !panelRequestAllowed(r) {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+			var body struct {
+				Profile string `json:"profile"`
+			}
+			if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&body); err != nil || !validProfileName(body.Profile) || body.Profile == options.Profile {
+				http.Error(w, "invalid profile", http.StatusBadRequest)
+				return
+			}
+			closed, err := options.CloseProfile(body.Profile)
+			if err != nil {
+				http.Error(w, "profile ports could not be closed", http.StatusConflict)
+				return
+			}
+			writeJSON(w, map[string]int{"closed": closed})
+			return
+		}
+		if r.URL.Path == prefix+"/api/status" && r.Method == http.MethodGet {
+			writeJSON(w, options.Status())
+			return
+		}
+		if r.URL.Path == prefix+"/api/stop" && r.Method == http.MethodPost {
+			if !panelRequestAllowed(r) {
+				http.Error(w, "forbidden", http.StatusForbidden)
+				return
+			}
+			writeJSON(w, map[string]bool{"stopping": true})
+			go options.Stop()
+			return
+		}
+		http.NotFound(w, r)
+	}
+}
+
+// settingsAPI reads (GET) or replaces (PUT) the panel settings.
+func (c *ControlServer) settingsAPI(w http.ResponseWriter, r *http.Request, options ControlOptions) {
+	switch r.Method {
+	case http.MethodGet:
+		settings, err := options.Settings()
+		if err != nil {
+			http.Error(w, "settings unavailable", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, settings)
+	case http.MethodPut:
+		if !panelRequestAllowed(r) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		var settings PanelSettings
+		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 4096)).Decode(&settings); err != nil {
+			http.Error(w, "invalid settings", http.StatusBadRequest)
+			return
+		}
+		if err := options.SetSettings(settings); err != nil {
+			http.Error(w, "settings could not be saved", http.StatusInternalServerError)
+			return
+		}
+		writeJSON(w, settings)
+	default:
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// panelRequestAllowed rejects changes that a page on another site or a plain
+// HTML form could make: they cannot send JSON, and a cross-site fetch is refused.
+func panelRequestAllowed(r *http.Request) bool {
+	if r.Method == http.MethodGet || r.Method == http.MethodHead {
+		return true
+	}
+	if r.Header.Get("Sec-Fetch-Site") == "cross-site" {
+		return false
+	}
+	return strings.HasPrefix(r.Header.Get("Content-Type"), "application/json")
+}
+
+// panelCSP lets the page run only its own script and style: no inline code and
+// no network other than this Companion.
+const panelCSP = "default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
+
+func assetContentType(name string) string {
+	switch {
+	case strings.HasSuffix(name, ".css"):
+		return "text/css; charset=utf-8"
+	case strings.HasSuffix(name, ".js"):
+		return "text/javascript; charset=utf-8"
+	case strings.HasSuffix(name, ".json"):
+		return "application/json; charset=utf-8"
+	case strings.HasSuffix(name, ".svg"):
+		return "image/svg+xml"
+	}
+	return "application/octet-stream"
 }
 
 func (c *ControlServer) Close() error {
@@ -189,8 +339,9 @@ func noStore(next http.Handler) http.Handler {
 	})
 }
 
-// dashboardLanguage is the language of a page: ?lang= wins, then what the browser
-// asks for, then the language of this process (AGENTPORT_LANG), then English.
+// dashboardLanguage is the language of the first render: ?lang= wins, then what
+// the browser asks for, then the language of this process, then English. The
+// page itself settles the language again (saved choice, then navigator.languages).
 func dashboardLanguage(r *http.Request) string {
 	if language, ok := i18n.Supported(r.URL.Query().Get("lang")); ok {
 		return language
@@ -201,46 +352,17 @@ func dashboardLanguage(r *http.Request) string {
 	return i18n.Language()
 }
 
-var pageMessage = regexp.MustCompile(`\{\{t:(.*?)\}\}`)
-
-// renderDashboard fills the page in: the base path, the language, the
-// translations the script needs and the messages written in the markup. Every
-// substituted value is escaped for HTML, and the translations travel as JSON in
-// an attribute, so nothing in a catalog can become markup or script.
+// renderDashboard fills the page in: the base path, the language and the panel
+// catalogs as JSON. Every substituted value is escaped for HTML, and the catalogs
+// travel in a JSON block, so nothing in them can become markup or script.
 func renderDashboard(page, prefix, language string) string {
-	catalog, err := json.Marshal(scriptCatalog(language))
+	catalogs, err := json.Marshal(panelCatalogs())
 	if err != nil {
-		catalog = []byte("{}")
+		catalogs = []byte("{}")
 	}
-	page = pageMessage.ReplaceAllStringFunc(page, func(match string) string {
-		return html.EscapeString(i18n.Tr(language, pageMessage.FindStringSubmatch(match)[1])) // i18n:dynamic
-	})
 	return strings.NewReplacer(
-		"{{BASE}}", prefix,
+		"{{BASE}}", html.EscapeString(prefix),
 		"{{LANG}}", html.EscapeString(language),
-		"{{I18N}}", html.EscapeString(string(catalog)),
+		"{{I18N}}", strings.NewReplacer("<", `<`, ">", `>`, "&", `&`).Replace(string(catalogs)),
 	).Replace(page)
-}
-
-var scriptMessage = regexp.MustCompile(`\bt\(\s*'((?:[^'\\]|\\.)*)'`)
-
-// scriptCatalog is the part of a language's catalog the dashboard script asks
-// for. The catalog also holds the help text of the command line, which the
-// browser has no use for.
-func scriptCatalog(language string) map[string]string {
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
-	if err != nil {
-		return map[string]string{}
-	}
-	wanted := map[string]bool{}
-	for _, match := range scriptMessage.FindAllStringSubmatch(string(script), -1) {
-		wanted[match[1]] = true
-	}
-	subset := map[string]string{}
-	for message, translated := range i18n.Catalog(language) {
-		if wanted[message] {
-			subset[message] = translated
-		}
-	}
-	return subset
 }

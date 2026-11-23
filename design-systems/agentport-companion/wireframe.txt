@@ -1,44 +1,22 @@
-+--------------------------------------------------------------------------------------------------------------------------------+
-| section                                                                                                                        |
-| +----------------------------------------------------------------------------------------------------------------------------+ |
-| | nav                                                                                                                        | |
-| | [ico: agentport] [h1: agentport Companion]                                                                                 | |
-| | [t1: Túnel conectado] [t2: Atualizado às 28 de set. de 2026, 14:10]                                                        | |
-| +----------------------------------------------------------------------------------------------------------------------------+ |
-|                                                                                                                                |
-| +---------------------------------------------------------+  +---------------------------------------------------------------+ |
-| | section                                                 |  | section                                                       | |
-| | [h2: Status do companion]                               |  | [h2: Arquivos recebidos] [t1: 3 arquivos]                     | |
-| | +-----------------------------------------------------+ |  | +-----------------------------------------------------------+ | |
-| | | card                                                | |  | | card3                                                     | | |
-| | | [t1: Perfil · vortx]                                | |  | | [h3: 0019-revisao-inadimplencia-status-acordo.md]         | | |
-| | | [t1: Servidor · vortx]                              | |  | | [t2: Recebido em 28 de set. de 2026, 14:06 · 18 KB]       | | |
-| | | [t1: Túnel · Conectado]                             | |  | | [t3: .../0019-revisao-inadimplencia-status-acordo.md]     | | |
-| | | [h3: Clipboard]                                     | |  | | [btn: Abrir conteúdo] [btn2: Copiar conteúdo]             | | |
-| | | [t1: 1 item(ns)]                                    | |  | | [btn: Baixar] [btn2: Copiar caminho]                      | | |
-| | | [t2: CleanShot 2026-09-28 at 14.09.29@2x.png]       | |  | +-----------------------------------------------------------+ | |
-| | | [t1: Expira · 28 de set. de 2026, 14:19]            | |  |                                                               | |
-| | +-----------------------------------------------------+ |  | +-----------------------------------------------------------+ | |
-| |                                                         |  | | card3                                                     | | |
-| | +-----------------------------------------------------+ |  | | [h3: 0014-evento-agreement-defaulted-paid.md]             | | |
-| | | card2                                               | |  | | [t2: Recebido em 28 de set. de 2026, 14:06 · 7,5 KB]      | | |
-| | | [h2: Aprovação pendente]                            | |  | | [t3: .../0014-evento-agreement-defaulted-paid.md]         | | |
-| | | [t1: Aguardando sua aprovação (0)]                  | |  | | [btn: Abrir conteúdo] [btn2: Copiar conteúdo]             | | |
-| | | [t2: Nenhum arquivo aguardando aprovação.]          | |  | | [btn: Baixar] [btn2: Copiar caminho]                      | | |
-| | +-----------------------------------------------------+ |  | +-----------------------------------------------------------+ | |
-| |                                                         |  |                                                               | |
-| |                                                         |  | +-----------------------------------------------------------+ | |
-| |                                                         |  | | card3                                                     | | |
-| |                                                         |  | | [h3: 0013-evento-agreement-defaulted.md]                  | | |
-| |                                                         |  | | [t2: Recebido em 28 de set. de 2026, 14:06 · 7,7 KB]      | | |
-| |                                                         |  | | [t3: .../0013-evento-agreement-defaulted.md]              | | |
-| |                                                         |  | | [btn: Abrir conteúdo] [btn2: Copiar conteúdo]             | | |
-| |                                                         |  | | [btn: Baixar] [btn2: Copiar caminho]                      | | |
-| |                                                         |  | +-----------------------------------------------------------+ | |
-| +---------------------------------------------------------+  +---------------------------------------------------------------+ |
-|                                                                                                                                |
-| +----------------------------------------------------------------------------------------------------------------------------+ |
-| | section                                                                                                                    | |
-| | [btn3: Parar Companion]                                                                                                    | |
-| +----------------------------------------------------------------------------------------------------------------------------+ |
-+--------------------------------------------------------------------------------------------------------------------------------+
+agentport panel (Companion, 127.0.0.1 only)
+==========================================
+
++--------------------------------------------------------------------------------+
+| top bar: logo · server (Switch, Connect) · approval policy · bell · language   |
+|          · theme · help · GitHub · stop Companion (two clicks)                 |
++--------------------------------------------------------------------------------+
+| Requests from the agent (cards: single, or batch with checkboxes)              |
+|   :5432 → localhost:5432   [reason]   [Approve] [Deny] [duration] [settings]    |
+|   busy port box: use another free port / stop the program (if stoppable)       |
++--------------------------------------------------------------------------------+
+| tabs: Open · Detected on server · Closed · Activity        [filter] [/ open]   |
+|   Open: group by Group | Session | List · close all on the server             |
+|         row: [x] :remote → localhost:local  name  chips  [open][pin][edit][▾][x] |
+|   Closed: Reopen · Reopen with changes · Remove from history                    |
+|   Activity: newest first                                                       |
++--------------------------------------------------------------------------------+
+| status: Tunnel · Agent sessions · Ports open · Panel                           |
++--------------------------------------------------------------------------------+
+Dialogs: port edit (local port check), close confirmation (notified sessions),
+switch server (close N and switch / keep open and switch / remember), about (5 tabs),
+keyboard shortcuts (A, R, 1-4, /, ?, Esc).
