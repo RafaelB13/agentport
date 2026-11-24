@@ -8,10 +8,14 @@ escuchando en el servidor y pedir que se abra un puerto en tu máquina, a travé
 de la conexión SSH que ya tienes. Tú decides qué se abre y cuándo se cierra.
 
 > **En desarrollo.** La base ya funciona: el Companion, el túnel SSH inverso, el
-> servidor MCP, el registro automático en los agentes, los instaladores y los
-> releases verificables. Las herramientas de puertos, el panel y el inicio
-> automático todavía se están construyendo. La tabla de estado de abajo indica
-> qué está listo y qué está planificado.
+> servidor MCP, el registro automático en los agentes, los instaladores, los
+> releases verificables, las herramientas de puertos con tu aprobación, el panel
+> (grupos, cerrar todos, la pestaña Detectados y una terminal web hacia el
+> servidor) y la recuperación de los forwards tras reiniciar el Companion. El host
+> Windows se compila en el CI, pero todavía no se ha ejecutado en un Windows real.
+> El inicio automático al conectar y la validación de extremo a extremo de
+> `v0.1.0` siguen abiertos. La tabla de estado de abajo indica qué está listo y
+> qué está planificado.
 
 ## Qué es
 
@@ -24,15 +28,15 @@ agentport tiene tres partes:
 - **El servidor MCP** (`agentport mcp`), que el agente de código inicia en el
   servidor mediante `stdio`. agentport lo registra en los agentes que encuentra
   allí.
-- **El panel** (planificado), una página en tu máquina donde apruebas, ves,
-  editas y cierras los puertos que el agente pidió.
+- **El panel**, una página en tu máquina donde apruebas, ves, agrupas y cierras
+  los puertos que el agente pidió, y abres una terminal hacia el servidor.
 
-Hoy puedes configurar un servidor, conectarte con `ssh` y usar el agente con la
+Puedes configurar un servidor, conectarte con `ssh`, usar el agente con la
 herramienta `agentport_status`, que informa el estado del túnel y si existe un
-release más nuevo. Las herramientas de puertos están planificadas.
+release más nuevo, y pedirle al agente que abra puertos en tu máquina, con tu
+aprobación.
 
-> **Marcador para una captura de pantalla.** El panel y la página del Companion
-> se mostrarán aquí cuando llegue el panel (fase F5).
+> **Marcador para una captura de pantalla.** Aquí se añadirán capturas del panel.
 
 agentport es una bifurcación de [AgentClip](https://github.com/wendellrocha/agentclip),
 que va en el sentido contrario (de tu máquina al servidor). Consulta
@@ -43,13 +47,15 @@ que va en el sentido contrario (de tu máquina al servidor). Consulta
 | Fase | Qué es | Estado |
 | --- | --- | --- |
 | F1 | Base del proyecto: bifurcación de AgentClip, renombrado, clipboard eliminado. CLI, Companion, `setup`, servidor MCP con `agentport_status`, releases | ✓ Listo |
-| F3 | Motor de forward (`internal/forward`) y revisión de quién ocupa un puerto del host (`internal/hostport`) | ✓ Listo en el código; ningún comando lo usa todavía |
-| F1b | Fórmula de Homebrew generada por el workflow de release, `agentport upgrade` consciente de Homebrew, estos cuatro READMEs | En curso |
-| F2 | Escáner de puertos del servidor (`internal/portscan`), Linux y macOS, con filtros para demonios del sistema | ✓ Listo en el código; el comando `agentport ports` está planificado |
-| F4 | Herramientas MCP de puertos (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`), endpoints del puente, aprobaciones, sesiones | Planificado |
-| F5 | Panel, inicio automático al conectar (`LocalCommand`), notificaciones, diálogo de puerto ocupado | Planificado |
-| F5b | Terminal web hacia el servidor, en el panel | Planificado |
-| F6 | Host Windows: forwards sin ControlMaster | Planificado |
+| F1 | Base del proyecto: bifurcación de AgentClip, renombrado, clipboard eliminado. CLI, Companion, `setup`, servidor MCP con `agentport_status`, releases | ✓ Listo |
+| F3 | Motor de forward (`internal/forward`) y revisión de quién ocupa un puerto del host (`internal/hostport`) | ✓ Listo; lo usan las herramientas de puertos y el panel |
+| F1b | Fórmula de Homebrew generada por el workflow de release, `agentport upgrade` consciente de Homebrew, estos cuatro READMEs | ✓ Listo; la publicación en el tap sigue desactivada hasta que el tap exista |
+| F2 | Escáner de puertos del servidor (`internal/portscan`), Linux y macOS, con filtros para demonios del sistema; comando `agentport ports` | ✓ Listo |
+| F4 | Herramientas MCP de puertos (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`) con aprobación, endpoints del puente, sesiones, recuperación tras reiniciar el Companion | ✓ Listo |
+| F5 | Panel: aprobaciones, grupos y cerrar todos, la pestaña Detectados, notificaciones, la elección para puerto ocupado | ✓ Listo |
+| F5 (resto) | Inicio automático al conectar (`LocalCommand`) | Planificado |
+| F5b | Terminal web hacia el servidor, en el panel (Linux y macOS) | ✓ Listo |
+| F6 | Host Windows: forwards sin ControlMaster | Compilado en el CI; todavía no ejecutado en un Windows real |
 | Pruebas | Harness con Docker en `test/e2e`: un sshd real, forwards por ControlMaster, conflictos de puertos y el escáner en Linux | ✓ Listo |
 | F7 | Validación de extremo a extremo en servidores reales, release `v0.1.0` | Planificado |
 
@@ -77,10 +83,11 @@ HOST (tu máquina)                            SERVIDOR (alcanzado por SSH)
    alcanza en un puerto del loopback del servidor.
 3. El agente inicia `agentport mcp` en el servidor mediante `stdio`. El servidor
    MCP habla con el puente con un token de sesión, a través del túnel.
-4. Planificado: las herramientas de puertos piden al Companion que abra un puerto.
-   El Companion lo abre por la misma conexión SSH (`ssh -O forward -L`, con
-   ControlMaster en macOS y Linux), de modo que el puerto llega solo al
-   `127.0.0.1` de tu máquina. Nada escucha en tu red.
+4. Las herramientas de puertos piden al Companion que abra un puerto, y tú lo
+   apruebas. El Companion lo abre por la misma conexión SSH (`ssh -O forward -L`,
+   con ControlMaster en macOS y Linux; en Windows, un proceso `ssh` por forward),
+   de modo que el puerto llega solo al `127.0.0.1` de tu máquina. Nada escucha en
+   tu red.
 
 Cada servidor tiene su propio perfil y su propio Companion, así que dos servidores
 nunca comparten token ni túnel.
@@ -90,8 +97,9 @@ nunca comparten token ni túnel.
 **Tu máquina (host)**
 
 - macOS (Apple silicon o Intel), Linux (amd64 o arm64) o Windows (amd64). El
-  instalador de Windows y el Companion se compilan y prueban en el CI; el motor de
-  forward para Windows está planificado (F6).
+  instalador de Windows, el Companion y los forwards se compilan en el CI, pero
+  todavía no se han ejecutado en un Windows real. La terminal del servidor no está
+  disponible en Windows.
 - Cliente OpenSSH (`ssh`) en el `PATH`. El Companion lo usa para el túnel, así que
   lee tu `~/.ssh/config`, tus claves y el ssh-agent como de costumbre.
 - Go 1.27 o más nuevo, solo si compilas desde el código fuente.
@@ -100,6 +108,10 @@ nunca comparten token ni túnel.
 
 - Linux o macOS, amd64 o arm64, con un servidor SSH al que puedas entrar. El primer
   `setup` puede pedir la contraseña una vez; después se usa una clave.
+- `AllowTcpForwarding yes` en la configuración SSH del servidor (`sshd_config`).
+  El túnel inverso usa `ssh -R`, que el servidor rechaza cuando el reenvío está en
+  `no`. El valor por defecto de OpenSSH es `yes`; comprueba el valor efectivo con
+  `sshd -T` en el servidor.
 - Un shell POSIX, porque `setup` ejecuta por SSH un conjunto corto y fijo de
   comandos.
 - Al menos un agente de código compatible instalado (ver la tabla de abajo).
@@ -387,7 +399,7 @@ máquina:
 agentport companion status m2
 ```
 
-**Planificado (F4 y F5).** Cuando lleguen las herramientas de puertos, podrás pedir:
+Puedes pedir:
 
 > Mapea los puertos de este proyecto y abre la app en localhost.
 
@@ -400,8 +412,8 @@ siguiente libre y lo avisa.
 
 ## El panel
 
-**Planificado (F5).** El panel es una página en tu máquina, servida en `127.0.0.1` y
-protegida por un token. Mostrará:
+El panel es una página en tu máquina, servida en `127.0.0.1` y protegida por un
+token. Muestra:
 
 - **Solicitudes del agente** arriba: puerto, motivo, comando, aprobar o rechazar, y
   cuánto dura la aprobación (esta sesión, una hora o siempre). Una solicitud por
@@ -423,17 +435,16 @@ protegida por un token. Mostrará:
 - **Actividad**, notificaciones, atajos y una **barra superior** con el servidor
   actual, el cambio de servidor, la terminal web, la política de aprobación, el
   idioma, el tema (sistema, claro, oscuro), la ayuda y el fin de la sesión.
-- **Terminal web** (F5b): una terminal hacia el servidor que se abre desde el panel.
-  Usa la conexión SSH del perfil y se queda en `127.0.0.1` con el token del panel.
-  Se puede desactivar por perfil.
-- **Conectar a un servidor**: sugerencias encontradas en tu máquina (ver
-  [Modo standalone](#modo-standalone)).
+- **Terminal web**: una terminal hacia el servidor que se abre desde el panel. Usa
+  la conexión SSH del perfil y se queda en `127.0.0.1` con el token del panel (ver
+  [Terminal](#terminal)).
+- **Conectar a un servidor**: planificado, con sugerencias encontradas en tu
+  máquina (ver [Modo standalone](#modo-standalone)).
 
-**Hoy**, la página del Companion es una vista operativa sencilla, en `127.0.0.1`,
-con un token que abres con `agentport companion open m2`. Muestra el perfil y el
-destino, el estado del túnel (`Conectado` o `Desconectado`) con el último error, un
-aviso cuando existe un release estable más nuevo, y el botón **Parar Companion**,
-que equivale a `agentport companion stop m2`. No transfiere archivos.
+El panel se abre con `agentport companion open m2`. Allí también aparecen el estado
+del túnel (`Conectado` o `Desconectado`), el último error y un aviso cuando existe
+un release estable más nuevo; `agentport companion stop m2` detiene el Companion. El
+panel no transfiere archivos.
 
 ## Terminal
 
@@ -446,10 +457,10 @@ El agente ve estas herramientas a través del servidor MCP en el servidor.
 | Herramienta | Entrada | Devuelve |
 | --- | --- | --- |
 | `agentport_status` | ninguna | **Disponible ahora.** El estado del túnel, la versión de agentport y si existe un release estable más nuevo (en ese caso recomienda `agentport upgrade`). |
-| `ports_list` | `include_system?`, `only_user?` | **Planificado.** Los puertos TCP en escucha del servidor: puerto, dirección de bind, protocolo, PID, proceso, una línea de comando corta y si ya existe un forward. |
-| `ports_forward` | `reason`, `group?`, `ports[]` de `{remote_port, label?, path?}` | **Planificado.** Pide tu aprobación como una solicitud por lotes. Por cada puerto devuelve el estado (`active`, `pending_approval`, `denied`, `skipped`), el puerto local realmente usado y la URL con el `path`. Espera hasta 2 minutos; si no has respondido, devuelve `pending_approval`, y el agente puede consultar `forwards_list` después. |
-| `ports_unforward` | `ports[]` o `all` | **Planificado.** Cierra los forwards de esta sesión. Nunca cierra un puerto de otra sesión. |
-| `forwards_list` | ninguna | **Planificado.** Los forwards activos con su origen (agente, automático o manual), el tiempo activo y los bytes. Los forwards de otras sesiones aparecen marcados como tales y esta sesión no puede cerrarlos. |
+| `ports_list` | `include_system?`, `only_user?` | Los puertos TCP en escucha del servidor: puerto, dirección de bind, protocolo, PID, proceso, una línea de comando corta y si ya existe un forward. |
+| `ports_forward` | `reason`, `group?`, `ports[]` de `{remote_port, label?, path?}` | Pide tu aprobación como una solicitud por lotes. Por cada puerto devuelve el estado (`active`, `pending_approval`, `denied`, `skipped`), el puerto local realmente usado y la URL con el `path`. Espera hasta 2 minutos; si no has respondido, devuelve `pending_approval`, y el agente puede consultar `forwards_list` después. |
+| `ports_unforward` | `ports[]` o `all` | Cierra los forwards de esta sesión. Nunca cierra un puerto de otra sesión. |
+| `forwards_list` | ninguna | Los forwards activos con su origen (agente, automático o manual), el tiempo activo y los bytes. Los forwards de otras sesiones aparecen marcados como tales y esta sesión no puede cerrarlos. |
 
 El agente nunca elige tu puerto local, y ninguna herramienta le permite detener un
 proceso en tu máquina. Detener un proceso es decisión tuya, tomada en el panel.
@@ -460,7 +471,7 @@ responde que el Companion está fuera de línea e indica al agente que ejecute
 
 ## Varias sesiones de agente
 
-**Planificado (F4).** Un Companion atiende a cada servidor. Cada sesión de agente en
+Un Companion atiende a cada servidor. Cada sesión de agente en
 ese servidor (por ejemplo, dos sesiones de Claude Code en proyectos distintos, o
 Claude Code y Codex) ejecuta su propio `agentport mcp`, y todas hablan con el mismo
 Companion. Cada sesión se identifica por su agente, su PID, la carpeta del proyecto
@@ -476,12 +487,19 @@ y la hora en que empezó.
 - Cuando una sesión termina, los puertos que solo ella usaba quedan marcados como
   "sesión terminada" y se cierran a los 20 minutos, salvo que los hayas fijado. Si el
   agente vuelve a la misma carpeta en ese plazo, los recupera.
+- Si el Companion se reinicia o el túnel se cae, los forwards que estaban abiertos
+  se recuperan cuando el enlace vuelve, así que las sesiones de agente conservan
+  sus puertos y no tienen que volver a pedirlos.
 
 ## Puertos ocupados en el host
 
-Cuando un puerto que quieres ya está en uso en tu máquina, el Companion revisa quién
-lo tiene. El código que identifica al dueño y lo detiene existe hoy
-(`internal/hostport`). El diálogo que te pregunta qué hacer es **planificado (F5)**.
+Cuando el puerto local que pediste ya está en uso en tu máquina, el forward no
+falla. El Companion usa el siguiente puerto libre por encima, y el mensaje indica
+qué programa tiene el puerto ocupado, por ejemplo
+`local port 3000 is busy: node (pid 1234)`. Si no se puede identificar al dueño, el
+mensaje dice `another program`. El panel ofrece las opciones de abajo; el Companion
+vuelve a comprobar el puerto antes de abrirlo (el dueño lo identifica
+`internal/hostport`).
 
 | Quién tiene el puerto | Lo que ofrece el diálogo |
 | --- | --- |
@@ -536,13 +554,11 @@ La página del Companion usa, en este orden: `?lang=pt-BR` en la dirección, el 
 preferido del navegador, el idioma que detectó el proceso del Companion como arriba y,
 por último, el inglés.
 
-**Hoy** solo português (Brasil) tiene catálogo. El español y el chino tradicional se
-eligen cuando el entorno lo pide, pero sus mensajes siguen en inglés hasta que se
-escriban sus catálogos (planificado). Los mensajes de error técnicos se quedan en
-inglés a propósito, para poder buscarlos. Los nombres de comandos, las rutas y los
-nombres de procesos no se traducen.
-
-**Planificado:** el mismo orden en el panel (F5), y los catálogos de `es` y `zh-Hant`.
+La línea de comandos y el Companion tienen catálogos para português (Brasil), español
+y chino tradicional. Los instaladores tienen mensajes en inglés y en português
+(Brasil). Los mensajes de error técnicos se quedan en inglés a propósito, para poder
+buscarlos. Los nombres de comandos, las rutas y los nombres de procesos no se
+traducen.
 
 ## Seguridad
 
@@ -558,7 +574,7 @@ nombres de procesos no se traducen.
   atestado de build y un análisis `govulncheck` de los binarios. Consulta
   [Verificar un release](#verificar-un-release).
 
-**Planificado (F4 y F5)**, para las herramientas de puertos y el panel:
+Para las herramientas de puertos y el panel:
 
 - Los forwards solo hacen bind en `127.0.0.1` de tu máquina. No hay opción para
   `0.0.0.0` en la versión 1.
