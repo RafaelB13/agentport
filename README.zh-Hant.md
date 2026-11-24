@@ -4,7 +4,7 @@
 
 agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權的前提下使用你電腦上的連接埠。代理程式可以看到伺服器上正在監聽的程序，並要求在你的電腦上開啟某個連接埠，走的是你既有的 SSH 連線。開啟哪些連接埠、何時關閉，都由你決定。
 
-> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式，以及可驗證的發行版本。連接埠工具、面板與自動啟動仍在開發中。下方的狀態表會說明哪些已完成、哪些是規劃中。
+> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。下方的狀態表會說明哪些已完成、哪些是規劃中。
 
 ## 這是什麼
 
@@ -12,11 +12,11 @@ agentport 由三個部分組成：
 
 - **Companion**：在你電腦上於背景執行的程序。它在 `127.0.0.1` 上維持本機橋接器（bridge），為每個已配對的伺服器保持一條 SSH 反向通道，連線中斷時以 1 到 30 秒的退避時間重新連線。
 - **MCP 伺服器**（`agentport mcp`）：由代理程式在伺服器上透過 `stdio` 啟動。agentport 會把它註冊到伺服器上找到的代理程式中。
-- **面板**（規劃中）：位於你電腦上的網頁，讓你核准、檢視、編輯與關閉代理程式要求的連接埠。
+- **面板**：位於你電腦上的網頁，讓你核准、檢視、分組與關閉代理程式要求的連接埠，並可開啟連到伺服器的終端機。
 
-目前你可以設定伺服器、以 `ssh` 連線，並在代理程式中使用 `agentport_status` 工具，它會回報通道狀態，以及是否有更新的發行版本。連接埠工具仍在規劃中。
+你可以設定伺服器、以 `ssh` 連線，在代理程式中使用 `agentport_status` 工具（它會回報通道狀態，以及是否有更新的發行版本），並請代理程式在你的電腦上開啟連接埠，且需經你核准。
 
-> **截圖預留位置。** 面板與 Companion 網頁會在面板推出後（F5 階段）放在這裡。
+> **截圖預留位置。** 面板的截圖會加在這裡。
 
 agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支，後者的方向相反（從你的電腦到伺服器）。請見[致謝](#致謝)。
 
@@ -25,13 +25,15 @@ agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支�
 | 階段 | 內容 | 狀態 |
 | --- | --- | --- |
 | F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
-| F3 | 轉發引擎（`internal/forward`），以及查出誰佔用主機連接埠的功能（`internal/hostport`） | ✓ 程式碼已完成；目前尚無指令使用它 |
-| F1b | 由發行流程產生的 Homebrew 公式、能辨識 Homebrew 的 `agentport upgrade`，以及這四份 README | 進行中 |
-| F2 | 伺服器端連接埠掃描器（`internal/portscan`），支援 Linux 與 macOS，並可過濾系統常駐程式 | ✓ 程式碼已完成；`agentport ports` 指令為規劃中 |
-| F4 | MCP 連接埠工具（`ports_list`、`ports_forward`、`ports_unforward`、`forwards_list`）、橋接器端點、核准、工作階段 | 規劃中 |
-| F5 | 面板、連線時自動啟動（`LocalCommand`）、通知、連接埠被占用的對話框 | 規劃中 |
-| F5b | 面板中連到伺服器的網頁終端機 | 規劃中 |
-| F6 | Windows 主機：不使用 ControlMaster 的轉發 | 規劃中 |
+| F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
+| F3 | 轉發引擎（`internal/forward`），以及查出誰佔用主機連接埠的功能（`internal/hostport`） | ✓ 完成；由連接埠工具與面板使用 |
+| F1b | 由發行流程產生的 Homebrew 公式、能辨識 Homebrew 的 `agentport upgrade`，以及這四份 README | ✓ 完成；在 tap 存在之前，發布到 tap 的功能維持關閉 |
+| F2 | 伺服器端連接埠掃描器（`internal/portscan`），支援 Linux 與 macOS，並可過濾系統常駐程式；`agentport ports` 指令 | ✓ 完成 |
+| F4 | MCP 連接埠工具（`ports_list`、`ports_forward`、`ports_unforward`、`forwards_list`）、經核准的開啟、橋接器端點、工作階段，以及 Companion 重新啟動後的復原 | ✓ 完成 |
+| F5 | 面板：核准、分組與批次關閉、偵測到的連接埠分頁、通知、連接埠被占用時的選擇 | ✓ 完成 |
+| F5（其餘） | 連線時自動啟動（`LocalCommand`） | 規劃中 |
+| F5b | 面板中連到伺服器的網頁終端機（Linux 與 macOS） | ✓ 完成 |
+| F6 | Windows 主機：不使用 ControlMaster 的轉發 | 已在 CI 編譯；尚未在真正的 Windows 上執行 |
 | 測試 | `test/e2e` 的 Docker 測試環境：真實的 sshd、經由 ControlMaster 的轉發、連接埠衝突與 Linux 上的掃描器 | ✓ 完成 |
 | F7 | 在真實伺服器上做端到端驗證，發行 `v0.1.0` | 規劃中 |
 
@@ -53,7 +55,7 @@ HOST（你的電腦）                              SERVER（經由 SSH 連到�
 1. `agentport setup` 會在伺服器上安裝 agentport、把它的 MCP 伺服器註冊到伺服器上找到的代理程式中、在你的電腦上儲存一份**設定檔**（伺服器、配對權杖與遠端連接埠），然後啟動 Companion。
 2. Companion 以反向通道開啟一條 `ssh` 連到伺服器。透過這條通道，伺服器可以連到橋接器，因此 `agentport mcp` 能在伺服器的 loopback 介面上的某個連接埠找到它。
 3. 代理程式在伺服器上透過 `stdio` 啟動 `agentport mcp`。MCP 伺服器使用工作階段權杖，經由通道與橋接器溝通。
-4. 規劃中：連接埠工具會要求 Companion 開啟某個連接埠。Companion 透過同一條 SSH 連線開啟（macOS 與 Linux 上使用 ControlMaster 的 `ssh -O forward -L`），因此連接埠只會抵達你電腦的 `127.0.0.1`。你的網路上不會有任何東西在監聽。
+4. 連接埠工具會要求 Companion 開啟某個連接埠，並由你核准。Companion 透過同一條 SSH 連線開啟（macOS 與 Linux 上使用 ControlMaster 的 `ssh -O forward -L`；Windows 上每個轉發使用一個 `ssh` 程序），因此連接埠只會抵達你電腦的 `127.0.0.1`。你的網路上不會有任何東西在監聽。
 
 每台伺服器都有自己的設定檔與自己的 Companion，因此兩台伺服器絕不會共用權杖或通道。
 
@@ -61,13 +63,14 @@ HOST（你的電腦）                              SERVER（經由 SSH 連到�
 
 **你的電腦（主機）**
 
-- macOS（Apple silicon 或 Intel）、Linux（amd64 或 arm64）或 Windows（amd64）。Windows 安裝程式與 Companion 會在 CI 中建置與測試；Windows 的轉發引擎仍在規劃中（F6）。
+- macOS（Apple silicon 或 Intel）、Linux（amd64 或 arm64）或 Windows（amd64）。Windows 安裝程式、Companion 與轉發會在 CI 中編譯，但尚未在真正的 Windows 上執行。伺服器終端機在 Windows 上無法使用。
 - `PATH` 中要有 OpenSSH 用戶端（`ssh`）。Companion 用它建立通道，因此會照常讀取你的 `~/.ssh/config`、金鑰與 ssh-agent。
 - 只有在從原始碼建置時才需要 Go 1.27 或更新版本。
 
 **伺服器**
 
 - Linux 或 macOS，amd64 或 arm64，並且有你能登入的 SSH 伺服器。第一次執行 `setup` 時可能會要求輸入一次密碼；之後會改用金鑰。
+- `AllowTcpForwarding yes`：伺服器 SSH 設定（`sshd_config`）中必須允許。反向通道使用 `ssh -R`，當轉發設為 `no` 時伺服器會拒絕。OpenSSH 的預設值是 `yes`；可在伺服器上以 `sshd -T` 檢查實際生效的值。
 - POSIX shell，因為 `setup` 會透過 SSH 執行一組簡短且固定的指令。
 - 至少安裝一個支援的程式碼代理程式（見下表）。agentport 不會安裝代理程式。
 
@@ -287,7 +290,7 @@ codex
 agentport companion status m2
 ```
 
-**規劃中（F4 與 F5）。** 連接埠工具推出後，你可以這樣要求：
+你可以這樣要求：
 
 > 幫我對應這個專案的連接埠，並在 localhost 上開啟應用程式。
 
@@ -295,7 +298,7 @@ agentport companion status m2
 
 ## 面板
 
-**規劃中（F5）。** 面板是位於你電腦上的網頁，服務於 `127.0.0.1`，並以權杖保護。它會顯示：
+面板是位於你電腦上的網頁，服務於 `127.0.0.1`，並以權杖保護。它會顯示：
 
 - **代理程式的要求**，位於頂端：連接埠、理由、指令、核准或拒絕，以及核准的有效期（本工作階段、一小時或永久）。批次要求會變成一張附有勾選框與「全部核准」的卡片。
 - **已開啟的連接埠**，格式為 `:遠端 -> localhost:本機`，附名稱、指令、即時流量、在新分頁開啟、釘選、詳細資料、編輯與關閉。關閉時會先要求確認，並顯示哪些代理程式工作階段會收到通知。
@@ -305,10 +308,10 @@ agentport companion status m2
 - **伺服器上偵測到的連接埠**，以及手動開啟的選單（快捷鍵 `/`）。
 - **依需求顯示的程序詳細資料**：PID、使用者、CPU、記憶體、目錄、父程序、容器、指令列、連接埠健康狀態，以及代理程式提出的理由。
 - **活動紀錄**、通知、快捷鍵，以及**頂端列**，包含目前的伺服器、切換伺服器、網頁終端機、核准政策、語言、主題（系統、淺色、深色）、說明與結束工作階段。
-- **網頁終端機**（F5b）：可從面板開啟、連到伺服器的終端機。它使用設定檔的 SSH 連線，並以面板的權杖保持在 `127.0.0.1`。可依設定檔停用。
-- **連到伺服器**：在你的電腦上找到的連線建議（見[獨立模式](#獨立模式)）。
+- **網頁終端機**：可從面板開啟、連到伺服器的終端機。它使用設定檔的 SSH 連線，並以面板的權杖保持在 `127.0.0.1`（見[終端機](#終端機)）。
+- **連到伺服器**：規劃中，會提供在你的電腦上找到的連線建議（見[獨立模式](#獨立模式)）。
 
-**目前**，Companion 網頁是一個簡單的運作檢視頁，位於 `127.0.0.1`，你可以用 `agentport companion open m2` 開啟它，並需要其中的權杖。它會顯示設定檔與目的地、通道狀態（`Connected` 或 `Disconnected`，英文原文）與最後一次錯誤，若有更新的穩定發行版本會顯示提示，還有 **Stop Companion** 按鈕，其作用與 `agentport companion stop m2` 相同。它不傳輸檔案。
+面板可用 `agentport companion open m2` 開啟，並需要其中的權杖。其中也會顯示通道狀態（`Connected` 或 `Disconnected`，英文原文）、最後一次錯誤，以及有更新的穩定發行版本時的提示；`agentport companion stop m2` 會停止 Companion。面板不傳輸檔案。
 
 ## 終端機
 
@@ -321,10 +324,10 @@ agentport companion status m2
 | 工具 | 輸入 | 回傳 |
 | --- | --- | --- |
 | `agentport_status` | 無 | **現在可用。** 通道狀態、agentport 版本，以及是否有更新的穩定發行版本（若有，會建議執行 `agentport upgrade`）。 |
-| `ports_list` | `include_system?`、`only_user?` | **規劃中。** 伺服器上正在監聽的 TCP 連接埠：連接埠、bind 位址、協定、PID、程序、簡短指令列，以及是否已有轉發。 |
-| `ports_forward` | `reason`、`group?`、`ports[]`，每項為 `{remote_port, label?, path?}` | **規劃中。** 以一筆批次要求向你請求核准。對每個連接埠回傳狀態（`active`、`pending_approval`、`denied`、`skipped`）、實際使用的本機連接埠，以及含 `path` 的網址。最多等待 2 分鐘；若你尚未回覆，會回傳 `pending_approval`，代理程式之後可以再呼叫 `forwards_list` 查詢。 |
-| `ports_unforward` | `ports[]` 或 `all` | **規劃中。** 關閉本工作階段的轉發。絕不會關閉屬於其他工作階段的連接埠。 |
-| `forwards_list` | 無 | **規劃中。** 目前作用中的轉發，含來源（代理程式、自動或手動）、啟用時間與位元組數。其他工作階段的轉發會標示出來，本工作階段無法關閉它們。 |
+| `ports_list` | `include_system?`、`only_user?` | 伺服器上正在監聽的 TCP 連接埠：連接埠、bind 位址、協定、PID、程序、簡短指令列，以及是否已有轉發。 |
+| `ports_forward` | `reason`、`group?`、`ports[]`，每項為 `{remote_port, label?, path?}` | 以一筆批次要求向你請求核准。對每個連接埠回傳狀態（`active`、`pending_approval`、`denied`、`skipped`）、實際使用的本機連接埠，以及含 `path` 的網址。最多等待 2 分鐘；若你尚未回覆，會回傳 `pending_approval`，代理程式之後可以再呼叫 `forwards_list` 查詢。 |
+| `ports_unforward` | `ports[]` 或 `all` | 關閉本工作階段的轉發。絕不會關閉屬於其他工作階段的連接埠。 |
+| `forwards_list` | 無 | 目前作用中的轉發，含來源（代理程式、自動或手動）、啟用時間與位元組數。其他工作階段的轉發會標示出來，本工作階段無法關閉它們。 |
 
 代理程式永遠無法選擇你的本機連接埠，也沒有任何工具能讓它停止你電腦上的程序。停止程序是你的決定，只能在面板中進行。
 
@@ -332,16 +335,17 @@ agentport companion status m2
 
 ## 多個代理程式工作階段
 
-**規劃中（F4）。** 每台伺服器由一個 Companion 服務。該伺服器上的每個代理程式工作階段（例如兩個位於不同專案中的 Claude Code，或 Claude Code 與 Codex）都會執行自己的 `agentport mcp`，而且全都與同一個 Companion 溝通。每個工作階段都以它的代理程式、PID、專案資料夾與開始時間來識別。
+每台伺服器由一個 Companion 服務。該伺服器上的每個代理程式工作階段（例如兩個位於不同專案中的 Claude Code，或 Claude Code 與 Codex）都會執行自己的 `agentport mcp`，而且全都與同一個 Companion 溝通。每個工作階段都以它的代理程式、PID、專案資料夾與開始時間來識別。
 
 - 只有 Companion 會選擇本機連接埠，而且一次處理一個要求，因此兩個工作階段絕不會拿到相同的本機連接埠。
 - 若兩個工作階段要求同一個遠端連接埠，該連接埠只會開啟一次。兩者會拿到相同的網址，並都成為它的擁有者。當沒有任何擁有者仍需要它，或你將它關閉時，連接埠才會關閉。
 - `ports_unforward` 只會把呼叫它的工作階段從其連接埠的擁有者清單中移除。仍被其他工作階段使用的連接埠會保持開啟。
 - 工作階段結束時，只屬於它的連接埠會被標記為「工作階段已結束」，並在 20 分鐘後關閉，除非你已釘選它們。若代理程式在這段時間內回到同一個資料夾，就會取回它們。
+- 若 Companion 重新啟動或通道中斷，原本開啟的轉發會在連線恢復時被重新接回，因此工作階段會保留它們的連接埠，不必再次要求。
 
 ## 主機上被占用的連接埠
 
-當你想使用的連接埠已在你的電腦上被占用時，Companion 會查出是誰在佔用它。識別擁有者並停止它的程式碼目前已存在（`internal/hostport`）。詢問你該怎麼做的對話框則是**規劃中（F5）**。
+當你要求的本機連接埠已在你的電腦上被占用時，轉發不會失敗。Companion 會改用其上方的下一個可用連接埠，而訊息會指出佔用該連接埠的程序，例如 `local port 3000 is busy: node (pid 1234)`。若無法識別擁有者，訊息會顯示 `another program`。面板提供下方的選項；Companion 在開啟連接埠之前會再次檢查（擁有者由 `internal/hostport` 識別）。
 
 | 佔用者 | 對話框提供的選項 |
 | --- | --- |
@@ -378,10 +382,7 @@ agentport 支援四種語言：English（預設）、Português（Brasil）、Es
 
 Companion 網頁依序使用：網址中的 `?lang=pt-BR`、瀏覽器偏好的語言、Companion 程序依上述方式偵測到的語言，最後才是英文。
 
-**目前**只有 Português（Brasil）有翻譯目錄。當環境要求時，Español 與繁體中文會被選用，但在它們的目錄寫好之前，訊息仍會以英文顯示（規劃中）。技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
-
-**規劃中：** 面板（F5）採用相同的順序，並提供 `es` 與 `zh-Hant` 的目錄。
-
+命令列與 Companion 都有 Português（Brasil）、Español 與繁體中文的翻譯目錄。安裝程式則提供英文與 Português（Brasil）的訊息。技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
 ## 安全性
 
 - 橋接器只監聽 `127.0.0.1`。伺服器只能透過 Companion 開啟的 SSH 通道連到它。
@@ -390,7 +391,7 @@ Companion 網頁依序使用：網址中的 `?lang=pt-BR`、瀏覽器偏好的�
 - Companion 網頁位於 `127.0.0.1`，並需要一個包含在其網址中的權杖。不要分享這個網址：它是通往你 Companion 的入口。
 - 發行版本由單一工作流程建置，附有 SHA-256 檢查碼、cosign 簽章、建置證明，並會以 `govulncheck` 掃描二進位檔。請見[驗證發行版本](#驗證發行版本)。
 
-**規劃中（F4 與 F5）**，適用於連接埠工具與面板：
+適用於連接埠工具與面板：
 
 - 轉發只會在你電腦的 `127.0.0.1` 上 bind。第 1 版沒有 `0.0.0.0` 的選項。
 - 轉發的目標永遠是伺服器上的 `127.0.0.1:<連接埠>`，因此不能利用通道去連到伺服器網路中的其他主機。

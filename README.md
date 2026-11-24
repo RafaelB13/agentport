@@ -9,9 +9,12 @@ already have. You decide what is opened and when it is closed.
 
 > **Work in progress.** The base works today: the Companion, the reverse SSH
 > tunnel, the MCP server, the automatic registration in the agents, the
-> installers and the verifiable releases. The port tools, the panel and the
-> automatic start are still being built. The status table below says which
-> parts are done and which are planned.
+> installers, the verifiable releases, the port tools with your approval, the
+> panel (groups, close-all, the Detected tab, a web terminal to the server) and
+> the recovery of forwards after a Companion restart. The Windows host is
+> compiled in CI but has not run on a real Windows machine yet. The automatic
+> start on connect and the end-to-end validation for `v0.1.0` are still open.
+> The status table below says which parts are done and which are planned.
 
 ## What it is
 
@@ -22,15 +25,14 @@ agentport has three parts:
   and reconnects with a backoff of 1 to 30 seconds when the link drops.
 - **The MCP server** (`agentport mcp`), which the coding agent starts on the
   server through `stdio`. agentport registers it in the agents it finds there.
-- **The panel** (planned), a page on your machine where you approve, see, edit
-  and close the ports the agent asked for.
+- **The panel**, a page on your machine where you approve, see, group and close
+  the ports the agent asked for, and open a terminal to the server.
 
-Today you can set up a server, connect to it with `ssh`, and use the agent with
-the `agentport_status` tool, which reports the tunnel and whether a newer
-release exists. The port tools are planned.
+You can set up a server, connect to it with `ssh`, use the agent with the
+`agentport_status` tool, which reports the tunnel and whether a newer release
+exists, and ask the agent to open ports on your machine, with your approval.
 
-> **Screenshot placeholder.** The panel and the Companion page will be shown
-> here once the panel lands (phase F5).
+> **Screenshot placeholder.** Screenshots of the panel will be added here.
 
 agentport is a fork of [AgentClip](https://github.com/wendellrocha/agentclip),
 which sends the other way (from your machine to the server). See
@@ -41,13 +43,15 @@ which sends the other way (from your machine to the server). See
 | Phase | What | Status |
 | --- | --- | --- |
 | F1 | Project base: fork of AgentClip, renamed, clipboard removed. CLI, Companion, `setup`, MCP server with `agentport_status`, releases | ✓ Done |
-| F3 | Forward engine (`internal/forward`) and inspection of what holds a busy host port (`internal/hostport`) | ✓ Done in code, no command uses it yet |
-| F1b | Homebrew formula rendered by the release workflow, Homebrew-aware `agentport upgrade`, these four READMEs | In progress |
-| F2 | Port scanner for the server (`internal/portscan`), Linux and macOS, with filters for system daemons | ✓ Done in code; the `agentport ports` command is planned |
-| F4 | MCP port tools (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`), bridge endpoints, approvals, sessions | Planned |
-| F5 | Panel, automatic start on connect (`LocalCommand`), notifications, busy-port dialog | Planned |
-| F5b | Web terminal to the server in the panel | Planned |
-| F6 | Windows host: forwards without ControlMaster | Planned |
+| F1 | Project base: fork of AgentClip, renamed, clipboard removed. CLI, Companion, `setup`, MCP server with `agentport_status`, releases | ✓ Done |
+| F3 | Forward engine (`internal/forward`) and inspection of what holds a busy host port (`internal/hostport`) | ✓ Done, used by the port tools and the panel |
+| F1b | Homebrew formula rendered by the release workflow, Homebrew-aware `agentport upgrade`, these four READMEs | ✓ Done; the tap publication stays off until the tap exists |
+| F2 | Port scanner for the server (`internal/portscan`), Linux and macOS, with filters for system daemons; `agentport ports` | ✓ Done |
+| F4 | MCP port tools (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`) with approval, bridge endpoints, sessions, recovery after a Companion restart | ✓ Done |
+| F5 | Panel: approvals, groups and close-all, the Detected tab, notifications, the busy-port choice | ✓ Done |
+| F5 (rest) | Automatic start on connect (`LocalCommand`) | Planned |
+| F5b | Web terminal to the server in the panel (Linux and macOS) | ✓ Done |
+| F6 | Windows host: forwards without ControlMaster | Compiled in CI; not yet run on a real Windows machine |
 | Tests | Docker harness in `test/e2e`: a real sshd, forwards over ControlMaster, port conflicts and the port scanner in Linux | ✓ Done |
 | F7 | End-to-end validation on real servers, release `v0.1.0` | Planned |
 
@@ -74,10 +78,11 @@ HOST (your machine)                          SERVER (reached over SSH)
    of the server's loopback interface.
 3. The agent starts `agentport mcp` on the server through `stdio`. The MCP server
    talks to the bridge with a session token, through the tunnel.
-4. Planned: the port tools ask the Companion to open a port. The Companion
-   opens it through the same SSH connection (`ssh -O forward -L`, with
-   ControlMaster on macOS and Linux), so the port reaches `127.0.0.1` of your
-   machine only. Nothing is listening on your network.
+4. The port tools ask the Companion to open a port, and you approve it. The
+   Companion opens it through the same SSH connection (`ssh -O forward -L`, with
+   ControlMaster on macOS and Linux; on Windows, one `ssh` process per forward),
+   so the port reaches `127.0.0.1` of your machine only. Nothing is listening on
+   your network.
 
 Each server has its own profile and its own Companion, so two servers never
 share a token or a tunnel.
@@ -87,8 +92,9 @@ share a token or a tunnel.
 **Your machine (host)**
 
 - macOS (Apple silicon or Intel), Linux (amd64 or arm64) or Windows (amd64).
-  The Windows installer and the Companion are built and tested in CI; the
-  forward engine for Windows is planned (F6).
+  The Windows installer, the Companion and the forwards are compiled in CI, but
+  they have not run yet on a real Windows machine. The server terminal is not
+  available on Windows.
 - OpenSSH client (`ssh`) on your `PATH`. The Companion uses it for the tunnel,
   so it reads your `~/.ssh/config`, keys and ssh-agent as usual.
 - Go 1.27 or newer, only if you build from source.
@@ -98,6 +104,10 @@ share a token or a tunnel.
 - Linux or macOS, amd64 or arm64, with an SSH server you can log in to. The
   first `setup` may ask for the password once; after that, a key is used.
 - A POSIX shell, because `setup` runs a short fixed set of commands over SSH.
+- `AllowTcpForwarding yes` in the server's SSH configuration (`sshd_config`).
+  The reverse tunnel uses `ssh -R`, which the server refuses when forwarding is
+  set to `no`. OpenSSH's default is `yes`; check the effective value with
+  `sshd -T` on the server.
 - At least one supported coding agent installed (see the table below). agentport
   does not install agents.
 
@@ -380,7 +390,7 @@ the same thing on your machine:
 agentport companion status m2
 ```
 
-**Planned (F4 and F5).** When the port tools land, you will be able to ask:
+You can ask:
 
 > Map the ports of this project and open the app on localhost.
 
@@ -393,8 +403,8 @@ one and says so.
 
 ## The panel
 
-**Planned (F5).** The panel is a page on your machine, served on `127.0.0.1` and
-protected by a token. It will show:
+The panel is a page on your machine, served on `127.0.0.1` and protected by a
+token. It shows:
 
 - **Requests from the agent** at the top: port, reason, command, approve or
   refuse, and how long the approval lasts (this session, one hour, or always).
@@ -415,18 +425,16 @@ protected by a token. It will show:
 - **Activity**, notifications, shortcuts, and a **top bar** with the current
   server, a server switcher, the web terminal, the approval policy, language,
   theme (system, light, dark), help, and end session.
-- **Web terminal** (F5b): a terminal to the server that opens from the panel.
-  It uses the SSH connection of the profile and stays on `127.0.0.1` with the
-  panel's token. It can be disabled per profile.
-- **Connect to a server**: suggestions found on your machine (see
+- **Web terminal**: a terminal to the server that opens from the panel. It uses
+  the SSH connection of the profile and stays on `127.0.0.1` with the panel's
+  token (see [Terminal](#terminal)).
+- **Connect to a server**: planned, with suggestions found on your machine (see
   [Standalone mode](#standalone-mode)).
 
-**Today** the Companion page is a small operational view, on `127.0.0.1` with a
-token that you open with `agentport companion open m2`. It shows the profile and
-destination, the tunnel state (`Connected` or `Disconnected`) with the last
-error, a notice when a newer stable release exists, and a **Stop Companion**
-button, which is the same as `agentport companion stop m2`. It does not transfer
-files.
+The panel is opened with `agentport companion open m2`. The tunnel state
+(`Connected` or `Disconnected`), the last error and a notice when a newer stable
+release exists are shown there too, and `agentport companion stop m2` stops the
+Companion. The panel does not transfer files.
 
 ## Terminal
 
@@ -439,10 +447,10 @@ The agent sees these tools through the MCP server on the server.
 | Tool | Input | Returns |
 | --- | --- | --- |
 | `agentport_status` | none | **Available now.** The tunnel state, the agentport version, and whether a newer stable release exists (then it recommends `agentport upgrade`). |
-| `ports_list` | `include_system?`, `only_user?` | **Planned.** Listening TCP ports on the server: port, bind address, protocol, PID, process, a short command line, and whether a forward already exists. |
-| `ports_forward` | `reason`, `group?`, `ports[]` of `{remote_port, label?, path?}` | **Planned.** Asks for your approval as one batch request. For each port it returns the state (`active`, `pending_approval`, `denied`, `skipped`), the local port actually used, and the URL with `path`. It waits up to 2 minutes; if you have not answered, it returns `pending_approval`, and the agent can check `forwards_list` later. |
-| `ports_unforward` | `ports[]` or `all` | **Planned.** Closes the forwards of this session. It never closes a port that belongs to another session. |
-| `forwards_list` | none | **Planned.** Active forwards with their origin (agent, automatic or manual), the time active, and bytes. Forwards of other sessions are marked as such and cannot be closed from this session. |
+| `ports_list` | `include_system?`, `only_user?` | Listening TCP ports on the server: port, bind address, protocol, PID, process, a short command line, and whether a forward already exists. |
+| `ports_forward` | `reason`, `group?`, `ports[]` of `{remote_port, label?, path?}` | Asks for your approval as one batch request. For each port it returns the state (`active`, `pending_approval`, `denied`, `skipped`), the local port actually used, and the URL with `path`. It waits up to 2 minutes; if you have not answered, it returns `pending_approval`, and the agent can check `forwards_list` later. |
+| `ports_unforward` | `ports[]` or `all` | Closes the forwards of this session. It never closes a port that belongs to another session. |
+| `forwards_list` | none | Active forwards with their origin (agent, automatic or manual), the time active, and bytes. Forwards of other sessions are marked as such and cannot be closed from this session. |
 
 The agent never chooses your local port, and no tool lets it stop a process on
 your machine. Stopping a process is your decision, taken in the panel.
@@ -453,7 +461,7 @@ which the agent passes on to you.
 
 ## Multiple agent sessions
 
-**Planned (F4).** One Companion serves each server. Each agent session on that
+One Companion serves each server. Each agent session on that
 server (for example two Claude Code sessions in different projects, or Claude
 Code and Codex) runs its own `agentport mcp`, and all of them talk to the same
 Companion. Each session is identified by its agent, its PID, its project folder
@@ -469,12 +477,19 @@ and the time it started.
 - When a session ends, the ports that only it owned are marked "session ended",
   and they close after 20 minutes unless you pinned them. If the agent comes
   back to the same folder within that time, it gets them back.
+- If the Companion restarts or the tunnel drops, the forwards that were open are
+  reclaimed when the link returns, so the agent sessions keep their ports and do
+  not have to ask again.
 
 ## Busy ports on the host
 
-When a port you want is already used on your machine, the Companion checks
-what holds it. The code that identifies the owner and stops it exists today
-(`internal/hostport`). The dialog that asks you what to do is **planned (F5)**.
+When the local port you asked for is already used on your machine, the forward
+does not fail. The Companion uses the next free port above it, and the message
+names the program that holds the busy one, for example
+`local port 3000 is busy: node (pid 1234)`. If the owner cannot be identified,
+the message says `another program`. The panel offers the choices below, which
+the Companion checks again before it opens the port (the owner is identified by
+`internal/hostport`).
 
 | Who holds the port | What the dialog offers |
 | --- | --- |
@@ -529,14 +544,10 @@ The Companion page takes `?lang=pt-BR` in the address first, then the browser's
 preferred language, then the language the Companion process detected as above,
 then English.
 
-**Today** only Português (Brasil) has a catalog. Español and 繁體中文 are chosen
-when the environment asks for them, but their messages still show in English until
-their catalogs are written (planned). Technical error messages stay in English on
-purpose, so they can be searched for. Command names, paths and process names are
-not translated.
-
-**Planned:** the same order in the panel (F5), and the catalogs for `es` and
-`zh-Hant`.
+The command line and the Companion have catalogs for Português (Brasil), Español
+and 繁體中文. The installers have English and Português (Brasil) messages. Technical
+error messages stay in English on purpose, so they can be searched for. Command
+names, paths and process names are not translated.
 
 ## Security
 
@@ -552,7 +563,7 @@ not translated.
   signature, a build attestation, and a `govulncheck` scan of the binaries.
   See [Verify a release](#verify-a-release).
 
-**Planned (F4 and F5)**, for the port tools and the panel:
+For the port tools and the panel:
 
 - Forwards bind only to `127.0.0.1` on your machine. There is no option to bind
   to `0.0.0.0` in version 1.
