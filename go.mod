@@ -2,6 +2,8 @@ module github.com/rafaelb13/agentport
 
 go 1.27.0
 
+toolchain go1.27.4
+
 require (
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.24
