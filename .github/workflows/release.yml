@@ -161,22 +161,35 @@ jobs:
           if [[ -n "$previous_tag" ]]; then
             arguments+=(-f "previous_tag_name=${previous_tag}")
           fi
-          gh api --method POST "${arguments[@]}" --jq .body > release-notes.md
+          gh api --method POST "${arguments[@]}" --jq .body > changes.md
 
-          if grep -Eq '/pull/[0-9]+' release-notes.md; then
-            exit 0
+          if ! grep -Eq '/pull/[0-9]+' changes.md; then
+            {
+              echo "## Commits"
+              if [[ -n "$previous_tag" ]]; then
+                git log --format='- %s ([%h](https://github.com/'"${GITHUB_REPOSITORY}"'/commit/%H))' "${previous_tag}..${VERSION}"
+                echo
+                echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${VERSION}"
+              else
+                git log --format='- %s ([%h](https://github.com/'"${GITHUB_REPOSITORY}"'/commit/%H))' "${VERSION}"
+              fi
+            } > changes.md
           fi
 
-          {
-            echo "## Commits"
-            if [[ -n "$previous_tag" ]]; then
-              git log --format='- %s ([%h](https://github.com/'"${GITHUB_REPOSITORY}"'/commit/%H))' "${previous_tag}..${VERSION}"
+          # A curated note for this version, when the repository has one, leads the
+          # release; the generated changes follow it under "## Changes".
+          curated=".github/release-notes/${VERSION}.md"
+          if [[ -f "$curated" ]]; then
+            {
+              cat "$curated"
               echo
-              echo "**Full Changelog**: https://github.com/${GITHUB_REPOSITORY}/compare/${previous_tag}...${VERSION}"
-            else
-              git log --format='- %s ([%h](https://github.com/'"${GITHUB_REPOSITORY}"'/commit/%H))' "${VERSION}"
-            fi
-          } > release-notes.md
+              echo "## Changes"
+              echo
+              cat changes.md
+            } > release-notes.md
+          else
+            cp changes.md release-notes.md
+          fi
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
