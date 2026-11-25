@@ -362,3 +362,22 @@ func TestEnvironmentIsWrittenIntoTheServiceDefinition(t *testing.T) {
 		t.Error("an empty environment must not add a section")
 	}
 }
+
+// Reporting on autostart and turning it off do not install the environment, so
+// a profile whose directory is set in the shell must still be reportable on
+// Windows; only turning it on refuses.
+func TestWindowsEnvironmentRefusesOnlyWhenInstalling(t *testing.T) {
+	f := &fake{}
+	r := f.runner("windows")
+	s := spec()
+	s.Environment = map[string]string{"AGENTPORT_CONFIG_DIR": `C:\config`}
+	if _, err := r.Enabled(s); err != nil {
+		t.Errorf("Enabled with an environment: %v", err)
+	}
+	if err := r.Disable(s); err != nil {
+		t.Errorf("Disable with an environment: %v", err)
+	}
+	if err := r.Enable(s); err == nil || !strings.Contains(err.Error(), "AGENTPORT_CONFIG_DIR") {
+		t.Errorf("Enable with an environment = %v, want the refusal", err)
+	}
+}

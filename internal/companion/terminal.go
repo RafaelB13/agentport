@@ -222,32 +222,6 @@ type terminal interface {
 	stop()
 }
 
-// processTerminal is a process attached to a pseudo-terminal. stop may be called
-// from several paths; only the first call acts.
-type processTerminal struct {
-	cmd    *exec.Cmd
-	once   sync.Once
-	pty    io.ReadWriteCloser
-	resize func(cols, rows int) error
-}
-
-func (p *processTerminal) Read(b []byte) (int, error)  { return p.pty.Read(b) }
-func (p *processTerminal) Write(b []byte) (int, error) { return p.pty.Write(b) }
-
-func (p *processTerminal) Resize(cols, rows int) error { return p.resize(cols, rows) }
-
-// stop kills the ssh process, closes the terminal and reaps the child, so no
-// process is left behind.
-func (p *processTerminal) stop() {
-	p.once.Do(func() {
-		if p.cmd.Process != nil {
-			_ = p.cmd.Process.Kill()
-		}
-		_ = p.pty.Close()
-		_ = p.cmd.Wait()
-	})
-}
-
 // ServerTerminalCommand is the ssh command of the server terminal for profile.
 // It reuses the tunnel's ControlMaster socket, so no second login is made where
 // unix sockets exist; elsewhere it is a plain ssh session.

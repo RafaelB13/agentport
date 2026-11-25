@@ -1,7 +1,6 @@
 package companion
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"time"
 )
 
@@ -115,8 +113,6 @@ func StopRuntime(state RuntimeState) error {
 	return nil
 }
 
-var validOfferID = regexp.MustCompile(`^[0-9A-Za-z_-]{1,64}$`)
-
 func ViewURL(state RuntimeState) string {
 	return "http://" + state.Address + "/view/" + state.ViewToken + "/"
 }
@@ -172,15 +168,6 @@ func validLoopbackAddress(address string) bool {
 	}
 	value, err := net.LookupPort("tcp", port)
 	return err == nil && value > 0 && value <= 65535
-}
-
-func postJSON(url, token string, body []byte) (*http.Response, error) {
-	request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
-	request.Header.Set("Authorization", "Bearer "+token)
-	return (&http.Client{Timeout: 3 * time.Second}).Do(request)
 }
 
 // shutdownServer stops srv. In-flight requests get a short grace period; the

@@ -9,16 +9,6 @@ import (
 	"time"
 )
 
-type trackedReadCloser struct {
-	io.Reader
-	closed bool
-}
-
-func (r *trackedReadCloser) Close() error {
-	r.closed = true
-	return nil
-}
-
 func TestControlServerServesPrivateStatusViewAndStop(t *testing.T) {
 	t.Setenv("XDG_CACHE_HOME", t.TempDir())
 	t.Setenv("AGENTPORT_CONFIG_DIR", t.TempDir())

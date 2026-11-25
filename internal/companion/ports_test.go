@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,8 @@ func TestControlPathIsPrivateAndShort(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o700 {
+	// Windows has no Unix permission bits, so the mode check only applies elsewhere.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		t.Fatalf("socket directory mode = %o, want 700", info.Mode().Perm())
 	}
 	again, _ := ControlPath(strings.Repeat("p", 64))

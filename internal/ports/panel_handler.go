@@ -96,7 +96,7 @@ func (h *handler) editForward(w http.ResponseWriter, r *http.Request) {
 		fail(w, err)
 		return
 	}
-	info, err := h.store.EditForward(r.Context(), remote, ForwardEdit{Label: body.Label, Path: body.Path, LocalPort: body.LocalPort, Duration: body.Duration})
+	info, err := h.store.EditForward(r.Context(), remote, ForwardEdit(body))
 	if err != nil {
 		fail(w, err)
 		return
@@ -197,8 +197,7 @@ func (h *handler) reopenClosed(w http.ResponseWriter, r *http.Request) {
 		fail(w, &InvalidError{errors.New("label or path is too long")})
 		return
 	}
-	info, err := h.store.ReopenClosed(r.Context(), ReopenRequest{RemotePort: body.RemotePort, LocalPort: body.LocalPort,
-		Label: body.Label, Path: body.Path, Duration: body.Duration, ClosedAt: body.ClosedAt})
+	info, err := h.store.ReopenClosed(r.Context(), ReopenRequest(body))
 	if err != nil {
 		fail(w, err)
 		return

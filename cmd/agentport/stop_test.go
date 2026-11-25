@@ -134,8 +134,15 @@ func TestCompanionStopEndsTheCompanionAndItsBridge(t *testing.T) {
 	if state, err := companion.LoadRuntime("halting"); err == nil && companion.RuntimeHealthy(state) {
 		t.Fatal("the Companion still answers after stop")
 	}
-	if bridgeHealthy(t) {
-		t.Fatal("the bridge is still running after the last Companion stopped")
+	// The bridge is not stopped by the stop request itself: the Companion process
+	// shuts it down as it exits, so it can still answer for a moment after the
+	// Companion has gone. Wait for it within the bridge's own stop budget.
+	deadline := time.Now().Add(companionStopTimeout + companionKillTimeout)
+	for bridgeHealthy(t) {
+		if time.Now().After(deadline) {
+			t.Fatal("the bridge is still running after the last Companion stopped")
+		}
+		time.Sleep(50 * time.Millisecond)
 	}
 }
 

@@ -120,12 +120,6 @@ func (r *relayCompanion) current() *ports.Store {
 	return r.store
 }
 
-func (r *relayCompanion) setOffline(v bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.offline = v
-}
-
 func (r *relayCompanion) port(t *testing.T) int {
 	t.Helper()
 	_, p, err := net.SplitHostPort(strings.TrimPrefix(r.server.URL, "http://"))

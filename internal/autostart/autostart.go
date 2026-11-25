@@ -64,9 +64,19 @@ type Plan struct {
 
 var profileName = regexp.MustCompile(`^[0-9A-Za-z_-]{1,64}$`)
 
-// PlanFor builds the plan for goos. The profile name is restricted to the
-// characters agentport allows, since it becomes part of a file name and a label.
+// PlanFor builds the plan that turns autostart on for goos. Unlike the plans
+// that turn it off or report on it, it must be able to carry spec.Environment,
+// so it refuses an environment the target cannot hold.
 func PlanFor(goos string, spec Spec) (Plan, error) {
+	if goos == "windows" && len(spec.Environment) > 0 {
+		return Plan{}, errors.New("a Windows logon task cannot carry environment variables such as AGENTPORT_CONFIG_DIR; unset them, or set them for your user account, and turn autostart on again")
+	}
+	return buildPlan(goos, spec)
+}
+
+// buildPlan builds the plan for goos. The profile name is restricted to the
+// characters agentport allows, since it becomes part of a file name and a label.
+func buildPlan(goos string, spec Spec) (Plan, error) {
 	if !profileName.MatchString(spec.Profile) {
 		return Plan{}, fmt.Errorf("invalid Companion profile %q", spec.Profile)
 	}
@@ -84,9 +94,6 @@ func PlanFor(goos string, spec Spec) (Plan, error) {
 	case "linux":
 		return linuxPlan(spec), nil
 	case "windows":
-		if len(spec.Environment) > 0 {
-			return Plan{}, errors.New("a Windows logon task cannot carry environment variables such as AGENTPORT_CONFIG_DIR; unset them, or set them for your user account, and turn autostart on again")
-		}
 		return windowsPlan(spec), nil
 	default:
 		return Plan{}, fmt.Errorf("autostart is not supported on %s", goos)
@@ -273,7 +280,7 @@ func (r Runner) Enable(spec Spec) error {
 // stop is not hidden: when it still reports autostart as on afterwards, the
 // error of the command that should have turned it off is returned.
 func (r Runner) Disable(spec Spec) error {
-	plan, err := PlanFor(r.GOOS, spec)
+	plan, err := buildPlan(r.GOOS, spec)
 	if err != nil {
 		return err
 	}
@@ -302,7 +309,7 @@ func (r Runner) Disable(spec Spec) error {
 
 // Enabled reports whether autostart is on for the profile.
 func (r Runner) Enabled(spec Spec) (bool, error) {
-	plan, err := PlanFor(r.GOOS, spec)
+	plan, err := buildPlan(r.GOOS, spec)
 	if err != nil {
 		return false, err
 	}
