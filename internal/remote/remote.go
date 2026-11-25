@@ -40,7 +40,7 @@ func remotePreflightCommandWithIdentity(destination, identityFile, agentExecutab
 
 // MinRemoteVersion is the oldest remote agentport that setup can configure.
 // An older one registers the MCP entry and then fails on the tools, silently.
-const MinRemoteVersion = "v0.5.0"
+const MinRemoteVersion = "v0.1.0"
 
 // VersionForProfile asks the server which agentport it would run.
 func VersionForProfile(profile companion.Profile) *exec.Cmd {

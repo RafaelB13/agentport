@@ -300,7 +300,7 @@ func TestEnsureagentportSSHKeyCreatesPrivateEd25519Key(t *testing.T) {
 func TestCheckVersionAcceptsCurrentAndRefusesOldOrUnreadableServers(t *testing.T) {
 	marked := func(version string) string { return versionMarker + version + "\n" }
 	for _, output := range []string{
-		marked("v0.7.1"), marked("0.7.0"), marked("v0.5.0"), marked("v0.8.0-rc.1"),
+		marked("v0.7.1"), marked("0.7.0"), marked("v0.1.0"), marked("v0.8.0-rc.1"),
 		// A login shell may print anything before the marked line.
 		"Welcome to host\nv0.1.0 is the kernel\n" + marked("v0.7.1"),
 		marked("v0.7.1") + "trailing noise\n",
@@ -309,7 +309,7 @@ func TestCheckVersionAcceptsCurrentAndRefusesOldOrUnreadableServers(t *testing.T
 			t.Errorf("CheckVersion(%q) = %v, want it accepted", output, err)
 		}
 	}
-	for _, output := range []string{marked("v0.4.9"), marked("0.1.0"), marked("v0.5.0-rc.1"), "v0.1.0\n" + marked("v0.4.0")} {
+	for _, output := range []string{marked("v0.0.9"), marked("0.0.1"), marked("v0.1.0-rc.1"), "v0.1.0\n" + marked("v0.0.9")} {
 		err := CheckVersion("host", output)
 		if err == nil || !strings.Contains(err.Error(), "agentport upgrade") || !strings.Contains(err.Error(), MinRemoteVersion) {
 			t.Errorf("CheckVersion(%q) = %v, want a refusal that says how to update", output, err)

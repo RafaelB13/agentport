@@ -103,7 +103,7 @@ func TestConfigureRefusesAServerWhoseAgentportIsTooOld(t *testing.T) {
 	for _, selection := range []string{"codex", "all"} {
 		t.Run(selection, func(t *testing.T) {
 			s := newServer(t)
-			s.agentport("v0.4.0")
+			s.agentport("v0.0.9")
 			s.harness("codex")
 			_, err := Configure(profileFor(), selection)
 			if err == nil || !strings.Contains(err.Error(), "agentport upgrade") {
