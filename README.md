@@ -111,11 +111,7 @@ sh install.sh
 
 ### Homebrew
 
-> **Planned.** The release workflow already renders the formula, but the tap
-> `rafaelb13/homebrew-tap` is not published yet, so the commands below do not
-> work yet. Use the install script or build from source until the tap exists.
-
-Once the tap is published:
+Install and upgrade with Homebrew (the tap is `rafaelb13/homebrew-tap`):
 
 ```bash
 brew install rafaelb13/tap/agentport

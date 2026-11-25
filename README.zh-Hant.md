@@ -93,9 +93,7 @@ sh install.sh
 
 ### Homebrew
 
-> **規劃中。** 發行流程已經會產生公式，但 tap `rafaelb13/homebrew-tap` 尚未發布，因此下列指令目前還無法使用。在 tap 存在之前，請使用安裝腳本或從原始碼建置。
-
-tap 發布後：
+使用 Homebrew 安裝與升級（tap 為 `rafaelb13/homebrew-tap`）：
 
 ```bash
 brew install rafaelb13/tap/agentport

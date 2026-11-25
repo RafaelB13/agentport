@@ -112,12 +112,7 @@ sh install.sh
 
 ### Homebrew
 
-> **Planificado.** El workflow de release ya genera la fórmula, pero el tap
-> `rafaelb13/homebrew-tap` todavía no está publicado, así que los comandos de abajo
-> aún no funcionan. Usa el script de instalación o compila desde el código fuente
-> hasta que exista el tap.
-
-Cuando el tap esté publicado:
+Instala y actualiza con Homebrew (el tap es `rafaelb13/homebrew-tap`):
 
 ```bash
 brew install rafaelb13/tap/agentport
