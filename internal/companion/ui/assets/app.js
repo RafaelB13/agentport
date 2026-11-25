@@ -860,7 +860,7 @@ function renderStrip() {
   const s = S.status;
   const tunnel = $('st-tunnel');
   tunnel.textContent = s ? (s.tunnel && s.tunnel.connected ? t('active') : t('down')) : '—';
-  tunnel.style.color = s && s.tunnel && s.tunnel.connected ? 'var(--live)' : '';
+  tunnel.style.color = s && s.tunnel && s.tunnel.connected ? 'var(--live)' : 'var(--stop)';
   const sessions = new Set();
   for (const f of S.forwards) for (const o of f.owners || []) if (o !== 'user') sessions.add(o);
   for (const p of S.pending) if (p.session) sessions.add(p.session);
@@ -1298,7 +1298,7 @@ const TERM = {term: null, fit: null, socket: null, state: 'idle', failure: null,
 function termTheme() {
   const css = getComputedStyle(document.documentElement);
   const value = name => css.getPropertyValue(name).trim();
-  return {background: value('--bg'), foreground: value('--fg'), cursor: value('--fg'), cursorAccent: value('--bg'), selectionBackground: value('--line-strong')};
+  return {background: value('--bg'), foreground: value('--fg'), cursor: value('--fg'), cursorAccent: value('--bg'), selectionBackground: value('--accent-soft')};
 }
 
 // termRefreshTheme follows the panel's light and dark theme.
