@@ -15,13 +15,21 @@ import (
 // Profile contains the local half of a server pairing. Token is a capability
 // and must never be printed or put into logs.
 type Profile struct {
-	Name            string    `json:"name"`
-	Destination     string    `json:"destination"`
-	RemotePort      int       `json:"remote_port"`
-	Token           string    `json:"token"`
-	SSHIdentityFile string    `json:"ssh_identity_file,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	Name            string `json:"name"`
+	Destination     string `json:"destination"`
+	RemotePort      int    `json:"remote_port"`
+	Token           string `json:"token"`
+	SSHIdentityFile string `json:"ssh_identity_file,omitempty"`
+	// Agent is the agent selection used when the server was configured ("all",
+	// "codex", ...), or AgentNone when it was skipped. Empty on profiles made
+	// before it was recorded. It tells a later reconfiguration (a changed remote
+	// port) what to touch on the server.
+	Agent     string    `json:"agent,omitempty"`
+	CreatedAt time.Time `json:"created_at"`
 }
+
+// AgentNone is the Agent of a profile whose server configuration was skipped.
+const AgentNone = "none"
 
 func (p Profile) Validate() error {
 	if !validProfileName(p.Name) {

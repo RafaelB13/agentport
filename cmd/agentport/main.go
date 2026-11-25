@@ -160,18 +160,24 @@ func runHarness(arguments []string) error {
 
 func runPair(arguments []string) error {
 	if len(arguments) < 2 {
-		return errors.New("usage: agentport pair <profile> <ssh-destination> [--agent all|codex|claude|gemini|agy|opencode|pi] [--remote-port 39123] [--skip-agent]")
+		return errors.New("usage: agentport pair <profile> <ssh-destination> [--agent all|codex|claude|gemini|agy|opencode|pi] [--remote-port N] [--skip-agent]")
 	}
 	settings := flag.NewFlagSet("pair", flag.ContinueOnError)
 	settings.SetOutput(io.Discard)
-	remotePort := settings.Int("remote-port", 39123, "remote loopback port")
+	remotePort := settings.Int("remote-port", remote.DefaultRemotePort, "remote loopback port")
 	agent := settings.String("agent", "all", "remote agent: all, codex, claude, gemini, agy, opencode, or pi")
 	skipAgent := settings.Bool("skip-agent", false, "do not configure an agent on the server")
 	skipCodex := settings.Bool("skip-codex", false, "deprecated alias for --skip-agent")
 	if err := settings.Parse(arguments[2:]); err != nil {
 		return fmt.Errorf("parse pair options: %w", err)
 	}
-	profile, err := pairProfile(arguments[0], arguments[1], *remotePort, *agent, *skipAgent || *skipCodex)
+	explicitPort := false
+	settings.Visit(func(f *flag.Flag) { explicitPort = explicitPort || f.Name == "remote-port" })
+	port, err := choosePairPort(arguments[0], arguments[1], *remotePort, explicitPort)
+	if err != nil {
+		return err
+	}
+	profile, err := pairProfile(arguments[0], arguments[1], port, *agent, *skipAgent || *skipCodex)
 	if err != nil {
 		return err
 	}
@@ -198,6 +204,7 @@ func runSetup(arguments []string) error {
 			return err == nil && companion.RuntimeHealthy(state)
 		},
 		StopCompanion:  stopCompanion,
+		ChoosePort:     chooseRemotePort,
 		Pair:           pairProfileWithIdentity,
 		StartCompanion: func(name string) error { return startCompanion(name, false) },
 	}.Run(options)
@@ -268,6 +275,10 @@ func pairProfileWithIdentity(name, destination string, remotePort int, agent str
 	profile := companion.Profile{
 		Name: name, Destination: destination, RemotePort: remotePort,
 		Token: token, SSHIdentityFile: identityFile, CreatedAt: time.Now().UTC(),
+		Agent: agent,
+	}
+	if skipAgent {
+		profile.Agent = companion.AgentNone
 	}
 	if err := profile.Validate(); err != nil {
 		return companion.Profile{}, err
@@ -812,11 +823,11 @@ func runCompanionService(name string, announce bool) error {
 	defer signal.Stop(signals)
 	errors := make(chan error, 2)
 	go func() {
-		errors <- companion.RunTunnelWithHooks(ctx, profile, control.Port(state), func(status companion.TunnelStatus) {
+		errors <- companion.RunTunnelHealing(ctx, profile, control.Port(state), func(status companion.TunnelStatus) {
 			tunnelMu.Lock()
 			tunnel = status
 			tunnelMu.Unlock()
-		}, logger, func() { portManager.OnConnected(ctx, portErrors) })
+		}, logger, func() { portManager.OnConnected(ctx, portErrors) }, healRemotePort)
 	}()
 	if announce {
 		fmt.Println(i18n.T("Companion %q is running.", profile.Name))

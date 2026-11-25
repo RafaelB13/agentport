@@ -859,8 +859,11 @@ function renderLog() {
 function renderStrip() {
   const s = S.status;
   const tunnel = $('st-tunnel');
-  tunnel.textContent = s ? (s.tunnel && s.tunnel.connected ? t('active') : t('down')) : '—';
-  tunnel.style.color = s && s.tunnel && s.tunnel.connected ? 'var(--live)' : 'var(--stop)';
+  const tunnelUp = !!(s && s.tunnel && s.tunnel.connected);
+  const tunnelError = s && s.tunnel && !tunnelUp ? s.tunnel.last_error : '';
+  tunnel.textContent = s ? (tunnelUp ? t('active') : t('down') + (tunnelError ? ' — ' + tunnelError : '')) : '—';
+  tunnel.title = tunnelError || '';
+  tunnel.style.color = s ? (tunnelUp ? 'var(--live)' : 'var(--stop)') : '';
   const sessions = new Set();
   for (const f of S.forwards) for (const o of f.owners || []) if (o !== 'user') sessions.add(o);
   for (const p of S.pending) if (p.session) sessions.add(p.session);
