@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-const Repository = "rafaelb13/agentport"
+const Repository = "RafaelB13/agentport"
 
 type Options struct {
 	Version    string

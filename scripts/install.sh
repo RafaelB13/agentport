@@ -259,7 +259,7 @@ statement_matches() {
   workflow="$(printf '%s' "$statement" | sed -n 's/.*"workflow":{\([^}]*\)}.*/\1/p')"
   [ -n "$workflow" ] || return 1
   printf '%s' "$statement" | grep -Fq "\"sha256\":\"${actual_checksum}\"" || return 1
-  printf '%s' "$workflow" | grep -Fq "\"repository\":\"https://github.com/${repository}\"" || return 1
+  printf '%s' "$workflow" | grep -Fqi "\"repository\":\"https://github.com/${repository}\"" || return 1
   printf '%s' "$workflow" | grep -Fq "\"path\":\".github/workflows/release.yml\"" || return 1
   printf '%s' "$workflow" | grep -Fq "\"ref\":\"refs/tags/${requested_version}\"" || return 1
 }

@@ -67,6 +67,7 @@ synthetic_matches() { # synthetic_matches <digest> <repository> <version>
   )
 }
 expect "synthetic agentport statement matches its archive, repository and tag" synthetic_matches "$real_digest" RafaelB13/agentport v0.7.1-rc.1
+expect "synthetic statement matches when the repository differs only in case" synthetic_matches "$real_digest" rafaelb13/agentport v0.7.1-rc.1
 if synthetic_matches "$real_digest" RafaelB13/agentport v0.7.1; then fail "synthetic statement refused for another tag"; else pass "synthetic statement refused for another tag"; fi
 if synthetic_matches "$real_digest" wendellrocha/agentclip v0.7.1-rc.1; then fail "synthetic statement refused for another repository"; else pass "synthetic statement refused for another repository"; fi
 

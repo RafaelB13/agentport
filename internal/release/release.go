@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	Repository = "rafaelb13/agentport"
+	Repository = "RafaelB13/agentport"
 	CacheTTL   = 24 * time.Hour
 )
 

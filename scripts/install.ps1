@@ -114,7 +114,7 @@ function Test-agentportStatement {
     if (-not $covered) { return $false }
     $workflow = $statement.predicate.buildDefinition.externalParameters.workflow
     if (-not $workflow) { return $false }
-    return ($workflow.repository -ceq "https://github.com/$Repository") -and
+    return ($workflow.repository -ieq "https://github.com/$Repository") -and
         ($workflow.path -ceq $releaseWorkflowPath) -and
         ($workflow.ref -ceq "refs/tags/$Version")
 }

@@ -143,7 +143,9 @@ func matchStatement(statement provenanceStatement, repository, version, digest s
 	}
 	workflow := statement.Predicate.BuildDefinition.ExternalParameters.Workflow
 	switch {
-	case workflow.Repository != "https://github.com/"+repository:
+	// GitHub owner and repository names are case-insensitive, and the recorded
+	// repository may differ in case from the configured one.
+	case !strings.EqualFold(workflow.Repository, "https://github.com/"+repository):
 		return fmt.Errorf("attestation was made for repository %q, not %q", workflow.Repository, repository)
 	case workflow.Path != releaseWorkflowPath:
 		return fmt.Errorf("attestation was made by workflow %q, not the release workflow", workflow.Path)

@@ -194,3 +194,37 @@ func TestAttestationRequiredFromTheFirstAttestedRelease(t *testing.T) {
 		}
 	}
 }
+
+func TestMatchStatementComparesRepositoryCaseInsensitively(t *testing.T) {
+	const digest = "2222222222222222222222222222222222222222222222222222222222222222"
+	statementFor := func(t *testing.T, recorded string) provenanceStatement {
+		t.Helper()
+		raw := `{"subject":[{"name":"archive","digest":{"sha256":"` + digest + `"}}],"predicate":{"buildDefinition":{"externalParameters":{"workflow":{"ref":"refs/tags/v1.2.3","repository":"https://github.com/` + recorded + `","path":"` + releaseWorkflowPath + `"}}}}}`
+		var statement provenanceStatement
+		if err := json.Unmarshal([]byte(raw), &statement); err != nil {
+			t.Fatal(err)
+		}
+		return statement
+	}
+	tests := map[string]struct {
+		recorded, configured string
+		wantError            bool
+	}{
+		"recorded capitalised, configured lowercase": {"RafaelB13/agentport", "rafaelb13/agentport", false},
+		"recorded lowercase, configured capitalised": {"rafaelb13/agentport", "RafaelB13/agentport", false},
+		"same casing":                           {"RafaelB13/agentport", "RafaelB13/agentport", false},
+		"another repository":                    {"wendellrocha/agentclip", "rafaelb13/agentport", true},
+		"another owner with the same repo name": {"attacker/agentport", "rafaelb13/agentport", true},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			err := matchStatement(statementFor(t, test.recorded), test.configured, "v1.2.3", digest)
+			if test.wantError && err == nil {
+				t.Fatalf("matchStatement accepted repository %q for %q", test.recorded, test.configured)
+			}
+			if !test.wantError && err != nil {
+				t.Fatalf("matchStatement refused repository %q for %q: %v", test.recorded, test.configured, err)
+			}
+		})
+	}
+}

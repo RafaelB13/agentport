@@ -48,6 +48,7 @@ $syntheticStatement = @{
     } } } }
 } | ConvertTo-Json -Depth 10
 Assert-That "synthetic agentport statement matches its archive, repository and tag" (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1")
+Assert-That "synthetic statement matches when the repository differs only in case" (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1")
 Assert-That "synthetic statement is refused for another tag" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1"))
 Assert-That "synthetic statement is refused for another repository" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
 
