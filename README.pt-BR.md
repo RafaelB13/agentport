@@ -16,6 +16,11 @@ conexão SSH que você já tem. Você decide o que é aberto e quando é fechado
 > automático ao conectar e a validação ponta a ponta do `v0.1.0` ainda estão
 > abertos.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
+  <img alt="Painel do agentport no tema claro: um servidor com três portas encaminhadas no grupo web e uma sessão de agente ativa" src="docs/images/panel-light.png" width="100%">
+</picture>
+
 **Conteúdo**
 
 - [Instalação](#instalação)
@@ -471,6 +476,8 @@ não transfere arquivos.
 ## Terminal
 
 O painel tem uma aba **Terminal** que abre um shell no servidor conectado, para rodar um comando rápido sem sair do navegador. Ela reaproveita a conexão SSH do túnel (sem novo login), é servida só para o painel em `127.0.0.1` e aceita conexões apenas da página do próprio painel. Até quatro terminais podem estar abertos ao mesmo tempo. Fechar o terminal, ou parar o Companion, encerra a sessão SSH no servidor. O conteúdo do terminal nunca é gravado em logs. No Windows, o terminal não está disponível nesta versão.
+
+![Aba Terminal executando uname -sm no servidor](docs/images/panel-terminal.png)
 
 ## Ferramentas MCP
 

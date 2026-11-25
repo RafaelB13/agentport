@@ -6,6 +6,11 @@ agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權�
 
 > **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/panel-dark.png">
+  <img alt="淺色主題的 agentport 面板：伺服器上三個轉送連接埠歸在 web 群組，並有一個進行中的代理程式工作階段" src="docs/images/panel-light.png" width="100%">
+</picture>
+
 **目錄**
 
 - [安裝](#安裝)
@@ -337,6 +342,8 @@ agentport companion status m2
 ## 終端機
 
 面板有一個 **Terminal** 分頁，可以在已連線的伺服器上開啟 shell，不必離開瀏覽器就能執行快速指令。它沿用通道的 SSH 連線（不需要再次登入），只提供給 `127.0.0.1` 上的面板，並且只接受來自面板本身頁面的連線。最多可同時開啟四個終端機。關閉終端機或停止 Companion，都會結束伺服器上的 SSH 工作階段。終端機內容絕不寫入記錄檔。Windows 版本目前不提供此終端機。
+
+![終端機分頁在伺服器上執行 uname -sm](docs/images/panel-terminal.png)
 
 ## MCP 工具
 
