@@ -24,7 +24,7 @@ fi
 
 tag=$1
 checksums=$2
-script_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+script_directory=$(CDPATH='' cd -- "$(dirname -- "$0")" && pwd)
 template=${3:-"$script_directory/../packaging/homebrew/agentport.rb.tmpl"}
 
 if ! printf '%s\n' "$tag" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+$'; then

@@ -273,6 +273,7 @@ run_offline() {
     export AGENTPORT_INSTALL_DIR="$work/offline-install"
     export AGENTPORT_DOWNLOAD_BASE="file://$offline_release"
     export AGENTPORT_SKIP_ATTESTATION=1
+    # shellcheck disable=SC2163 # Arguments are NAME=value pairs; exporting them on purpose.
     for assignment in "$@"; do export "$assignment"; done
     exec sh "$installer" --version "$offline_version"
   ) >"$work/offline.log" 2>&1

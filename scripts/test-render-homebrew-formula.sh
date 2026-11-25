@@ -3,7 +3,7 @@
 # right digest must land in the right platform block, and bad input must fail.
 set -eu
 
-root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+root=$(CDPATH='' cd -- "$(dirname -- "$0")/.." && pwd)
 renderer="$root/scripts/render-homebrew-formula.sh"
 work=$(mktemp -d "${TMPDIR:-/tmp}/agentport-formula-test.XXXXXX")
 trap 'rm -rf "$work"' EXIT INT TERM

@@ -44,9 +44,9 @@ func TestReleaseTag(t *testing.T) {
 
 func TestDefaultProfileName(t *testing.T) {
 	tests := map[string]string{
-		"devbox":              "devbox",
+		"devbox":                   "devbox",
 		"wendell@jumphost.example": "jumphost-example",
-		"user@[2001:db8::1]":      "2001-db8-1",
+		"user@[2001:db8::1]":       "2001-db8-1",
 	}
 	for destination, want := range tests {
 		if got := DefaultProfileName(destination); got != want {
