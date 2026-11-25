@@ -44,8 +44,8 @@ func TestReleaseTag(t *testing.T) {
 
 func TestDefaultProfileName(t *testing.T) {
 	tests := map[string]string{
-		"bastion-m2":              "bastion-m2",
-		"wendell@bastion.example": "bastion-example",
+		"devbox":              "devbox",
+		"wendell@jumphost.example": "jumphost-example",
 		"user@[2001:db8::1]":      "2001-db8-1",
 	}
 	for destination, want := range tests {
@@ -56,29 +56,29 @@ func TestDefaultProfileName(t *testing.T) {
 }
 
 func TestParseArgsDefaultsAndDerivedProfileName(t *testing.T) {
-	options, err := ParseArgs([]string{"wendell@bastion.example"})
+	options, err := ParseArgs([]string{"wendell@jumphost.example"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Options{Destination: "wendell@bastion.example", Profile: "bastion-example", Agent: "all", RemotePort: 39123}
+	want := Options{Destination: "wendell@jumphost.example", Profile: "jumphost-example", Agent: "all", RemotePort: 39123}
 	if options != want {
 		t.Fatalf("options = %+v, want %+v", options, want)
 	}
 }
 
 func TestParseArgsReadsEveryFlag(t *testing.T) {
-	options, err := ParseArgs([]string{"bastion-m2", "--profile", "m2", "--agent", "claude", "--version", "v0.7.1", "--remote-port", "40000", "--skip-agent", "--skip-install", "--no-start"})
+	options, err := ParseArgs([]string{"devbox", "--profile", "m2", "--agent", "claude", "--version", "v0.7.1", "--remote-port", "40000", "--skip-agent", "--skip-install", "--no-start"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Options{Destination: "bastion-m2", Profile: "m2", Agent: "claude", ReleaseVersion: "v0.7.1", RemotePort: 40000, SkipAgent: true, SkipInstall: true, NoStart: true}
+	want := Options{Destination: "devbox", Profile: "m2", Agent: "claude", ReleaseVersion: "v0.7.1", RemotePort: 40000, SkipAgent: true, SkipInstall: true, NoStart: true}
 	if options != want {
 		t.Fatalf("options = %+v, want %+v", options, want)
 	}
 }
 
 func TestParseArgsTreatsSkipCodexAsAnAliasForSkipAgent(t *testing.T) {
-	options, err := ParseArgs([]string{"bastion-m2", "--skip-codex"})
+	options, err := ParseArgs([]string{"devbox", "--skip-codex"})
 	if err != nil || !options.SkipAgent {
 		t.Fatalf("options = %+v, err = %v", options, err)
 	}
@@ -175,7 +175,7 @@ func (h *harness) expectCalls(want ...string) {
 }
 
 func options(mutate func(*Options)) Options {
-	o := Options{Destination: "bastion-m2", Profile: "m2", Agent: "all", RemotePort: 39123}
+	o := Options{Destination: "devbox", Profile: "m2", Agent: "all", RemotePort: 39123}
 	if mutate != nil {
 		mutate(&o)
 	}
@@ -189,14 +189,14 @@ func TestSetupInstallsPairsAndStartsInOrder(t *testing.T) {
 	}
 	h.expectCalls(
 		"load m2",
-		"identity bastion-m2 m2 existing=",
+		"identity devbox m2 existing=",
 		"tag ",
-		"install bastion-m2 /keys/agentport-m2 v9.9.9",
+		"install devbox /keys/agentport-m2 v9.9.9",
 		"running? m2",
-		"pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentport-m2",
+		"pair m2 devbox port=39123 agent=all skipAgent=false /keys/agentport-m2",
 		"start m2",
 	)
-	for _, want := range []string{"Installing agentport v9.9.9 on bastion-m2...", `Setup complete for "m2". SSH normally`} {
+	for _, want := range []string{"Installing agentport v9.9.9 on devbox...", `Setup complete for "m2". SSH normally`} {
 		if !strings.Contains(h.stdout.String(), want) {
 			t.Errorf("output is missing %q:\n%s", want, h.stdout.String())
 		}
@@ -210,7 +210,7 @@ func TestSetupReusesTheSSHIdentityOfAnExistingProfile(t *testing.T) {
 	if err := h.runner.Run(options(nil)); err != nil {
 		t.Fatal(err)
 	}
-	if h.calls[1] != "identity bastion-m2 m2 existing=/keys/already-there" {
+	if h.calls[1] != "identity devbox m2 existing=/keys/already-there" {
 		t.Fatalf("identity call = %q", h.calls[1])
 	}
 }
@@ -228,7 +228,7 @@ func TestSetupForwardsPairingOptions(t *testing.T) {
 	if got := h.calls[2]; got != "tag 0.7.1" {
 		t.Fatalf("tag call = %q", got)
 	}
-	want := "pair m2 bastion-m2 port=40000 agent=claude skipAgent=true /keys/agentport-m2"
+	want := "pair m2 devbox port=40000 agent=claude skipAgent=true /keys/agentport-m2"
 	if h.calls[5] != want {
 		t.Fatalf("pair call = %q, want %q", h.calls[5], want)
 	}
@@ -284,11 +284,11 @@ func TestSetupStopsAtTheFirstFailure(t *testing.T) {
 		wantError string
 		lastCall  string
 	}{
-		"identity":    {func(h *harness) { h.identityErr = errors.New("ssh denied") }, "ssh denied", "identity bastion-m2 m2 existing="},
+		"identity":    {func(h *harness) { h.identityErr = errors.New("ssh denied") }, "ssh denied", "identity devbox m2 existing="},
 		"release tag": {func(h *harness) { h.tagErr = errors.New("bad tag") }, "bad tag", "tag "},
-		"install":     {func(h *harness) { h.installErr = errors.New("exit 255") }, "install agentport on bastion-m2: exit 255", "install bastion-m2 /keys/agentport-m2 v9.9.9"},
+		"install":     {func(h *harness) { h.installErr = errors.New("exit 255") }, "install agentport on devbox: exit 255", "install devbox /keys/agentport-m2 v9.9.9"},
 		"stop":        {func(h *harness) { h.running = true; h.stopErr = errors.New("stuck") }, "stuck", "stop m2"},
-		"pairing":     {func(h *harness) { h.pairErr = errors.New("no agent found") }, "no agent found", "pair m2 bastion-m2 port=39123 agent=all skipAgent=false /keys/agentport-m2"},
+		"pairing":     {func(h *harness) { h.pairErr = errors.New("no agent found") }, "no agent found", "pair m2 devbox port=39123 agent=all skipAgent=false /keys/agentport-m2"},
 		"start":       {func(h *harness) { h.startErr = errors.New("port busy") }, "port busy", "start m2"},
 	}
 	for name, test := range tests {

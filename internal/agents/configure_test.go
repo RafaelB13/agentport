@@ -36,7 +36,7 @@ func (s *server) calls() []string {
 }
 
 func profileFor() companion.Profile {
-	return companion.Profile{Name: "m2", Destination: "bastion-m2", RemotePort: 39123, Token: "session-token"}
+	return companion.Profile{Name: "m2", Destination: "devbox", RemotePort: 39123, Token: "session-token"}
 }
 
 func TestConfigureRegistersAgentportWithTheChosenHarness(t *testing.T) {
@@ -140,7 +140,7 @@ func TestConfigureReportsAFailedRegistration(t *testing.T) {
 	s := newServer(t)
 	s.agentport("v0.7.3")
 	s.Install("codex", `case "$2" in add) exit 3;; esac`)
-	if _, err := Configure(profileFor(), "codex"); err == nil || !strings.Contains(err.Error(), "configure Codex MCP on bastion-m2") {
+	if _, err := Configure(profileFor(), "codex"); err == nil || !strings.Contains(err.Error(), "configure Codex MCP on devbox") {
 		t.Fatalf("err = %v, want the failed registration named", err)
 	}
 }

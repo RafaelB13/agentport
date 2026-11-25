@@ -27,10 +27,10 @@ Para uma instalação remota manual durante o desenvolvimento:
 
 ```bash
 go build -o ./agentport ./cmd/agentport
-scp ./agentport bastion-m2:~/.local/bin/agentport
-ssh bastion-m2 'agentport version'
+scp ./agentport devbox:~/.local/bin/agentport
+ssh devbox 'agentport version'
 
-./agentport pair m2 bastion-m2 --remote-port 39123
+./agentport pair m2 devbox --remote-port 39123
 ./agentport companion start m2
 ./agentport companion open m2
 ```

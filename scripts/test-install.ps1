@@ -28,11 +28,28 @@ $realDigest = "5232f1dfbfac70b8919c4dac7681441fa2ec0c05ec608ada2c7d9d9256a1ee71"
 $fixture = Get-Content -Raw (Join-Path $fixtures "attestation-v0.7.1-rc.1.json") | ConvertFrom-Json
 $realStatement = [System.Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($fixture.attestations[0].bundle.dsseEnvelope.payload))
 
-Assert-That "real payload matches its archive, repository and tag" (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1")
-Assert-That "real payload is refused for another digest" (-not (Test-agentportStatement -Json $realStatement -Digest ("0" * 64) -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1"))
-Assert-That "real payload is refused for another tag" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1"))
+# The fixture is a real attestation of the AgentClip release it was forked from,
+# so its repository is wendellrocha/agentclip; it must not match agentport's.
+Assert-That "real payload matches its archive, repository and tag" (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1")
+Assert-That "real payload is refused for another digest" (-not (Test-agentportStatement -Json $realStatement -Digest ("0" * 64) -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
+Assert-That "real payload is refused for another tag" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1"))
 Assert-That "real payload is refused for another repository" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "attacker/agentport" -Version "v0.7.1-rc.1"))
-Assert-That "malformed JSON is refused" (-not (Test-agentportStatement -Json "not json" -Digest $realDigest -Repository "rafaelb13/agentport" -Version "v0.7.1-rc.1"))
+Assert-That "real payload is refused for the agentport repository" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1"))
+Assert-That "malformed JSON is refused" (-not (Test-agentportStatement -Json "not json" -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1"))
+
+# A real attestation of agentport cannot be made here, so a synthetic statement
+# in the same format stands in for one: it must match RafaelB13/agentport only.
+$syntheticStatement = @{
+    subject = @(@{ name = "agentport_v0.7.1-rc.1_linux_amd64.tar.gz"; digest = @{ sha256 = $realDigest } })
+    predicate = @{ buildDefinition = @{ externalParameters = @{ workflow = @{
+        ref = "refs/tags/v0.7.1-rc.1"
+        repository = "https://github.com/RafaelB13/agentport"
+        path = ".github/workflows/release.yml"
+    } } } }
+} | ConvertTo-Json -Depth 10
+Assert-That "synthetic agentport statement matches its archive, repository and tag" (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1")
+Assert-That "synthetic statement is refused for another tag" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1"))
+Assert-That "synthetic statement is refused for another repository" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
 
 # --- 2. Confirm-agentportAuthenticity with stubbed gh and GitHub API ----------
 

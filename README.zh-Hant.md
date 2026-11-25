@@ -4,7 +4,144 @@
 
 agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權的前提下使用你電腦上的連接埠。代理程式可以看到伺服器上正在監聽的程序，並要求在你的電腦上開啟某個連接埠，走的是你既有的 SSH 連線。開啟哪些連接埠、何時關閉，都由你決定。
 
-> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。下方的狀態表會說明哪些已完成、哪些是規劃中。
+> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。
+
+**目錄**
+
+- [安裝](#安裝)
+  - [安裝腳本](#安裝腳本)
+- [這是什麼](#這是什麼)
+- [運作方式](#運作方式)
+- [需求](#需求)
+- [設定伺服器](#設定伺服器)
+- [自動啟動](#自動啟動)
+- [日常使用](#日常使用)
+- [面板](#面板)
+- [終端機](#終端機)
+- [MCP 工具](#mcp-工具)
+- [多個代理程式工作階段](#多個代理程式工作階段)
+- [主機上被占用的連接埠](#主機上被占用的連接埠)
+- [獨立模式](#獨立模式)
+- [語言](#語言)
+- [安全性](#安全性)
+- [更新](#更新)
+- [解除安裝](#解除安裝)
+- [疑難排解](#疑難排解)
+- [開發](#開發)
+- [致謝](#致謝)
+- [授權](#授權)
+
+## 安裝
+
+Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。
+
+### 安裝腳本
+
+在 macOS 或 Linux：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
+```
+
+指定版本或目錄：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
+```
+
+在 Windows 的 PowerShell 中：
+
+```powershell
+irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
+```
+
+若要指定版本，請先下載腳本，再以 `-Version` 執行：
+
+```powershell
+.\install.ps1 -Version vX.Y.Z
+```
+
+腳本會偵測你的平台、查詢最新發行版本、驗證它（見下文），並與已安裝的版本比較。只有在發行版本較新時才會下載，因此重複執行是安全的。選項如下：
+
+| 選項 | Shell | PowerShell | 環境變數 |
+| --- | --- | --- | --- |
+| 版本 | `--version vX.Y.Z` | `-Version vX.Y.Z` | `AGENTPORT_VERSION` |
+| 安裝目錄 | `--install-dir 路徑` | `-InstallDir 路徑` | `AGENTPORT_INSTALL_DIR` |
+| 儲存庫 | | | `AGENTPORT_REPOSITORY` |
+| 略過建置證明檢查 | | | `AGENTPORT_SKIP_ATTESTATION=1` |
+| 語言 | | | `AGENTPORT_LANG` |
+
+Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發行版本也列在 [GitHub Releases 頁面](https://github.com/RafaelB13/agentport/releases)。
+
+另有兩個選用設定，僅適用於 shell 腳本：
+
+- `GITHUB_TOKEN`：對儲存庫具有讀取權限的權杖。儲存庫為私有時請設定它。腳本會改經由 GitHub API 下載發行版本的資產，且權杖只會送往 `api.github.com`。
+- `AGENTPORT_DRY_RUN=1`：列出封存檔、校驗和、證明與安裝目錄的位置後即結束，不下載也不安裝任何東西。
+
+腳本會將每個下載檔與發行版本的 SHA-256 校驗和比對，不符或缺少項目時即停止。若要在執行前先閱讀腳本，請先下載：
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
+less install.sh
+sh install.sh
+```
+
+### Homebrew
+
+> **規劃中。** 發行流程已經會產生公式，但 tap `rafaelb13/homebrew-tap` 尚未發布，因此下列指令目前還無法使用。在 tap 存在之前，請使用安裝腳本或從原始碼建置。
+
+tap 發布後：
+
+```bash
+brew install rafaelb13/tap/agentport
+agentport version
+brew upgrade agentport
+brew uninstall agentport
+```
+
+安裝由 Homebrew 負責。若你是用 Homebrew 安裝的，`agentport upgrade` 不會替換執行檔：它會印出 `agentport was installed with Homebrew. Run: brew upgrade agentport` 並以狀態碼 0 結束。自動啟動不需要 `brew services`：Companion 透過 `agentport companion autostart` 啟動（見[自動啟動](#自動啟動)）。
+
+### 從原始碼建置
+
+```bash
+git clone https://github.com/RafaelB13/agentport.git
+cd agentport
+go build -o agentport ./cmd/agentport
+```
+
+把產生的 `agentport` 放到 `PATH` 中。從原始碼建置的二進位檔沒有發行版本號，因此 `agentport version` 不會顯示發行號，更新檢查也不適用於它。
+
+### 驗證發行版本
+
+每個發行版本都會發布 `checksums.txt`，它以 [cosign](https://github.com/sigstore/cosign) 簽章（無金鑰，綁定發行工作流程的身分），另外還有 GitHub 的建置證明。每個封存檔都有 SHA-256 項目，證明涵蓋封存檔、SBOM 與檢查碼。若要手動驗證，請下載該發行版本的 `checksums.txt`、`checksums.txt.bundle` 與 `attestation.jsonl`：
+
+```bash
+VERSION=vX.Y.Z
+# 身分需要發行版本的確切標籤，因此不接受從其他分支執行的結果。
+IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
+
+cosign verify-blob \
+  --bundle checksums.txt.bundle \
+  --certificate-identity "$IDENTITY" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# Linux
+sha256sum --check --ignore-missing checksums.txt
+# macOS（沒有 sha256sum，也沒有 --ignore-missing）
+ARCH=$(uname -m | sed s/x86_64/amd64/)
+grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
+
+gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
+  --repo RafaelB13/agentport \
+  --cert-identity "$IDENTITY"
+```
+
+不加 `--bundle` 的 `gh attestation verify` 會向 GitHub 查詢，並需要先執行 `gh auth login`。若要在不登入的情況下驗證，請加上 `--bundle attestation.jsonl`。
+
+**自動檢查。** 從 `v0.7.1-rc.1` 開始，安裝程式與 `agentport upgrade` 除了檢查 SHA-256，還會確認該檔案是由本儲存庫的發行工作流程，針對要安裝的標籤所產生的。若此檢查失敗，安裝會被拒絕。安裝腳本在安裝了 `gh` 時使用 `gh attestation verify`，否則改查 GitHub 的建置證明 API。`agentport upgrade` 使用 API。`v0.7.1-rc.1` 之前的發行版本沒有建置證明；它們只以 SHA-256 檢查安裝，安裝程式也會說明這一點。
+
+若建置證明 API 無法使用或超過速率限制，安裝會被拒絕，而不是在沒有檢查的情況下繼續。若只想以 SHA-256 檢查安裝，請設定 `AGENTPORT_SKIP_ATTESTATION=1`。`agentport setup` 與 `agentport upgrade` 也會把同樣的設定套用到它們送往伺服器的二進位檔。
 
 ## 這是什麼
 
@@ -19,25 +156,6 @@ agentport 由三個部分組成：
 > **截圖預留位置。** 面板的截圖會加在這裡。
 
 agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支，後者的方向相反（從你的電腦到伺服器）。請見[致謝](#致謝)。
-
-## 狀態
-
-| 階段 | 內容 | 狀態 |
-| --- | --- | --- |
-| F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
-| F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
-| F3 | 轉發引擎（`internal/forward`），以及查出誰佔用主機連接埠的功能（`internal/hostport`） | ✓ 完成；由連接埠工具與面板使用 |
-| F1b | 由發行流程產生的 Homebrew 公式、能辨識 Homebrew 的 `agentport upgrade`，以及這四份 README | ✓ 完成；在 tap 存在之前，發布到 tap 的功能維持關閉 |
-| F2 | 伺服器端連接埠掃描器（`internal/portscan`），支援 Linux 與 macOS，並可過濾系統常駐程式；`agentport ports` 指令 | ✓ 完成 |
-| F4 | MCP 連接埠工具（`ports_list`、`ports_forward`、`ports_unforward`、`forwards_list`）、經核准的開啟、橋接器端點、工作階段，以及 Companion 重新啟動後的復原 | ✓ 完成 |
-| F5 | 面板：核准、分組與批次關閉、偵測到的連接埠分頁、通知、連接埠被占用時的選擇 | ✓ 完成 |
-| F5（其餘） | 連線時自動啟動（`LocalCommand`） | 規劃中 |
-| F5b | 面板中連到伺服器的網頁終端機（Linux 與 macOS） | ✓ 完成 |
-| F6 | Windows 主機：不使用 ControlMaster 的轉發 | 已在 CI 編譯；尚未在真正的 Windows 上執行 |
-| 測試 | `test/e2e` 的 Docker 測試環境：真實的 sshd、經由 ControlMaster 的轉發、連接埠衝突與 Linux 上的掃描器 | ✓ 完成 |
-| F7 | 在真實伺服器上做端到端驗證，發行 `v0.1.0` | 規劃中 |
-
-標示為*規劃中*的項目不在目前版本內，請暫時不要依賴它們。
 
 ## 運作方式
 
@@ -90,114 +208,17 @@ agentport 整合的是 *harness*，也就是執行代理程式並呼叫其工具
 
 DeepSeek 與 MiMo 是模型，不是 harness：請透過 Pi 或 OpenCode 等支援的 harness 使用它們。
 
-## 安裝
-
-### Homebrew
-
-> **規劃中。** 發行流程已經會產生公式，但 tap `rafaelb13/homebrew-tap` 尚未發布，因此下列指令目前還無法使用。在 tap 存在之前，請使用安裝腳本或從原始碼建置。
-
-tap 發布後：
-
-```bash
-brew install rafaelb13/tap/agentport
-agentport version
-brew upgrade agentport
-brew uninstall agentport
-```
-
-安裝由 Homebrew 負責。若你是用 Homebrew 安裝的，`agentport upgrade` 不會替換執行檔：它會印出 `agentport was installed with Homebrew. Run: brew upgrade agentport` 並以狀態碼 0 結束。自動啟動不需要 `brew services`：Companion 透過 `agentport companion autostart` 啟動（見[自動啟動](#自動啟動)）。
-
-### 安裝腳本
-
-在 macOS 或 Linux：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
-```
-
-指定版本或目錄：
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
-```
-
-在 Windows 的 PowerShell 中：
-
-```powershell
-irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
-```
-
-若要指定版本，請先下載腳本，再以 `-Version` 執行：
-
-```powershell
-.\install.ps1 -Version vX.Y.Z
-```
-
-腳本會偵測你的平台、查詢最新發行版本、驗證它（見下文），並與已安裝的版本比較。只有在發行版本較新時才會下載，因此重複執行是安全的。選項如下：
-
-| 選項 | Shell | PowerShell | 環境變數 |
-| --- | --- | --- | --- |
-| 版本 | `--version vX.Y.Z` | `-Version vX.Y.Z` | `AGENTPORT_VERSION` |
-| 安裝目錄 | `--install-dir 路徑` | `-InstallDir 路徑` | `AGENTPORT_INSTALL_DIR` |
-| 儲存庫 | | | `AGENTPORT_REPOSITORY` |
-| 略過建置證明檢查 | | | `AGENTPORT_SKIP_ATTESTATION=1` |
-| 語言 | | | `AGENTPORT_LANG` |
-
-Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發行版本也列在 [GitHub Releases 頁面](https://github.com/rafaelb13/agentport/releases)。
-
-### 從原始碼建置
-
-```bash
-git clone https://github.com/rafaelb13/agentport.git
-cd agentport
-go build -o agentport ./cmd/agentport
-```
-
-把產生的 `agentport` 放到 `PATH` 中。從原始碼建置的二進位檔沒有發行版本號，因此 `agentport version` 不會顯示發行號，更新檢查也不適用於它。
-
-### 驗證發行版本
-
-每個發行版本都會發布 `checksums.txt`，它以 [cosign](https://github.com/sigstore/cosign) 簽章（無金鑰，綁定發行工作流程的身分），另外還有 GitHub 的建置證明。每個封存檔都有 SHA-256 項目，證明涵蓋封存檔、SBOM 與檢查碼。若要手動驗證，請下載該發行版本的 `checksums.txt`、`checksums.txt.bundle` 與 `attestation.jsonl`：
-
-```bash
-VERSION=vX.Y.Z
-# 身分需要發行版本的確切標籤，因此不接受從其他分支執行的結果。
-IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
-
-cosign verify-blob \
-  --bundle checksums.txt.bundle \
-  --certificate-identity "$IDENTITY" \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  checksums.txt
-
-# Linux
-sha256sum --check --ignore-missing checksums.txt
-# macOS（沒有 sha256sum，也沒有 --ignore-missing）
-ARCH=$(uname -m | sed s/x86_64/amd64/)
-grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
-
-gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
-  --repo rafaelb13/agentport \
-  --cert-identity "$IDENTITY"
-```
-
-不加 `--bundle` 的 `gh attestation verify` 會向 GitHub 查詢，並需要先執行 `gh auth login`。若要在不登入的情況下驗證，請加上 `--bundle attestation.jsonl`。
-
-**自動檢查。** 從 `v0.7.1-rc.1` 開始，安裝程式與 `agentport upgrade` 除了檢查 SHA-256，還會確認該檔案是由本儲存庫的發行工作流程，針對要安裝的標籤所產生的。若此檢查失敗，安裝會被拒絕。安裝腳本在安裝了 `gh` 時使用 `gh attestation verify`，否則改查 GitHub 的建置證明 API。`agentport upgrade` 使用 API。`v0.7.1-rc.1` 之前的發行版本沒有建置證明；它們只以 SHA-256 檢查安裝，安裝程式也會說明這一點。
-
-若建置證明 API 無法使用或超過速率限制，安裝會被拒絕，而不是在沒有檢查的情況下繼續。若只想以 SHA-256 檢查安裝，請設定 `AGENTPORT_SKIP_ATTESTATION=1`。`agentport setup` 與 `agentport upgrade` 也會把同樣的設定套用到它們送往伺服器的二進位檔。
-
 ## 設定伺服器
 
 `agentport setup` 用一道指令就能設定好伺服器：
 
 ```bash
-agentport setup bastion-m2 --profile m2
-ssh bastion-m2
+agentport setup devbox --profile m2
+ssh devbox
 codex
 ```
 
-這裡的 `bastion-m2` 是你 `~/.ssh/config` 中的 SSH 別名。接著請代理程式檢查連線：「檢查 agentport 的狀態。」它會呼叫 `agentport_status`。
+這裡的 `devbox` 是你 `~/.ssh/config` 中的 SSH 別名。接著請代理程式檢查連線：「檢查 agentport 的狀態。」它會呼叫 `agentport_status`。
 
 `setup` 的語法：
 
@@ -234,12 +255,12 @@ agentport setup <ssh目的地> [--profile 名稱] [--agent all|codex|claude|gemi
 
 ```text
 # ~/.ssh/config
-Host bastion-m2
+Host devbox
   HostName 10.0.0.12
   User rafael
   Port 2222
   IdentityFile ~/.ssh/id_ed25519
-  ProxyJump bastion
+  ProxyJump jumphost
 ```
 
 **規劃中：** `setup` 將以選項接收連接埠、金鑰與跳板主機（`-p`、`-i`、`-J`），並支援帶連接埠的 IPv6 位址（`使用者@[2001:db8::12]:2222`）。在那之前，請使用別名。
@@ -276,7 +297,7 @@ Match host 10.0.0.12 user rafael
 照常連到伺服器並啟動代理程式：
 
 ```bash
-ssh bastion-m2
+ssh devbox
 codex
 ```
 
@@ -383,6 +404,7 @@ agentport 支援四種語言：English（預設）、Português（Brasil）、Es
 Companion 網頁依序使用：網址中的 `?lang=pt-BR`、瀏覽器偏好的語言、Companion 程序依上述方式偵測到的語言，最後才是英文。
 
 命令列與 Companion 都有 Português（Brasil）、Español 與繁體中文的翻譯目錄。安裝程式則提供英文與 Português（Brasil）的訊息。技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
+
 ## 安全性
 
 - 橋接器只監聽 `127.0.0.1`。伺服器只能透過 Companion 開啟的 SSH 通道連到它。
@@ -435,7 +457,7 @@ Companion 會在啟動時檢查一次更新的穩定發行版本，之後最多�
 3. **若沒有其他設定檔使用，請從伺服器移除二進位檔**：
 
    ```bash
-   ssh bastion-m2 'rm -f ~/.local/bin/agentport'
+   ssh devbox 'rm -f ~/.local/bin/agentport'
    ```
 
 4. **移除本機檔案**：`<使用者設定目錄>/agentport/profiles/m2.json` 中的設定檔、`<使用者設定目錄>/agentport/keys/` 中的專用金鑰（若曾建立），以及 `<使用者快取目錄>/agentport/logs/` 中的日誌。
