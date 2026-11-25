@@ -43,10 +43,13 @@ matches() { # matches <digest> <repository> <version>
   )
 }
 
-expect "real payload matches its archive, repository and tag" matches "$real_digest" rafaelb13/agentport v0.7.1-rc.1
-if matches 0000000000000000000000000000000000000000000000000000000000000000 rafaelb13/agentport v0.7.1-rc.1; then fail "real payload refused for another digest"; else pass "real payload refused for another digest"; fi
-if matches "$real_digest" rafaelb13/agentport v0.7.1; then fail "real payload refused for another tag"; else pass "real payload refused for another tag"; fi
+# The fixture is a real attestation of the AgentClip release it was forked from,
+# so its repository is wendellrocha/agentclip; it must not match agentport's.
+expect "real payload matches its archive, repository and tag" matches "$real_digest" wendellrocha/agentclip v0.7.1-rc.1
+if matches 0000000000000000000000000000000000000000000000000000000000000000 wendellrocha/agentclip v0.7.1-rc.1; then fail "real payload refused for another digest"; else pass "real payload refused for another digest"; fi
+if matches "$real_digest" wendellrocha/agentclip v0.7.1; then fail "real payload refused for another tag"; else pass "real payload refused for another tag"; fi
 if matches "$real_digest" attacker/agentport v0.7.1-rc.1; then fail "real payload refused for another repository"; else pass "real payload refused for another repository"; fi
+if matches "$real_digest" RafaelB13/agentport v0.7.1-rc.1; then fail "real payload refused for the agentport repository"; else pass "real payload refused for the agentport repository"; fi
 
 # --- 2. the whole installer with stubbed curl and gh ---
 

@@ -5,7 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$repository = if ($env:AGENTPORT_REPOSITORY) { $env:AGENTPORT_REPOSITORY } else { "rafaelb13/agentport" }
+$repository = if ($env:AGENTPORT_REPOSITORY) { $env:AGENTPORT_REPOSITORY } else { "RafaelB13/agentport" }
 
 # Messages are English unless AGENTPORT_LANG asks for Brazilian Portuguese (pt,
 # pt-BR, pt_BR.UTF-8, ...). Errors stay in English on purpose.

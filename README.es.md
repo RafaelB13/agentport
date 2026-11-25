@@ -191,19 +191,19 @@ necesita `brew services`: el Companion arranca con `agentport companion autostar
 En macOS o Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
 ```
 
 Para elegir una versión o un directorio:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
 ```
 
 En Windows, en PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
 ```
 
 Para pasar una versión, descarga el script y ejecútalo con `-Version`:
@@ -226,7 +226,7 @@ release es más nuevo, así que volver a ejecutarlos es seguro. Opciones:
 
 En Windows, el directorio predeterminado es `%LOCALAPPDATA%\Programs\agentport\bin`.
 Los releases también aparecen en la página de
-[GitHub Releases](https://github.com/rafaelb13/agentport/releases).
+[GitHub Releases](https://github.com/RafaelB13/agentport/releases).
 
 Dos opciones adicionales, solo para el script de shell:
 
@@ -241,7 +241,7 @@ no coinciden o si falta una entrada. Para leerlo antes de ejecutarlo, descárgal
 primero:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
 less install.sh
 sh install.sh
 ```
@@ -249,7 +249,7 @@ sh install.sh
 ### Desde el código fuente
 
 ```bash
-git clone https://github.com/rafaelb13/agentport.git
+git clone https://github.com/RafaelB13/agentport.git
 cd agentport
 go build -o agentport ./cmd/agentport
 ```
@@ -270,7 +270,7 @@ verificar a mano, descarga el `checksums.txt`, el `checksums.txt.bundle` y el
 ```bash
 VERSION=vX.Y.Z
 # La identidad exige la etiqueta exacta del release, así que una ejecución desde otra rama no se acepta.
-IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
+IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 cosign verify-blob \
   --bundle checksums.txt.bundle \
@@ -285,7 +285,7 @@ ARCH=$(uname -m | sed s/x86_64/amd64/)
 grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
 
 gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
-  --repo rafaelb13/agentport \
+  --repo RafaelB13/agentport \
   --cert-identity "$IDENTITY"
 ```
 

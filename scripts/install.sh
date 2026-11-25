@@ -2,7 +2,7 @@
 # Install the latest agentport release on macOS or Linux.
 set -eu
 
-repository="${AGENTPORT_REPOSITORY:-rafaelb13/agentport}"
+repository="${AGENTPORT_REPOSITORY:-RafaelB13/agentport}"
 install_dir="${AGENTPORT_INSTALL_DIR:-$HOME/.local/bin}"
 requested_version="${AGENTPORT_VERSION:-latest}"
 

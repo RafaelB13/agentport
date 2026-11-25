@@ -138,19 +138,19 @@ brew uninstall agentport
 在 macOS 或 Linux：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
 ```
 
 指定版本或目錄：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
 ```
 
 在 Windows 的 PowerShell 中：
 
 ```powershell
-irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
 ```
 
 若要指定版本，請先下載腳本，再以 `-Version` 執行：
@@ -169,7 +169,7 @@ irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.p
 | 略過建置證明檢查 | | | `AGENTPORT_SKIP_ATTESTATION=1` |
 | 語言 | | | `AGENTPORT_LANG` |
 
-Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發行版本也列在 [GitHub Releases 頁面](https://github.com/rafaelb13/agentport/releases)。
+Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發行版本也列在 [GitHub Releases 頁面](https://github.com/RafaelB13/agentport/releases)。
 
 另有兩個選用設定，僅適用於 shell 腳本：
 
@@ -179,7 +179,7 @@ Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發�
 腳本會將每個下載檔與發行版本的 SHA-256 校驗和比對，不符或缺少項目時即停止。若要在執行前先閱讀腳本，請先下載：
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
 less install.sh
 sh install.sh
 ```
@@ -187,7 +187,7 @@ sh install.sh
 ### 從原始碼建置
 
 ```bash
-git clone https://github.com/rafaelb13/agentport.git
+git clone https://github.com/RafaelB13/agentport.git
 cd agentport
 go build -o agentport ./cmd/agentport
 ```
@@ -201,7 +201,7 @@ go build -o agentport ./cmd/agentport
 ```bash
 VERSION=vX.Y.Z
 # 身分需要發行版本的確切標籤，因此不接受從其他分支執行的結果。
-IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
+IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 cosign verify-blob \
   --bundle checksums.txt.bundle \
@@ -216,7 +216,7 @@ ARCH=$(uname -m | sed s/x86_64/amd64/)
 grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
 
 gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
-  --repo rafaelb13/agentport \
+  --repo RafaelB13/agentport \
   --cert-identity "$IDENTITY"
 ```
 

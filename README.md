@@ -184,19 +184,19 @@ Run: brew upgrade agentport` and exits with status 0. Autostart does not need
 On macOS or Linux:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
 ```
 
 Pick a version or a directory:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
 ```
 
 On Windows, in PowerShell:
 
 ```powershell
-irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.ps1 | iex
+irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
 ```
 
 To pass a version, download the script and run it with `-Version`:
@@ -219,7 +219,7 @@ release is newer, so running them again is safe. Options:
 
 The Windows default install directory is `%LOCALAPPDATA%\Programs\agentport\bin`.
 Releases are also listed on the
-[GitHub Releases page](https://github.com/rafaelb13/agentport/releases).
+[GitHub Releases page](https://github.com/RafaelB13/agentport/releases).
 
 Two optional settings, for the shell script only:
 
@@ -234,7 +234,7 @@ stops on a mismatch or on a missing entry. To read it before running it,
 download it first:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
 less install.sh
 sh install.sh
 ```
@@ -242,7 +242,7 @@ sh install.sh
 ### From source
 
 ```bash
-git clone https://github.com/rafaelb13/agentport.git
+git clone https://github.com/RafaelB13/agentport.git
 cd agentport
 go build -o agentport ./cmd/agentport
 ```
@@ -263,7 +263,7 @@ checksums. To verify by hand, download the release's `checksums.txt`,
 ```bash
 VERSION=vX.Y.Z
 # The identity needs the exact tag of the release, so a run from another branch is not accepted.
-IDENTITY="https://github.com/rafaelb13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
+IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
 
 cosign verify-blob \
   --bundle checksums.txt.bundle \
@@ -278,7 +278,7 @@ ARCH=$(uname -m | sed s/x86_64/amd64/)
 grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
 
 gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
-  --repo rafaelb13/agentport \
+  --repo RafaelB13/agentport \
   --cert-identity "$IDENTITY"
 ```
 
