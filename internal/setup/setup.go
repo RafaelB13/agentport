@@ -19,7 +19,7 @@ import (
 )
 
 // Usage is the message shown when the arguments are missing.
-const Usage = "usage: agentport setup <ssh-destination> [--profile NAME] [--agent all|codex|claude|gemini|agy|opencode|pi] [--version vX.Y.Z] [--remote-port 39123] [--skip-agent] [--skip-install] [--no-start]"
+const Usage = "usage: agentport setup <ssh-destination> [--profile NAME] [--agent all|codex|claude|gemini|agy|opencode|pi] [--version vX.Y.Z] [--remote-port N] [--skip-agent] [--skip-install] [--no-start]"
 
 var releaseTagPattern = regexp.MustCompile(`^v\d+\.\d+\.\d+([-.][0-9A-Za-z.-]+)?$`)
 
@@ -30,9 +30,12 @@ type Options struct {
 	Agent          string
 	ReleaseVersion string
 	RemotePort     int
-	SkipAgent      bool
-	SkipInstall    bool
-	NoStart        bool
+	// RemotePortSet is true when --remote-port was given: a busy port is then an
+	// error, instead of being replaced by a free one.
+	RemotePortSet bool
+	SkipAgent     bool
+	SkipInstall   bool
+	NoStart       bool
 }
 
 // ParseArgs parses the arguments that follow `agentport setup`.
@@ -57,6 +60,11 @@ func ParseArgs(arguments []string) (Options, error) {
 	if err := settings.Parse(arguments[1:]); err != nil {
 		return Options{}, fmt.Errorf("parse setup options: %w", err)
 	}
+	settings.Visit(func(f *flag.Flag) {
+		if f.Name == "remote-port" {
+			options.RemotePortSet = true
+		}
+	})
 	if settings.NArg() != 0 {
 		return Options{}, fmt.Errorf("unexpected setup arguments: %s", strings.Join(settings.Args(), " "))
 	}
@@ -127,8 +135,13 @@ type Runner struct {
 	// CompanionRunning reports whether a Companion for the profile is healthy.
 	CompanionRunning func(name string) bool
 	StopCompanion    func(name string) error
-	Pair             func(name, destination string, remotePort int, agent string, skipAgent bool, identityFile string) (companion.Profile, error)
-	StartCompanion   func(name string) error
+	// ChoosePort checks the server and returns the remote port to use. preferred
+	// is the port to try first; explicit means the user asked for it; owned means
+	// this profile already used it, so it may still be held by our own old tunnel.
+	// Optional: nil keeps the preferred port.
+	ChoosePort     func(destination, identityFile string, preferred int, explicit, owned bool) (int, error)
+	Pair           func(name, destination string, remotePort int, agent string, skipAgent bool, identityFile string) (companion.Profile, error)
+	StartCompanion func(name string) error
 }
 
 // Run performs the setup.
@@ -138,8 +151,10 @@ func (r Runner) Run(options Options) error {
 		stdout = io.Discard
 	}
 	existingIdentityFile := ""
+	existingPort := 0
 	if existing, err := r.LoadProfile(options.Profile); err == nil {
 		existingIdentityFile = existing.SSHIdentityFile
+		existingPort = existing.RemotePort
 	}
 	identityFile, err := r.EnsureIdentity(options.Destination, options.Profile, existingIdentityFile)
 	if err != nil {
@@ -162,7 +177,21 @@ func (r Runner) Run(options Options) error {
 			return err
 		}
 	}
-	profile, err := r.Pair(options.Profile, options.Destination, options.RemotePort, options.Agent, options.SkipAgent, identityFile)
+	remotePort := options.RemotePort
+	if !options.RemotePortSet && existingPort != 0 {
+		remotePort = existingPort
+	}
+	if r.ChoosePort != nil {
+		chosen, err := r.ChoosePort(options.Destination, identityFile, remotePort, options.RemotePortSet, remotePort == existingPort)
+		if err != nil {
+			return err
+		}
+		if chosen != remotePort {
+			fmt.Fprintln(stdout, i18n.T("Remote port %d is in use on %s; using free port %d instead.", remotePort, options.Destination, chosen))
+		}
+		remotePort = chosen
+	}
+	profile, err := r.Pair(options.Profile, options.Destination, remotePort, options.Agent, options.SkipAgent, identityFile)
 	if err != nil {
 		return err
 	}

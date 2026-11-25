@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -71,7 +72,7 @@ func TestParseArgsReadsEveryFlag(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := Options{Destination: "devbox", Profile: "m2", Agent: "claude", ReleaseVersion: "v0.7.1", RemotePort: 40000, SkipAgent: true, SkipInstall: true, NoStart: true}
+	want := Options{Destination: "devbox", Profile: "m2", Agent: "claude", ReleaseVersion: "v0.7.1", RemotePort: 40000, RemotePortSet: true, SkipAgent: true, SkipInstall: true, NoStart: true}
 	if options != want {
 		t.Fatalf("options = %+v, want %+v", options, want)
 	}
@@ -321,5 +322,80 @@ func TestSetupNoStartPrintsHowToStartTheCompanion(t *testing.T) {
 	}
 	if !strings.Contains(h.stdout.String(), "Start it with: agentport companion start m2") {
 		t.Fatalf("output = %q", h.stdout.String())
+	}
+}
+
+func (h *harness) withChoosePort(pick func(preferred int, explicit, owned bool) (int, error)) {
+	h.runner.ChoosePort = func(destination, identityFile string, preferred int, explicit, owned bool) (int, error) {
+		h.calls = append(h.calls, "choose "+destination+" preferred="+strconv.Itoa(preferred)+" explicit="+strconv.FormatBool(explicit)+" owned="+strconv.FormatBool(owned))
+		return pick(preferred, explicit, owned)
+	}
+}
+
+// A busy default port is replaced, the replacement is what gets paired, and the
+// user is told.
+func TestSetupPairsWithTheFreePortTheCheckChose(t *testing.T) {
+	h := newHarness(t)
+	h.withChoosePort(func(int, bool, bool) (int, error) { return 39124, nil })
+	if err := h.runner.Run(options(nil)); err != nil {
+		t.Fatal(err)
+	}
+	h.expectCalls(
+		"load m2",
+		"identity devbox m2 existing=",
+		"tag ",
+		"install devbox /keys/agentport-m2 v9.9.9",
+		"running? m2",
+		"choose devbox preferred=39123 explicit=false owned=false",
+		"pair m2 devbox port=39124 agent=all skipAgent=false /keys/agentport-m2",
+		"start m2",
+	)
+	if want := "Remote port 39123 is in use on devbox; using free port 39124 instead."; !strings.Contains(h.stdout.String(), want) {
+		t.Errorf("output %q does not say %q", h.stdout.String(), want)
+	}
+}
+
+// Re-setup prefers the port the profile already has, unless one was requested.
+func TestSetupReusesTheExistingProfilePort(t *testing.T) {
+	h := newHarness(t)
+	h.loadErr = nil
+	h.existing = companion.Profile{RemotePort: 39130}
+	h.withChoosePort(func(preferred int, _, _ bool) (int, error) { return preferred, nil })
+	if err := h.runner.Run(options(nil)); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(h.calls, "choose devbox preferred=39130 explicit=false owned=true") ||
+		!slices.Contains(h.calls, "pair m2 devbox port=39130 agent=all skipAgent=false /keys/agentport-m2") {
+		t.Fatalf("calls = %q, want the profile's port 39130 checked and paired", h.calls)
+	}
+}
+
+func TestSetupExplicitPortOverridesTheExistingOneAndIsMarkedExplicit(t *testing.T) {
+	h := newHarness(t)
+	h.loadErr = nil
+	h.existing = companion.Profile{RemotePort: 39130}
+	h.withChoosePort(func(preferred int, _, _ bool) (int, error) { return preferred, nil })
+	if err := h.runner.Run(options(func(o *Options) { o.RemotePort, o.RemotePortSet = 40000, true })); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(h.calls, "choose devbox preferred=40000 explicit=true owned=false") {
+		t.Fatalf("calls = %q", h.calls)
+	}
+}
+
+// An explicit busy port stops the setup before anything is paired or started.
+func TestSetupStopsWhenAnExplicitPortIsBusy(t *testing.T) {
+	h := newHarness(t)
+	h.withChoosePort(func(int, bool, bool) (int, error) {
+		return 0, errors.New("remote port 40000 is already in use on the server")
+	})
+	err := h.runner.Run(options(func(o *Options) { o.RemotePort, o.RemotePortSet = 40000, true }))
+	if err == nil || !strings.Contains(err.Error(), "already in use") {
+		t.Fatalf("err = %v, want the busy-port refusal", err)
+	}
+	for _, call := range h.calls {
+		if strings.HasPrefix(call, "pair") || strings.HasPrefix(call, "start") {
+			t.Fatalf("setup went on after the refusal: %q", h.calls)
+		}
 	}
 }

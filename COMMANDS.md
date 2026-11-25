@@ -35,7 +35,7 @@ configura os harnesses já instalados e, por padrão, inicia o Companion local.
 - `--profile`: nome local do pareamento. Sem ele, o nome é derivado do destino.
 - `--agent`: limita a configuração a um harness; `all` é o padrão.
 - `--version`: escolhe a versão de release a instalar remotamente.
-- `--remote-port`: porta loopback do servidor reservada ao túnel reverso.
+- `--remote-port`: porta loopback do servidor reservada ao túnel reverso. O padrão `39123` é substituído automaticamente por uma porta livre quando estiver ocupada no servidor (por exemplo, por outro túnel); se a porta for informada explicitamente e estiver ocupada, o comando falha. O Companion também troca a porta sozinho se o servidor recusar o túnel por porta ocupada.
 - `--skip-agent`: não registra a integração MCP no servidor.
 - `--skip-install`: não instala ou atualiza o binário remoto.
 - `--no-start`: conclui a configuração sem iniciar o Companion.

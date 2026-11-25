@@ -63,6 +63,7 @@ each of them and starts the local Companion.
   --agent NAME       limit the setup to one harness; "all" is the default
   --version vX.Y.Z   release to install on the server
   --remote-port N    loopback port on the server used by the reverse tunnel
+                     (default 39123; a free one is picked when it is busy)
   --skip-agent       do not register the MCP integration on the server
   --skip-install     do not install or update the binary on the server
   --no-start         finish without starting the Companion

@@ -338,7 +338,7 @@ emparejamiento y detiene el Companion que estaba corriendo para él.
 | `--profile NOMBRE` | Nombre local del emparejamiento. Si no se indica, se deriva del destino. |
 | `--agent NOMBRE` | Limita la configuración a un harness: `codex`, `claude`, `gemini`, `agy`, `opencode`, `pi` o `all` (predeterminado). |
 | `--version vX.Y.Z` | Release que se instala en el servidor. |
-| `--remote-port N` | Puerto del loopback del servidor que usa el túnel inverso. Predeterminado `39123`. |
+| `--remote-port N` | Puerto del loopback del servidor que usa el túnel inverso. Predeterminado `39123`; si está ocupado en el servidor, se elige un puerto libre automáticamente (un `--remote-port` explícito ocupado falla). |
 | `--skip-agent` | No registra la integración MCP en el servidor. |
 | `--skip-install` | No instala ni actualiza el binario en el servidor. |
 | `--no-start` | Termina sin iniciar el Companion. |

@@ -331,7 +331,7 @@ the Companion that was running for it.
 | `--profile NAME` | Local name of the pairing. Defaults to a name derived from the destination. |
 | `--agent NAME` | Limit the setup to one harness: `codex`, `claude`, `gemini`, `agy`, `opencode`, `pi`, or `all` (default). |
 | `--version vX.Y.Z` | Release to install on the server. |
-| `--remote-port N` | Loopback port of the server used by the reverse tunnel. Default `39123`. |
+| `--remote-port N` | Loopback port of the server used by the reverse tunnel. Default `39123`; if it is busy on the server, a free port is picked automatically (an explicit `--remote-port` that is busy fails instead). |
 | `--skip-agent` | Do not register the MCP integration on the server. |
 | `--skip-install` | Do not install or update the binary on the server. |
 | `--no-start` | Finish without starting the Companion. |

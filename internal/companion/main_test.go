@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -40,12 +41,21 @@ func runFakeSSH() int {
 		fmt.Fprintln(file, time.Now().UnixNano())
 		file.Close()
 	}
+	if file, err := os.OpenFile(filepath.Join(dir, "args"), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600); err == nil {
+		fmt.Fprintln(file, strings.Join(os.Args[1:], " "))
+		file.Close()
+	}
 	failures, _ := strconv.Atoi(os.Getenv("AGENTPORT_TEST_FAKE_SSH_FAILURES"))
 	dropAt, _ := strconv.Atoi(os.Getenv("AGENTPORT_TEST_FAKE_SSH_DROP_AT"))
 	dropAfter, _ := time.ParseDuration(os.Getenv("AGENTPORT_TEST_FAKE_SSH_DROP_AFTER"))
 	switch {
 	case number <= failures:
-		fmt.Fprintln(os.Stderr, "Error: remote port forwarding failed for listen port 39123")
+		message := os.Getenv("AGENTPORT_TEST_FAKE_SSH_FAIL_MSG")
+		if message == "" {
+			message = "Error: remote port forwarding failed for listen port 39123"
+		}
+		fmt.Fprintln(os.Stderr, "debug1: Connection established")
+		fmt.Fprintln(os.Stderr, message)
 		return 255
 	case dropAt > 0 && number == dropAt:
 		time.Sleep(dropAfter)

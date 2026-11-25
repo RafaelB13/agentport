@@ -2,6 +2,7 @@ package companion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -14,7 +15,24 @@ import (
 // tunnelTiming shapes the reconnection: the wait starts at min, doubles after each
 // exit up to max, and starts over once a tunnel has stayed up for stable. It is a
 // variable only so tests do not have to wait.
-var tunnelTiming = struct{ min, max, stable time.Duration }{time.Second, 30 * time.Second, time.Minute}
+//
+// connect bounds how long a tunnel process may run without the server accepting
+// the forward: ssh can hang before that (a stalled handshake, a half-open
+// connection after the host wakes), and without a bound the loop would wait on
+// it forever and never retry.
+var tunnelTiming = struct{ min, max, stable, connect time.Duration }{time.Second, 30 * time.Second, time.Minute, 90 * time.Second}
+
+// maxHealAttempts bounds how many times in a row the loop asks for another remote
+// port without ever getting a connected tunnel.
+const maxHealAttempts = 3
+
+// PortHealer is called when the server refused the reverse forward on
+// profile.RemotePort, which means another process holds that port there. It
+// returns the profile to use next: a different RemotePort once it has been saved
+// and the server's agents point at it. When the returned RemotePort differs from
+// the old one it is used even if err is not nil (the port moved but a later step
+// failed); err is logged and shown in the status.
+type PortHealer func(ctx context.Context, profile Profile) (Profile, error)
 
 type TunnelStatus struct {
 	Connected bool      `json:"connected"`
@@ -43,6 +61,7 @@ func TunnelCommand(profile Profile, localPort int) (*exec.Cmd, error) {
 		// At this level ssh reports "remote forward success" once the server has
 		// accepted the forward; the tunnel reports "connected" only then.
 		"-o", "LogLevel=DEBUG1",
+		"-o", "ConnectTimeout=20",
 		"-o", "ServerAliveInterval=30",
 		"-o", "ServerAliveCountMax=3",
 	)
@@ -99,62 +118,118 @@ func RunTunnelWithHooks(ctx context.Context, profile Profile, localPort int, obs
 	return runTunnelWithLogger(ctx, profile, localPort, observe, logger, onConnected)
 }
 
+// RunTunnelHealing is RunTunnelWithHooks plus heal, which picks another remote
+// port when the server reports the current one as taken (see PortHealer). Other
+// failures, such as authentication or a network that is down, never change the
+// port. A nil heal behaves like RunTunnelWithHooks.
+func RunTunnelHealing(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger, onConnected func(), heal PortHealer) error {
+	return runTunnel(ctx, profile, localPort, observe, logger, onConnected, heal)
+}
+
 func runTunnelWithLogger(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger, onConnected func()) error {
-	notify := func(connected bool, err error) {
+	return runTunnel(ctx, profile, localPort, observe, logger, onConnected, nil)
+}
+
+func runTunnel(ctx context.Context, profile Profile, localPort int, observe func(TunnelStatus), logger *Logger, onConnected func(), heal PortHealer) error {
+	notify := func(connected bool, message string) {
 		if observe == nil {
 			return
 		}
-		status := TunnelStatus{Connected: connected, UpdatedAt: time.Now().UTC()}
-		if err != nil {
-			status.LastError = err.Error()
-		}
-		observe(status)
+		observe(TunnelStatus{Connected: connected, LastError: message, UpdatedAt: time.Now().UTC()})
 	}
 	delay := tunnelTiming.min
+	healAttempts := 0
 	for {
 		command, err := TunnelCommand(profile, localPort)
 		if err != nil {
-			notify(false, err)
+			notify(false, err.Error())
 			return err
 		}
 		forwardConfirmed := make(chan struct{})
+		errLines := &errorWatch{onLine: func(line string) { logger.Info("SSH: %s", line) }}
 		command.Stdout = loggerWriter{logger: logger}
-		command.Stderr = io.MultiWriter(loggerWriter{logger: logger}, &forwardWatch{ready: forwardConfirmed})
+		command.Stderr = io.MultiWriter(loggerWriter{logger: logger}, &forwardWatch{ready: forwardConfirmed}, errLines)
 		clearStaleControlSocket(profile)
 		if err := command.Start(); err != nil {
 			err = fmt.Errorf("start companion SSH tunnel: %w", err)
-			notify(false, err)
+			notify(false, err.Error())
 			return err
 		}
 		logger.Debug("SSH tunnel started")
 		startedAt := time.Now()
 		// The process runs, but the server has not accepted the reverse forward yet:
 		// that is "connecting", not "connected".
-		notify(false, nil)
+		notify(false, "")
 		result := make(chan error, 1)
 		go func() { result <- command.Wait() }()
+		connectTimer := time.NewTimer(tunnelTiming.connect)
+		timedOut := false
 	waiting:
 		for {
 			select {
 			case <-ctx.Done():
+				connectTimer.Stop()
 				_ = command.Process.Kill()
 				<-result
-				notify(false, nil)
+				notify(false, "")
 				return nil
 			case <-forwardConfirmed:
 				forwardConfirmed = nil
-				notify(true, nil)
+				connectTimer.Stop()
+				healAttempts = 0
+				notify(true, "")
 				if onConnected != nil {
 					onConnected()
 				}
+			case <-connectTimer.C:
+				// Never confirmed and never exited: stop it so the loop can retry.
+				timedOut = true
+				_ = command.Process.Kill()
+				err = <-result
+				break waiting
 			case err = <-result:
+				connectTimer.Stop()
 				break waiting
 			}
 		}
-		if err != nil {
-			logger.Error("SSH tunnel exited: %v", err)
+		diagnosis := diagnoseTunnelFailure(errLines.Lines(), err, profile.RemotePort)
+		if timedOut {
+			diagnosis = tunnelDiagnosis{kind: failureOther, port: profile.RemotePort,
+				message: fmt.Sprintf("the SSH tunnel was not established within %s", tunnelTiming.connect)}
+			err = errors.New(diagnosis.message)
 		}
-		notify(false, err)
+		message := diagnosis.message
+		if message == "" && err != nil {
+			message = err.Error()
+		}
+		if err != nil {
+			logger.Error("SSH tunnel exited: %v (%s)", err, message)
+		}
+		oldPort := profile.RemotePort
+		if diagnosis.kind == failureForwardRefused && heal != nil {
+			if healAttempts >= maxHealAttempts {
+				message += fmt.Sprintf(" (gave up choosing another port after %d attempts)", healAttempts)
+				logger.Error("remote port %d is busy and %d automatic attempts did not help", oldPort, healAttempts)
+			} else {
+				healAttempts++
+				logger.Info("remote port %d is already in use on the server; choosing another (attempt %d of %d)", oldPort, healAttempts, maxHealAttempts)
+				next, healErr := heal(ctx, profile)
+				if healErr != nil {
+					logger.Error("choose another remote port: %v", healErr)
+					message += ": " + healErr.Error()
+				}
+				if next.RemotePort != 0 && next.RemotePort != oldPort {
+					profile = next
+					logger.Info("remote port changed from %d to %d", oldPort, next.RemotePort)
+					message = fmt.Sprintf("remote port %d was in use on the server; switched to %d", oldPort, next.RemotePort)
+					if healErr != nil {
+						message += ": " + healErr.Error()
+					}
+					delay = tunnelTiming.min
+				}
+			}
+		}
+		notify(false, message)
 		// A tunnel that stayed up earns a fresh start: only repeated quick exits
 		// should push the wait toward its maximum.
 		if time.Since(startedAt) >= tunnelTiming.stable {

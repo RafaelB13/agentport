@@ -135,7 +135,7 @@ func TestTunnelReconnectsAfterExitsReportsEachStateAndStopsOnCancel(t *testing.T
 	statuses := log.snapshot()
 	var failures int
 	for _, status := range statuses {
-		if !status.Connected && strings.Contains(status.LastError, "exit status 255") {
+		if !status.Connected && strings.Contains(status.LastError, "remote port 39123 is already in use on the server") {
 			failures++
 		}
 	}

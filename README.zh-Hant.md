@@ -247,7 +247,7 @@ agentport setup <ssh目的地> [--profile 名稱] [--agent all|codex|claude|gemi
 | `--profile 名稱` | 配對的本機名稱。未指定時，會從目的地推導。 |
 | `--agent 名稱` | 把設定限制在單一 harness：`codex`、`claude`、`gemini`、`agy`、`opencode`、`pi`，或預設的 `all`。 |
 | `--version vX.Y.Z` | 要安裝到伺服器上的發行版本。 |
-| `--remote-port N` | 伺服器上供反向通道使用的 loopback 連接埠。預設 `39123`。 |
+| `--remote-port N` | 伺服器上供反向通道使用的 loopback 連接埠。預設 `39123`；若伺服器上已被占用，會自動改用空閒的連接埠（明確指定且被占用的 `--remote-port` 則會失敗）。 |
 | `--skip-agent` | 不在伺服器上註冊 MCP 整合。 |
 | `--skip-install` | 不在伺服器上安裝或更新二進位檔。 |
 | `--no-start` | 完成設定但不啟動 Companion。 |
