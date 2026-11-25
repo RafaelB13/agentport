@@ -51,6 +51,25 @@ if matches "$real_digest" wendellrocha/agentclip v0.7.1; then fail "real payload
 if matches "$real_digest" attacker/agentport v0.7.1-rc.1; then fail "real payload refused for another repository"; else pass "real payload refused for another repository"; fi
 if matches "$real_digest" RafaelB13/agentport v0.7.1-rc.1; then fail "real payload refused for the agentport repository"; else pass "real payload refused for the agentport repository"; fi
 
+# A real attestation of agentport cannot be made here, so a synthetic statement
+# in the same format stands in for one: it must match RafaelB13/agentport only.
+synthetic_statement='{"subject":[{"name":"agentport_v0.7.1-rc.1_linux_amd64.tar.gz","digest":{"sha256":"'"$real_digest"'"}}],"predicate":{"buildDefinition":{"externalParameters":{"workflow":{"ref":"refs/tags/v0.7.1-rc.1","repository":"https://github.com/RafaelB13/agentport","path":".github/workflows/release.yml"}}}}}'
+synthetic_matches() { # synthetic_matches <digest> <repository> <version>
+  (
+    digest_under_test="$1" repository_under_test="$2" version_under_test="$3"
+    set --
+    export AGENTPORT_INSTALLER_LIB=1
+    # shellcheck disable=SC1090
+    . "$installer"
+    # shellcheck disable=SC2034
+    actual_checksum="$digest_under_test" repository="$repository_under_test" requested_version="$version_under_test"
+    printf '%s' "$synthetic_statement" | statement_matches
+  )
+}
+expect "synthetic agentport statement matches its archive, repository and tag" synthetic_matches "$real_digest" RafaelB13/agentport v0.7.1-rc.1
+if synthetic_matches "$real_digest" RafaelB13/agentport v0.7.1; then fail "synthetic statement refused for another tag"; else pass "synthetic statement refused for another tag"; fi
+if synthetic_matches "$real_digest" wendellrocha/agentclip v0.7.1-rc.1; then fail "synthetic statement refused for another repository"; else pass "synthetic statement refused for another repository"; fi
+
 # --- 2. the whole installer with stubbed curl and gh ---
 
 os="$(uname -s | tr '[:upper:]' '[:lower:]')"

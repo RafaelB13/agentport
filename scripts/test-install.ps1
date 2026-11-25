@@ -37,6 +37,20 @@ Assert-That "real payload is refused for another repository" (-not (Test-agentpo
 Assert-That "real payload is refused for the agentport repository" (-not (Test-agentportStatement -Json $realStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1"))
 Assert-That "malformed JSON is refused" (-not (Test-agentportStatement -Json "not json" -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1"))
 
+# A real attestation of agentport cannot be made here, so a synthetic statement
+# in the same format stands in for one: it must match RafaelB13/agentport only.
+$syntheticStatement = @{
+    subject = @(@{ name = "agentport_v0.7.1-rc.1_linux_amd64.tar.gz"; digest = @{ sha256 = $realDigest } })
+    predicate = @{ buildDefinition = @{ externalParameters = @{ workflow = @{
+        ref = "refs/tags/v0.7.1-rc.1"
+        repository = "https://github.com/RafaelB13/agentport"
+        path = ".github/workflows/release.yml"
+    } } } }
+} | ConvertTo-Json -Depth 10
+Assert-That "synthetic agentport statement matches its archive, repository and tag" (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1-rc.1")
+Assert-That "synthetic statement is refused for another tag" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "RafaelB13/agentport" -Version "v0.7.1"))
+Assert-That "synthetic statement is refused for another repository" (-not (Test-agentportStatement -Json $syntheticStatement -Digest $realDigest -Repository "wendellrocha/agentclip" -Version "v0.7.1-rc.1"))
+
 # --- 2. Confirm-agentportAuthenticity with stubbed gh and GitHub API ----------
 
 $version = "v0.7.1"

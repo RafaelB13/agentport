@@ -14,17 +14,15 @@ de la conexión SSH que ya tienes. Tú decides qué se abre y cuándo se cierra.
 > servidor) y la recuperación de los forwards tras reiniciar el Companion. El host
 > Windows se compila en el CI, pero todavía no se ha ejecutado en un Windows real.
 > El inicio automático al conectar y la validación de extremo a extremo de
-> `v0.1.0` siguen abiertos. La tabla de estado de abajo indica qué está listo y
-> qué está planificado.
+> `v0.1.0` siguen abiertos.
 
 **Contenido**
 
-- [Qué es](#qué-es)
-- [Estado](#estado)
-- [Cómo funciona](#cómo-funciona)
-- [Requisitos](#requisitos)
 - [Instalación](#instalación)
   - [Script de instalación](#script-de-instalación)
+- [Qué es](#qué-es)
+- [Cómo funciona](#cómo-funciona)
+- [Requisitos](#requisitos)
 - [Configurar un servidor](#configurar-un-servidor)
 - [Inicio automático](#inicio-automático)
 - [Uso diario](#uso-diario)
@@ -42,6 +40,153 @@ de la conexión SSH que ya tienes. Tú decides qué se abre y cuándo se cierra.
 - [Desarrollo](#desarrollo)
 - [Créditos](#créditos)
 - [Licencia](#licencia)
+
+## Instalación
+
+El host Windows se compila en el CI, pero todavía no se ha ejecutado en un Windows real.
+
+### Script de instalación
+
+En macOS o Linux:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
+```
+
+Para elegir una versión o un directorio:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
+```
+
+En Windows, en PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
+```
+
+Para pasar una versión, descarga el script y ejecútalo con `-Version`:
+
+```powershell
+.\install.ps1 -Version vX.Y.Z
+```
+
+Los scripts detectan tu plataforma, consultan el release más reciente, verifican el
+release (ver abajo) y comparan con la versión instalada. Solo descargan cuando el
+release es más nuevo, así que volver a ejecutarlos es seguro. Opciones:
+
+| Opción | Shell | PowerShell | Variable de entorno |
+| --- | --- | --- | --- |
+| Versión | `--version vX.Y.Z` | `-Version vX.Y.Z` | `AGENTPORT_VERSION` |
+| Directorio de instalación | `--install-dir RUTA` | `-InstallDir RUTA` | `AGENTPORT_INSTALL_DIR` |
+| Repositorio | | | `AGENTPORT_REPOSITORY` |
+| Omitir la comprobación de atestado | | | `AGENTPORT_SKIP_ATTESTATION=1` |
+| Idioma | | | `AGENTPORT_LANG` |
+
+En Windows, el directorio predeterminado es `%LOCALAPPDATA%\Programs\agentport\bin`.
+Los releases también aparecen en la página de
+[GitHub Releases](https://github.com/RafaelB13/agentport/releases).
+
+Dos opciones adicionales, solo para el script de shell:
+
+- `GITHUB_TOKEN`: un token con permiso de lectura del repositorio. Configúralo
+  mientras el repositorio sea privado. El script descarga entonces los assets del
+  release a través de la API de GitHub, y el token solo se envía a `api.github.com`.
+- `AGENTPORT_DRY_RUN=1`: muestra dónde están el archivo, las sumas de verificación,
+  el atestado y el directorio de instalación, y termina sin descargar ni instalar nada.
+
+El script compara cada descarga con las sumas SHA-256 del release y se detiene si
+no coinciden o si falta una entrada. Para leerlo antes de ejecutarlo, descárgalo
+primero:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
+less install.sh
+sh install.sh
+```
+
+### Homebrew
+
+> **Planificado.** El workflow de release ya genera la fórmula, pero el tap
+> `rafaelb13/homebrew-tap` todavía no está publicado, así que los comandos de abajo
+> aún no funcionan. Usa el script de instalación o compila desde el código fuente
+> hasta que exista el tap.
+
+Cuando el tap esté publicado:
+
+```bash
+brew install rafaelb13/tap/agentport
+agentport version
+brew upgrade agentport
+brew uninstall agentport
+```
+
+Homebrew es el dueño de la instalación. Si instalaste con Homebrew, `agentport
+upgrade` no reemplaza el binario: imprime `agentport was installed with Homebrew.
+Run: brew upgrade agentport` y termina con estado 0. El inicio automático no
+necesita `brew services`: el Companion arranca con `agentport companion autostart`
+(consulta [Inicio automático](#inicio-automático)).
+
+### Desde el código fuente
+
+```bash
+git clone https://github.com/RafaelB13/agentport.git
+cd agentport
+go build -o agentport ./cmd/agentport
+```
+
+Pon el `agentport` resultante en tu `PATH`. Un binario compilado desde el código
+fuente no tiene número de release, así que `agentport version` no muestra un número
+de release y la comprobación de actualización no se aplica a él.
+
+### Verificar un release
+
+Cada release publica `checksums.txt`, firmado con
+[cosign](https://github.com/sigstore/cosign) (keyless, ligado a la identidad del
+workflow de release), y un atestado de build de GitHub. Cada archivo tiene una
+entrada SHA-256, y el atestado cubre los archivos, los SBOM y los checksums. Para
+verificar a mano, descarga el `checksums.txt`, el `checksums.txt.bundle` y el
+`attestation.jsonl` del release:
+
+```bash
+VERSION=vX.Y.Z
+# La identidad exige la etiqueta exacta del release, así que una ejecución desde otra rama no se acepta.
+IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
+
+cosign verify-blob \
+  --bundle checksums.txt.bundle \
+  --certificate-identity "$IDENTITY" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  checksums.txt
+
+# Linux
+sha256sum --check --ignore-missing checksums.txt
+# macOS (no tiene sha256sum ni --ignore-missing)
+ARCH=$(uname -m | sed s/x86_64/amd64/)
+grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
+
+gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
+  --repo RafaelB13/agentport \
+  --cert-identity "$IDENTITY"
+```
+
+`gh attestation verify` sin `--bundle` consulta a GitHub y necesita `gh auth login`.
+Para verificar sin iniciar sesión, agrega `--bundle attestation.jsonl`.
+
+**Comprobación automática.** Desde `v0.7.1-rc.1` en adelante, los instaladores y
+`agentport upgrade` confirman, además del SHA-256, que el archivo lo produjo el
+workflow de release de este repositorio en la etiqueta que se está instalando. Si
+esa confirmación falla, la instalación se rechaza. El script de instalación usa
+`gh attestation verify` cuando `gh` está instalado y, si no, consulta la API de
+atestados de GitHub. `agentport upgrade` usa la API. Las versiones anteriores a
+`v0.7.1-rc.1` no tienen atestado; se instalan solo con la comprobación de SHA-256, y
+el instalador lo indica.
+
+Si la API de atestados no responde o se agotó el límite de solicitudes, la
+instalación se rechaza en lugar de continuar sin la comprobación. Para instalar solo
+con la comprobación de SHA-256, define `AGENTPORT_SKIP_ATTESTATION=1`. `agentport
+setup` y `agentport upgrade` aplican la misma configuración a los binarios que
+envían a los servidores.
 
 ## Qué es
 
@@ -67,26 +212,6 @@ aprobación.
 agentport es una bifurcación de [AgentClip](https://github.com/wendellrocha/agentclip),
 que va en el sentido contrario (de tu máquina al servidor). Consulta
 [Créditos](#créditos).
-
-## Estado
-
-| Fase | Qué es | Estado |
-| --- | --- | --- |
-| F1 | Base del proyecto: bifurcación de AgentClip, renombrado, clipboard eliminado. CLI, Companion, `setup`, servidor MCP con `agentport_status`, releases | ✓ Listo |
-| F1 | Base del proyecto: bifurcación de AgentClip, renombrado, clipboard eliminado. CLI, Companion, `setup`, servidor MCP con `agentport_status`, releases | ✓ Listo |
-| F3 | Motor de forward (`internal/forward`) y revisión de quién ocupa un puerto del host (`internal/hostport`) | ✓ Listo; lo usan las herramientas de puertos y el panel |
-| F1b | Fórmula de Homebrew generada por el workflow de release, `agentport upgrade` consciente de Homebrew, estos cuatro READMEs | ✓ Listo; la publicación en el tap sigue desactivada hasta que el tap exista |
-| F2 | Escáner de puertos del servidor (`internal/portscan`), Linux y macOS, con filtros para demonios del sistema; comando `agentport ports` | ✓ Listo |
-| F4 | Herramientas MCP de puertos (`ports_list`, `ports_forward`, `ports_unforward`, `forwards_list`) con aprobación, endpoints del puente, sesiones, recuperación tras reiniciar el Companion | ✓ Listo |
-| F5 | Panel: aprobaciones, grupos y cerrar todos, la pestaña Detectados, notificaciones, la elección para puerto ocupado | ✓ Listo |
-| F5 (resto) | Inicio automático al conectar (`LocalCommand`) | Planificado |
-| F5b | Terminal web hacia el servidor, en el panel (Linux y macOS) | ✓ Listo |
-| F6 | Host Windows: forwards sin ControlMaster | Compilado en el CI; todavía no ejecutado en un Windows real |
-| Pruebas | Harness con Docker en `test/e2e`: un sshd real, forwards por ControlMaster, conflictos de puertos y el escáner en Linux | ✓ Listo |
-| F7 | Validación de extremo a extremo en servidores reales, release `v0.1.0` | Planificado |
-
-Lo que está marcado como *planificado* no está en la versión actual. No cuentes
-con ello todavía.
 
 ## Cómo funciona
 
@@ -161,151 +286,6 @@ los harnesses ya instalados y configuran solo esos.
 
 DeepSeek y MiMo son modelos, no harnesses: úsalos a través de un harness
 compatible, como Pi u OpenCode.
-
-## Instalación
-
-### Homebrew
-
-> **Planificado.** El workflow de release ya genera la fórmula, pero el tap
-> `rafaelb13/homebrew-tap` todavía no está publicado, así que los comandos de abajo
-> aún no funcionan. Usa el script de instalación o compila desde el código fuente
-> hasta que exista el tap.
-
-Cuando el tap esté publicado:
-
-```bash
-brew install rafaelb13/tap/agentport
-agentport version
-brew upgrade agentport
-brew uninstall agentport
-```
-
-Homebrew es el dueño de la instalación. Si instalaste con Homebrew, `agentport
-upgrade` no reemplaza el binario: imprime `agentport was installed with Homebrew.
-Run: brew upgrade agentport` y termina con estado 0. El inicio automático no
-necesita `brew services`: el Companion arranca con `agentport companion autostart`
-(consulta [Inicio automático](#inicio-automático)).
-
-### Script de instalación
-
-En macOS o Linux:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh
-```
-
-Para elegir una versión o un directorio:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh | sh -s -- --version vX.Y.Z --install-dir "$HOME/.local/bin"
-```
-
-En Windows, en PowerShell:
-
-```powershell
-irm https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.ps1 | iex
-```
-
-Para pasar una versión, descarga el script y ejecútalo con `-Version`:
-
-```powershell
-.\install.ps1 -Version vX.Y.Z
-```
-
-Los scripts detectan tu plataforma, consultan el release más reciente, verifican el
-release (ver abajo) y comparan con la versión instalada. Solo descargan cuando el
-release es más nuevo, así que volver a ejecutarlos es seguro. Opciones:
-
-| Opción | Shell | PowerShell | Variable de entorno |
-| --- | --- | --- | --- |
-| Versión | `--version vX.Y.Z` | `-Version vX.Y.Z` | `AGENTPORT_VERSION` |
-| Directorio de instalación | `--install-dir RUTA` | `-InstallDir RUTA` | `AGENTPORT_INSTALL_DIR` |
-| Repositorio | | | `AGENTPORT_REPOSITORY` |
-| Omitir la comprobación de atestado | | | `AGENTPORT_SKIP_ATTESTATION=1` |
-| Idioma | | | `AGENTPORT_LANG` |
-
-En Windows, el directorio predeterminado es `%LOCALAPPDATA%\Programs\agentport\bin`.
-Los releases también aparecen en la página de
-[GitHub Releases](https://github.com/RafaelB13/agentport/releases).
-
-Dos opciones adicionales, solo para el script de shell:
-
-- `GITHUB_TOKEN`: un token con permiso de lectura del repositorio. Configúralo
-  mientras el repositorio sea privado. El script descarga entonces los assets del
-  release a través de la API de GitHub, y el token solo se envía a `api.github.com`.
-- `AGENTPORT_DRY_RUN=1`: muestra dónde están el archivo, las sumas de verificación,
-  el atestado y el directorio de instalación, y termina sin descargar ni instalar nada.
-
-El script compara cada descarga con las sumas SHA-256 del release y se detiene si
-no coinciden o si falta una entrada. Para leerlo antes de ejecutarlo, descárgalo
-primero:
-
-```bash
-curl -fsSLO https://raw.githubusercontent.com/RafaelB13/agentport/main/scripts/install.sh
-less install.sh
-sh install.sh
-```
-
-### Desde el código fuente
-
-```bash
-git clone https://github.com/RafaelB13/agentport.git
-cd agentport
-go build -o agentport ./cmd/agentport
-```
-
-Pon el `agentport` resultante en tu `PATH`. Un binario compilado desde el código
-fuente no tiene número de release, así que `agentport version` no muestra un número
-de release y la comprobación de actualización no se aplica a él.
-
-### Verificar un release
-
-Cada release publica `checksums.txt`, firmado con
-[cosign](https://github.com/sigstore/cosign) (keyless, ligado a la identidad del
-workflow de release), y un atestado de build de GitHub. Cada archivo tiene una
-entrada SHA-256, y el atestado cubre los archivos, los SBOM y los checksums. Para
-verificar a mano, descarga el `checksums.txt`, el `checksums.txt.bundle` y el
-`attestation.jsonl` del release:
-
-```bash
-VERSION=vX.Y.Z
-# La identidad exige la etiqueta exacta del release, así que una ejecución desde otra rama no se acepta.
-IDENTITY="https://github.com/RafaelB13/agentport/.github/workflows/release.yml@refs/tags/${VERSION}"
-
-cosign verify-blob \
-  --bundle checksums.txt.bundle \
-  --certificate-identity "$IDENTITY" \
-  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-  checksums.txt
-
-# Linux
-sha256sum --check --ignore-missing checksums.txt
-# macOS (no tiene sha256sum ni --ignore-missing)
-ARCH=$(uname -m | sed s/x86_64/amd64/)
-grep " agentport_${VERSION}_darwin_${ARCH}.tar.gz$" checksums.txt | shasum -a 256 --check
-
-gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
-  --repo RafaelB13/agentport \
-  --cert-identity "$IDENTITY"
-```
-
-`gh attestation verify` sin `--bundle` consulta a GitHub y necesita `gh auth login`.
-Para verificar sin iniciar sesión, agrega `--bundle attestation.jsonl`.
-
-**Comprobación automática.** Desde `v0.7.1-rc.1` en adelante, los instaladores y
-`agentport upgrade` confirman, además del SHA-256, que el archivo lo produjo el
-workflow de release de este repositorio en la etiqueta que se está instalando. Si
-esa confirmación falla, la instalación se rechaza. El script de instalación usa
-`gh attestation verify` cuando `gh` está instalado y, si no, consulta la API de
-atestados de GitHub. `agentport upgrade` usa la API. Las versiones anteriores a
-`v0.7.1-rc.1` no tienen atestado; se instalan solo con la comprobación de SHA-256, y
-el instalador lo indica.
-
-Si la API de atestados no responde o se agotó el límite de solicitudes, la
-instalación se rechaza en lugar de continuar sin la comprobación. Para instalar solo
-con la comprobación de SHA-256, define `AGENTPORT_SKIP_ATTESTATION=1`. `agentport
-setup` y `agentport upgrade` aplican la misma configuración a los binarios que
-envían a los servidores.
 
 ## Configurar un servidor
 

@@ -4,16 +4,15 @@
 
 agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權的前提下使用你電腦上的連接埠。代理程式可以看到伺服器上正在監聽的程序，並要求在你的電腦上開啟某個連接埠，走的是你既有的 SSH 連線。開啟哪些連接埠、何時關閉，都由你決定。
 
-> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。下方的狀態表會說明哪些已完成、哪些是規劃中。
+> **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。
 
 **目錄**
 
-- [這是什麼](#這是什麼)
-- [狀態](#狀態)
-- [運作方式](#運作方式)
-- [需求](#需求)
 - [安裝](#安裝)
   - [安裝腳本](#安裝腳本)
+- [這是什麼](#這是什麼)
+- [運作方式](#運作方式)
+- [需求](#需求)
 - [設定伺服器](#設定伺服器)
 - [自動啟動](#自動啟動)
 - [日常使用](#日常使用)
@@ -32,106 +31,9 @@ agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權�
 - [致謝](#致謝)
 - [授權](#授權)
 
-## 這是什麼
-
-agentport 由三個部分組成：
-
-- **Companion**：在你電腦上於背景執行的程序。它在 `127.0.0.1` 上維持本機橋接器（bridge），為每個已配對的伺服器保持一條 SSH 反向通道，連線中斷時以 1 到 30 秒的退避時間重新連線。
-- **MCP 伺服器**（`agentport mcp`）：由代理程式在伺服器上透過 `stdio` 啟動。agentport 會把它註冊到伺服器上找到的代理程式中。
-- **面板**：位於你電腦上的網頁，讓你核准、檢視、分組與關閉代理程式要求的連接埠，並可開啟連到伺服器的終端機。
-
-你可以設定伺服器、以 `ssh` 連線，在代理程式中使用 `agentport_status` 工具（它會回報通道狀態，以及是否有更新的發行版本），並請代理程式在你的電腦上開啟連接埠，且需經你核准。
-
-> **截圖預留位置。** 面板的截圖會加在這裡。
-
-agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支，後者的方向相反（從你的電腦到伺服器）。請見[致謝](#致謝)。
-
-## 狀態
-
-| 階段 | 內容 | 狀態 |
-| --- | --- | --- |
-| F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
-| F1 | 專案基礎：AgentClip 的分支，已改名、移除剪貼簿功能。CLI、Companion、`setup`、附 `agentport_status` 的 MCP 伺服器、發行版本 | ✓ 完成 |
-| F3 | 轉發引擎（`internal/forward`），以及查出誰佔用主機連接埠的功能（`internal/hostport`） | ✓ 完成；由連接埠工具與面板使用 |
-| F1b | 由發行流程產生的 Homebrew 公式、能辨識 Homebrew 的 `agentport upgrade`，以及這四份 README | ✓ 完成；在 tap 存在之前，發布到 tap 的功能維持關閉 |
-| F2 | 伺服器端連接埠掃描器（`internal/portscan`），支援 Linux 與 macOS，並可過濾系統常駐程式；`agentport ports` 指令 | ✓ 完成 |
-| F4 | MCP 連接埠工具（`ports_list`、`ports_forward`、`ports_unforward`、`forwards_list`）、經核准的開啟、橋接器端點、工作階段，以及 Companion 重新啟動後的復原 | ✓ 完成 |
-| F5 | 面板：核准、分組與批次關閉、偵測到的連接埠分頁、通知、連接埠被占用時的選擇 | ✓ 完成 |
-| F5（其餘） | 連線時自動啟動（`LocalCommand`） | 規劃中 |
-| F5b | 面板中連到伺服器的網頁終端機（Linux 與 macOS） | ✓ 完成 |
-| F6 | Windows 主機：不使用 ControlMaster 的轉發 | 已在 CI 編譯；尚未在真正的 Windows 上執行 |
-| 測試 | `test/e2e` 的 Docker 測試環境：真實的 sshd、經由 ControlMaster 的轉發、連接埠衝突與 Linux 上的掃描器 | ✓ 完成 |
-| F7 | 在真實伺服器上做端到端驗證，發行 `v0.1.0` | 規劃中 |
-
-標示為*規劃中*的項目不在目前版本內，請暫時不要依賴它們。
-
-## 運作方式
-
-```text
-HOST（你的電腦）                              SERVER（經由 SSH 連到）
-
- Companion                                    代理程式（Claude Code、Codex 等）
-   127.0.0.1 上的本機橋接器                       |  stdio，由代理程式啟動
-        ^                                       v
-        |                                      agentport mcp
-        +---- SSH 反向通道（ssh -R）-------------+
-              每台伺服器一條連線
-```
-
-1. `agentport setup` 會在伺服器上安裝 agentport、把它的 MCP 伺服器註冊到伺服器上找到的代理程式中、在你的電腦上儲存一份**設定檔**（伺服器、配對權杖與遠端連接埠），然後啟動 Companion。
-2. Companion 以反向通道開啟一條 `ssh` 連到伺服器。透過這條通道，伺服器可以連到橋接器，因此 `agentport mcp` 能在伺服器的 loopback 介面上的某個連接埠找到它。
-3. 代理程式在伺服器上透過 `stdio` 啟動 `agentport mcp`。MCP 伺服器使用工作階段權杖，經由通道與橋接器溝通。
-4. 連接埠工具會要求 Companion 開啟某個連接埠，並由你核准。Companion 透過同一條 SSH 連線開啟（macOS 與 Linux 上使用 ControlMaster 的 `ssh -O forward -L`；Windows 上每個轉發使用一個 `ssh` 程序），因此連接埠只會抵達你電腦的 `127.0.0.1`。你的網路上不會有任何東西在監聽。
-
-每台伺服器都有自己的設定檔與自己的 Companion，因此兩台伺服器絕不會共用權杖或通道。
-
-## 需求
-
-**你的電腦（主機）**
-
-- macOS（Apple silicon 或 Intel）、Linux（amd64 或 arm64）或 Windows（amd64）。Windows 安裝程式、Companion 與轉發會在 CI 中編譯，但尚未在真正的 Windows 上執行。伺服器終端機在 Windows 上無法使用。
-- `PATH` 中要有 OpenSSH 用戶端（`ssh`）。Companion 用它建立通道，因此會照常讀取你的 `~/.ssh/config`、金鑰與 ssh-agent。
-- 只有在從原始碼建置時才需要 Go 1.27 或更新版本。
-
-**伺服器**
-
-- Linux 或 macOS，amd64 或 arm64，並且有你能登入的 SSH 伺服器。第一次執行 `setup` 時可能會要求輸入一次密碼；之後會改用金鑰。
-- `AllowTcpForwarding yes`：伺服器 SSH 設定（`sshd_config`）中必須允許。反向通道使用 `ssh -R`，當轉發設為 `no` 時伺服器會拒絕。OpenSSH 的預設值是 `yes`；可在伺服器上以 `sshd -T` 檢查實際生效的值。
-- POSIX shell，因為 `setup` 會透過 SSH 執行一組簡短且固定的指令。
-- 至少安裝一個支援的程式碼代理程式（見下表）。agentport 不會安裝代理程式。
-
-**支援的代理程式（harness）**
-
-agentport 整合的是 *harness*，也就是執行代理程式並呼叫其工具的程式，而不是它所使用的模型。`setup`、`pair` 與 `connect` 會偵測已安裝的 harness，只設定這些。
-
-| Harness | 狀態 | 整合方式 |
-| --- | --- | --- |
-| Claude Code | 支援 | 安裝後自動偵測並設定 |
-| Codex | 支援 | 安裝後自動偵測並設定 |
-| Gemini CLI | 支援 | 安裝後自動偵測並設定 |
-| AGY / Antigravity CLI | 支援 | agentport 會建立或更新全域 MCP 項目 |
-| OpenCode | 支援 | agentport 會建立或更新全域 MCP 項目 |
-| Pi Coding Agent | 支援 | agentport 會安裝全域擴充功能 |
-| 其他 MCP 用戶端 | 手動 | 將它指向 `agentport mcp`，並自行設定設定檔變數 |
-
-DeepSeek 與 MiMo 是模型，不是 harness：請透過 Pi 或 OpenCode 等支援的 harness 使用它們。
-
 ## 安裝
 
-### Homebrew
-
-> **規劃中。** 發行流程已經會產生公式，但 tap `rafaelb13/homebrew-tap` 尚未發布，因此下列指令目前還無法使用。在 tap 存在之前，請使用安裝腳本或從原始碼建置。
-
-tap 發布後：
-
-```bash
-brew install rafaelb13/tap/agentport
-agentport version
-brew upgrade agentport
-brew uninstall agentport
-```
-
-安裝由 Homebrew 負責。若你是用 Homebrew 安裝的，`agentport upgrade` 不會替換執行檔：它會印出 `agentport was installed with Homebrew. Run: brew upgrade agentport` 並以狀態碼 0 結束。自動啟動不需要 `brew services`：Companion 透過 `agentport companion autostart` 啟動（見[自動啟動](#自動啟動)）。
+Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。
 
 ### 安裝腳本
 
@@ -184,6 +86,21 @@ less install.sh
 sh install.sh
 ```
 
+### Homebrew
+
+> **規劃中。** 發行流程已經會產生公式，但 tap `rafaelb13/homebrew-tap` 尚未發布，因此下列指令目前還無法使用。在 tap 存在之前，請使用安裝腳本或從原始碼建置。
+
+tap 發布後：
+
+```bash
+brew install rafaelb13/tap/agentport
+agentport version
+brew upgrade agentport
+brew uninstall agentport
+```
+
+安裝由 Homebrew 負責。若你是用 Homebrew 安裝的，`agentport upgrade` 不會替換執行檔：它會印出 `agentport was installed with Homebrew. Run: brew upgrade agentport` 並以狀態碼 0 結束。自動啟動不需要 `brew services`：Companion 透過 `agentport companion autostart` 啟動（見[自動啟動](#自動啟動)）。
+
 ### 從原始碼建置
 
 ```bash
@@ -225,6 +142,71 @@ gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
 **自動檢查。** 從 `v0.7.1-rc.1` 開始，安裝程式與 `agentport upgrade` 除了檢查 SHA-256，還會確認該檔案是由本儲存庫的發行工作流程，針對要安裝的標籤所產生的。若此檢查失敗，安裝會被拒絕。安裝腳本在安裝了 `gh` 時使用 `gh attestation verify`，否則改查 GitHub 的建置證明 API。`agentport upgrade` 使用 API。`v0.7.1-rc.1` 之前的發行版本沒有建置證明；它們只以 SHA-256 檢查安裝，安裝程式也會說明這一點。
 
 若建置證明 API 無法使用或超過速率限制，安裝會被拒絕，而不是在沒有檢查的情況下繼續。若只想以 SHA-256 檢查安裝，請設定 `AGENTPORT_SKIP_ATTESTATION=1`。`agentport setup` 與 `agentport upgrade` 也會把同樣的設定套用到它們送往伺服器的二進位檔。
+
+## 這是什麼
+
+agentport 由三個部分組成：
+
+- **Companion**：在你電腦上於背景執行的程序。它在 `127.0.0.1` 上維持本機橋接器（bridge），為每個已配對的伺服器保持一條 SSH 反向通道，連線中斷時以 1 到 30 秒的退避時間重新連線。
+- **MCP 伺服器**（`agentport mcp`）：由代理程式在伺服器上透過 `stdio` 啟動。agentport 會把它註冊到伺服器上找到的代理程式中。
+- **面板**：位於你電腦上的網頁，讓你核准、檢視、分組與關閉代理程式要求的連接埠，並可開啟連到伺服器的終端機。
+
+你可以設定伺服器、以 `ssh` 連線，在代理程式中使用 `agentport_status` 工具（它會回報通道狀態，以及是否有更新的發行版本），並請代理程式在你的電腦上開啟連接埠，且需經你核准。
+
+> **截圖預留位置。** 面板的截圖會加在這裡。
+
+agentport 是 [AgentClip](https://github.com/wendellrocha/agentclip) 的分支，後者的方向相反（從你的電腦到伺服器）。請見[致謝](#致謝)。
+
+## 運作方式
+
+```text
+HOST（你的電腦）                              SERVER（經由 SSH 連到）
+
+ Companion                                    代理程式（Claude Code、Codex 等）
+   127.0.0.1 上的本機橋接器                       |  stdio，由代理程式啟動
+        ^                                       v
+        |                                      agentport mcp
+        +---- SSH 反向通道（ssh -R）-------------+
+              每台伺服器一條連線
+```
+
+1. `agentport setup` 會在伺服器上安裝 agentport、把它的 MCP 伺服器註冊到伺服器上找到的代理程式中、在你的電腦上儲存一份**設定檔**（伺服器、配對權杖與遠端連接埠），然後啟動 Companion。
+2. Companion 以反向通道開啟一條 `ssh` 連到伺服器。透過這條通道，伺服器可以連到橋接器，因此 `agentport mcp` 能在伺服器的 loopback 介面上的某個連接埠找到它。
+3. 代理程式在伺服器上透過 `stdio` 啟動 `agentport mcp`。MCP 伺服器使用工作階段權杖，經由通道與橋接器溝通。
+4. 連接埠工具會要求 Companion 開啟某個連接埠，並由你核准。Companion 透過同一條 SSH 連線開啟（macOS 與 Linux 上使用 ControlMaster 的 `ssh -O forward -L`；Windows 上每個轉發使用一個 `ssh` 程序），因此連接埠只會抵達你電腦的 `127.0.0.1`。你的網路上不會有任何東西在監聽。
+
+每台伺服器都有自己的設定檔與自己的 Companion，因此兩台伺服器絕不會共用權杖或通道。
+
+## 需求
+
+**你的電腦（主機）**
+
+- macOS（Apple silicon 或 Intel）、Linux（amd64 或 arm64）或 Windows（amd64）。Windows 安裝程式、Companion 與轉發會在 CI 中編譯，但尚未在真正的 Windows 上執行。伺服器終端機在 Windows 上無法使用。
+- `PATH` 中要有 OpenSSH 用戶端（`ssh`）。Companion 用它建立通道，因此會照常讀取你的 `~/.ssh/config`、金鑰與 ssh-agent。
+- 只有在從原始碼建置時才需要 Go 1.27 或更新版本。
+
+**伺服器**
+
+- Linux 或 macOS，amd64 或 arm64，並且有你能登入的 SSH 伺服器。第一次執行 `setup` 時可能會要求輸入一次密碼；之後會改用金鑰。
+- `AllowTcpForwarding yes`：伺服器 SSH 設定（`sshd_config`）中必須允許。反向通道使用 `ssh -R`，當轉發設為 `no` 時伺服器會拒絕。OpenSSH 的預設值是 `yes`；可在伺服器上以 `sshd -T` 檢查實際生效的值。
+- POSIX shell，因為 `setup` 會透過 SSH 執行一組簡短且固定的指令。
+- 至少安裝一個支援的程式碼代理程式（見下表）。agentport 不會安裝代理程式。
+
+**支援的代理程式（harness）**
+
+agentport 整合的是 *harness*，也就是執行代理程式並呼叫其工具的程式，而不是它所使用的模型。`setup`、`pair` 與 `connect` 會偵測已安裝的 harness，只設定這些。
+
+| Harness | 狀態 | 整合方式 |
+| --- | --- | --- |
+| Claude Code | 支援 | 安裝後自動偵測並設定 |
+| Codex | 支援 | 安裝後自動偵測並設定 |
+| Gemini CLI | 支援 | 安裝後自動偵測並設定 |
+| AGY / Antigravity CLI | 支援 | agentport 會建立或更新全域 MCP 項目 |
+| OpenCode | 支援 | agentport 會建立或更新全域 MCP 項目 |
+| Pi Coding Agent | 支援 | agentport 會安裝全域擴充功能 |
+| 其他 MCP 用戶端 | 手動 | 將它指向 `agentport mcp`，並自行設定設定檔變數 |
+
+DeepSeek 與 MiMo 是模型，不是 harness：請透過 Pi 或 OpenCode 等支援的 harness 使用它們。
 
 ## 設定伺服器
 
@@ -422,6 +404,7 @@ agentport 支援四種語言：English（預設）、Português（Brasil）、Es
 Companion 網頁依序使用：網址中的 `?lang=pt-BR`、瀏覽器偏好的語言、Companion 程序依上述方式偵測到的語言，最後才是英文。
 
 命令列與 Companion 都有 Português（Brasil）、Español 與繁體中文的翻譯目錄。安裝程式則提供英文與 Português（Brasil）的訊息。技術性的錯誤訊息刻意保留英文，方便搜尋。指令名稱、路徑與程序名稱不會翻譯。
+
 ## 安全性
 
 - 橋接器只監聽 `127.0.0.1`。伺服器只能透過 Companion 開啟的 SSH 通道連到它。
