@@ -60,6 +60,9 @@ func TestCacheBaseIgnoresRelativeXDGCacheHome(t *testing.T) {
 	if base == "relative" {
 		t.Fatal("a relative XDG_CACHE_HOME must be ignored")
 	}
+	if !filepath.IsAbs(base) {
+		t.Fatalf("CacheBase() = %q, want an absolute path", base)
+	}
 }
 
 // shortTempDir returns a directory whose path is short enough for a unix socket:

@@ -32,8 +32,19 @@ func CacheBase() (string, error) {
 		}
 		return directory, nil
 	}
-	if directory := strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")); directory != "" && filepath.IsAbs(directory) {
-		return directory, nil
+	if directory := strings.TrimSpace(os.Getenv("XDG_CACHE_HOME")); directory != "" {
+		if filepath.IsAbs(directory) {
+			return directory, nil
+		}
+		// A relative XDG_CACHE_HOME is ignored. On Linux and other XDG systems
+		// os.UserCacheDir rejects it with an error, so use ~/.cache directly.
+		if runtime.GOOS != "darwin" && runtime.GOOS != "windows" {
+			home, err := os.UserHomeDir()
+			if err != nil {
+				return "", fmt.Errorf("find agentport cache directory: %w", err)
+			}
+			return filepath.Join(home, ".cache"), nil
+		}
 	}
 	base, err := os.UserCacheDir()
 	if err != nil {
