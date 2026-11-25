@@ -92,7 +92,7 @@ function Compare-agentportVersion {
     return 0
 }
 
-$attestationMinVersion = "v0.7.1-rc.1"
+$attestationMinVersion = "v0.1.0"
 $releaseWorkflowPath = ".github/workflows/release.yml"
 
 # Test-agentportStatement succeeds only when an in-toto statement covers the

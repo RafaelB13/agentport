@@ -86,7 +86,7 @@ GITHUB_TOKEN, when set, is sent only to api.github.com, and the release assets
 are then fetched through the GitHub API, so private repositories work.
 AGENTPORT_DRY_RUN=1 prints the resolved locations and downloads nothing.
 
-Releases from v0.7.1-rc.1 on are verified against their GitHub build
+Releases from v0.1.0 on are verified against their GitHub build
 attestation. AGENTPORT_SKIP_ATTESTATION=1 installs with the SHA-256 check only.
 
 Without --version, the installer checks the latest release and downloads it
@@ -238,7 +238,7 @@ version_compare() {
   '
 }
 
-attestation_min_version="v0.7.1-rc.1"
+attestation_min_version="v0.1.0"
 
 decode_base64() {
   if printf '' | base64 -d >/dev/null 2>&1; then

@@ -171,12 +171,12 @@ gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
 `gh attestation verify` without `--bundle` asks GitHub and needs `gh auth login`.
 To verify without logging in, add `--bundle attestation.jsonl`.
 
-**Automatic check.** From `v0.7.1-rc.1` on, the installers and `agentport upgrade`
+**Automatic check.** From `v0.1.0` on, the installers and `agentport upgrade`
 confirm, besides the SHA-256, that the file was produced by this repository's
 release workflow for the tag being installed. If that check fails, the install
 is refused. The install script uses `gh attestation verify` when `gh` is
 installed and falls back to the GitHub attestations API otherwise. `agentport
-upgrade` uses the API. Releases before `v0.7.1-rc.1` have no attestation; they
+upgrade` uses the API. Releases before `v0.1.0` have no attestation; they
 are installed with the SHA-256 check only, and the installer says so.
 
 If the attestation API is down or rate-limited, the install is refused rather
