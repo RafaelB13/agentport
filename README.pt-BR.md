@@ -200,6 +200,24 @@ No Windows, o diretório padrão é `%LOCALAPPDATA%\Programs\agentport\bin`. Os
 releases também estão na página de
 [GitHub Releases](https://github.com/rafaelb13/agentport/releases).
 
+Duas opções adicionais, somente para o script de shell:
+
+- `GITHUB_TOKEN`: um token com permissão de leitura do repositório. Defina-o
+  enquanto o repositório for privado. O script então baixa os assets do release
+  pela API do GitHub, e o token é enviado somente para `api.github.com`.
+- `AGENTPORT_DRY_RUN=1`: mostra onde estão o arquivo, as somas de verificação, o
+  atestado e o diretório de instalação, e termina sem baixar nem instalar nada.
+
+O script compara cada download com as somas SHA-256 do release e para se não
+coincidirem ou se faltar uma entrada. Para lê-lo antes de executar, baixe-o
+primeiro:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+less install.sh
+sh install.sh
+```
+
 ### A partir do código
 
 ```bash

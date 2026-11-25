@@ -215,6 +215,90 @@ expect "  the PATH instruction is English" grep -q 'to PATH, then open a new ter
 printf '%s  %s\n' "0000000000000000000000000000000000000000000000000000000000000000" "$asset" >"$work/checksums.txt"
 run_install "SHA-256 mismatch: refuses" 1 AGENTPORT_SKIP_ATTESTATION=1
 
+# --- 3. a fake release served from local files, through AGENTPORT_DOWNLOAD_BASE ---
+# No network: file:// URLs are read by the real curl, and GITHUB_TOKEN is unset.
+# Attestations are skipped because there is no GitHub release to attest.
+
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{ print $1 }'
+  else
+    shasum -a 256 "$1" | awk '{ print $1 }'
+  fi
+}
+
+offline_version="v9.8.7"
+offline_asset="agentport_${offline_version}_${os}_${arch}.tar.gz"
+offline_release="$work/offline-release"
+offline_stage="$work/offline-stage/agentport_${offline_version}_${os}_${arch}"
+mkdir -p "$offline_release" "$offline_stage"
+printf '#!/bin/sh\necho %s\n' "$offline_version" >"$offline_stage/agentport"
+chmod +x "$offline_stage/agentport"
+tar -C "$work/offline-stage" -czf "$offline_release/$offline_asset" "agentport_${offline_version}_${os}_${arch}"
+offline_digest="$(sha256_of "$offline_release/$offline_asset")"
+printf '%s  %s\n' "$offline_digest" "$offline_asset" >"$offline_release/checksums.txt"
+
+# run_offline <description> <expected exit> [VAR=value ...] runs a fresh install
+# of the offline release; the variables are exported on top of the defaults.
+run_offline() {
+  description="$1"
+  expected="$2"
+  shift 2
+  rm -rf "$work/offline-install"
+  set +e
+  (
+    unset GITHUB_TOKEN
+    export AGENTPORT_INSTALL_DIR="$work/offline-install"
+    export AGENTPORT_DOWNLOAD_BASE="file://$offline_release"
+    export AGENTPORT_SKIP_ATTESTATION=1
+    for assignment in "$@"; do export "$assignment"; done
+    exec sh "$installer" --version "$offline_version"
+  ) >"$work/offline.log" 2>&1
+  code=$?
+  set -e
+  if [ "$code" = "$expected" ]; then pass "$description"; else
+    fail "$description (exit $code, want $expected)"
+    sed 's/^/     | /' "$work/offline.log"
+  fi
+}
+
+run_offline "offline release installs and reports its version" 0
+expect "  the binary was installed" test -x "$work/offline-install/agentport"
+expect "  the installer printed the version" grep -q "$offline_version" "$work/offline.log"
+
+printf '%s  %s\n' "0000000000000000000000000000000000000000000000000000000000000000" "$offline_asset" >"$offline_release/checksums.txt"
+run_offline "offline checksum mismatch: refuses" 1
+if [ -e "$work/offline-install/agentport" ]; then fail "  nothing was installed"; else pass "  nothing was installed"; fi
+printf '%s  %s\n' "$offline_digest" "agentport_${offline_version}_plan9_amd64.tar.gz" >"$offline_release/checksums.txt"
+run_offline "offline checksums without the archive: refuses" 1
+expect "  the message names the missing checksum" grep -q "Checksum for $offline_asset was not found" "$work/offline.log"
+printf '%s  %s\n' "$offline_digest" "$offline_asset" >"$offline_release/checksums.txt"
+
+run_offline "dry run prints the resolved locations and installs nothing" 0 AGENTPORT_DRY_RUN=1
+expect "  the archive location is printed" grep -q "file://$offline_release/$offline_asset" "$work/offline.log"
+if [ -e "$work/offline-install" ]; then fail "  the install directory was not created"; else pass "  the install directory was not created"; fi
+
+# A GitHub release lists its assets by API URL; the lookup must pick the right one.
+mkdir -p "$work/lookup"
+cat >"$work/lookup/release.json" <<'JSON'
+{"tag_name":"v9.8.7","assets":[{"url":"https://api.github.com/repos/example/agentport/releases/assets/111","id":111,"node_id":"A1","name":"checksums.txt","uploader":{"login":"bot"}},{"url":"https://api.github.com/repos/example/agentport/releases/assets/222","id":222,"node_id":"B2","name":"agentport_v9.8.7_linux_amd64.tar.gz","uploader":{"login":"bot"}}]}
+JSON
+asset_lookup() { # asset_lookup NAME prints the API URL of NAME from the fixture
+  wanted_asset="$1"
+  (
+    set --
+    export AGENTPORT_INSTALLER_LIB=1
+    # shellcheck disable=SC1090
+    . "$installer"
+    # shellcheck disable=SC2034
+    temporary_directory="$work/lookup"
+    asset_api_url "$wanted_asset"
+  )
+}
+expect "the checksums asset is found by its API URL" test "$(asset_lookup checksums.txt)" = "https://api.github.com/repos/example/agentport/releases/assets/111"
+expect "the archive asset is found by its API URL" test "$(asset_lookup agentport_v9.8.7_linux_amd64.tar.gz)" = "https://api.github.com/repos/example/agentport/releases/assets/222"
+expect "an absent asset has no URL" test -z "$(asset_lookup agentport_v9.8.7_plan9_amd64.tar.gz)"
+
 echo
 if [ "$failures" -ne 0 ]; then
   echo "$failures check(s) failed" >&2

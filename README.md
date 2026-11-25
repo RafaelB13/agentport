@@ -195,6 +195,24 @@ The Windows default install directory is `%LOCALAPPDATA%\Programs\agentport\bin`
 Releases are also listed on the
 [GitHub Releases page](https://github.com/rafaelb13/agentport/releases).
 
+Two optional settings, for the shell script only:
+
+- `GITHUB_TOKEN`: a token with read access to the repository. Set it while the
+  repository is private. The script then downloads the release assets through
+  the GitHub API, and the token is sent only to `api.github.com`.
+- `AGENTPORT_DRY_RUN=1`: prints where the archive, the checksums, the attestation
+  and the install directory are, then exits without downloading or installing.
+
+The script checks every download against the release's SHA-256 checksums and
+stops on a mismatch or on a missing entry. To read it before running it,
+download it first:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+less install.sh
+sh install.sh
+```
+
 ### From source
 
 ```bash

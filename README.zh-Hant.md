@@ -145,6 +145,19 @@ irm https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.p
 
 Windows 的預設安裝目錄是 `%LOCALAPPDATA%\Programs\agentport\bin`。發行版本也列在 [GitHub Releases 頁面](https://github.com/rafaelb13/agentport/releases)。
 
+另有兩個選用設定，僅適用於 shell 腳本：
+
+- `GITHUB_TOKEN`：對儲存庫具有讀取權限的權杖。儲存庫為私有時請設定它。腳本會改經由 GitHub API 下載發行版本的資產，且權杖只會送往 `api.github.com`。
+- `AGENTPORT_DRY_RUN=1`：列出封存檔、校驗和、證明與安裝目錄的位置後即結束，不下載也不安裝任何東西。
+
+腳本會將每個下載檔與發行版本的 SHA-256 校驗和比對，不符或缺少項目時即停止。若要在執行前先閱讀腳本，請先下載：
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/rafaelb13/agentport/main/scripts/install.sh
+less install.sh
+sh install.sh
+```
+
 ### 從原始碼建置
 
 ```bash

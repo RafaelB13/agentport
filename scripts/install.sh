@@ -59,6 +59,16 @@ say() {
     pt:add_to_path) message_format='Adicione %s ao PATH e abra um novo terminal.' ;;
     en:binary_at) message_format='Binary available at %s' ;;
     pt:binary_at) message_format='Binário disponível em %s' ;;
+    en:dry_run) message_format='Dry run: nothing is downloaded or installed. Resolved locations:' ;;
+    pt:dry_run) message_format='Simulação: nada é baixado nem instalado. Locais resolvidos:' ;;
+    en:dry_archive) message_format='  Archive:      %s' ;;
+    pt:dry_archive) message_format='  Arquivo:      %s' ;;
+    en:dry_checksums) message_format='  Checksums:    %s' ;;
+    pt:dry_checksums) message_format='  Somas:        %s' ;;
+    en:dry_attestation) message_format='  Attestation:  %s' ;;
+    pt:dry_attestation) message_format='  Atestado:     %s' ;;
+    en:dry_install_dir) message_format='  Install dir:  %s' ;;
+    pt:dry_install_dir) message_format='  Diretório:    %s' ;;
     *) message_format="$message_key" ;;
   esac
   # shellcheck disable=SC2059 # the format comes from the table above
@@ -71,6 +81,10 @@ Usage: install.sh [--version vX.Y.Z] [--install-dir PATH]
 
 Environment overrides: AGENTPORT_REPOSITORY, AGENTPORT_VERSION,
 AGENTPORT_INSTALL_DIR.
+
+GITHUB_TOKEN, when set, is sent only to api.github.com, and the release assets
+are then fetched through the GitHub API, so private repositories work.
+AGENTPORT_DRY_RUN=1 prints the resolved locations and downloads nothing.
 
 Releases from v0.7.1-rc.1 on are verified against their GitHub build
 attestation. AGENTPORT_SKIP_ATTESTATION=1 installs with the SHA-256 check only.
@@ -109,9 +123,71 @@ require() {
   }
 }
 
-require curl
 require tar
 require awk
+
+if command -v curl >/dev/null 2>&1; then
+  downloader=curl
+elif command -v wget >/dev/null 2>&1; then
+  downloader=wget
+else
+  echo "agentport installer requires 'curl' or 'wget'." >&2
+  exit 1
+fi
+
+# fetch URL OUTPUT [ACCEPT] downloads URL into OUTPUT, or to stdout when OUTPUT
+# is "-". GITHUB_TOKEN is attached only to api.github.com, never to other hosts.
+fetch() {
+  fetch_url="$1"
+  fetch_output="$2"
+  fetch_accept="${3:-}"
+  fetch_auth=""
+  if [ -n "${GITHUB_TOKEN:-}" ]; then
+    case "$fetch_url" in
+      https://api.github.com/*) fetch_auth="Authorization: Bearer ${GITHUB_TOKEN}" ;;
+    esac
+  fi
+  if [ "$downloader" = curl ]; then
+    set -- -fsSL --retry 3 -o "$fetch_output"
+    if [ -n "$fetch_accept" ]; then set -- "$@" -H "Accept: ${fetch_accept}"; fi
+    if [ -n "$fetch_auth" ]; then set -- "$@" -H "$fetch_auth"; fi
+    curl "$@" "$fetch_url"
+  else
+    set -- --quiet --tries=3 -O "$fetch_output"
+    if [ -n "$fetch_accept" ]; then set -- "$@" "--header=Accept: ${fetch_accept}"; fi
+    if [ -n "$fetch_auth" ]; then set -- "$@" "--header=${fetch_auth}"; fi
+    wget "$@" "$fetch_url"
+  fi
+}
+
+# asset_api_url NAME prints the API URL of the asset NAME of the release in
+# $temporary_directory/release.json, or nothing when the release has no such asset.
+asset_api_url() {
+  tr -d '\n' <"$temporary_directory/release.json" \
+    | grep -o "\"url\": *\"https://api.github.com/repos/[^\"]*/releases/assets/[0-9][0-9]*\"[^{}]*\"name\": *\"$1\"" \
+    | head -n 1 \
+    | sed 's/^"url": *"\([^"]*\)".*/\1/'
+}
+
+# download_release_file NAME DESTINATION fetches one file of the release. With a
+# GITHUB_TOKEN the assets come through the API, which serves private releases;
+# AGENTPORT_DOWNLOAD_BASE (used by the tests) never receives the token.
+download_release_file() {
+  if [ -n "${GITHUB_TOKEN:-}" ] && [ -z "${AGENTPORT_DOWNLOAD_BASE:-}" ]; then
+    if [ ! -s "$temporary_directory/release.json" ]; then
+      fetch "https://api.github.com/repos/${repository}/releases/tags/${requested_version}" \
+        "$temporary_directory/release.json" application/vnd.github+json
+    fi
+    release_asset_url="$(asset_api_url "$1")"
+    if [ -z "$release_asset_url" ]; then
+      echo "Release ${requested_version} has no asset named $1." >&2
+      return 1
+    fi
+    fetch "$release_asset_url" "$2" application/octet-stream
+  else
+    fetch "${base_url}/$1" "$2"
+  fi
+}
 
 version_compare() {
   # Prints 1 when the first semantic version is newer, -1 when it is older,
@@ -193,7 +269,7 @@ statement_matches() {
 verify_with_gh() {
   command -v gh >/dev/null 2>&1 || return 2
   gh attestation verify --help >/dev/null 2>&1 || return 2
-  curl -fsSL --retry 3 -o "$temporary_directory/attestation.jsonl" "$base_url/attestation.jsonl" 2>/dev/null || return 2
+  download_release_file attestation.jsonl "$temporary_directory/attestation.jsonl" 2>/dev/null || return 2
   say verifying_gh
   gh attestation verify "$temporary_directory/$asset" \
     --bundle "$temporary_directory/attestation.jsonl" \
@@ -202,10 +278,14 @@ verify_with_gh() {
 }
 
 verify_with_api() {
+  # The status code is needed to tell "no attestation" from "cannot ask", which
+  # only curl reports; with wget alone the method cannot run.
+  [ "$downloader" = curl ] || return 2
   say verifying_api
-  api_status="$(curl -sS -o "$temporary_directory/attestations.json" -w '%{http_code}' \
-    -H "Accept: application/vnd.github+json" -H "User-Agent: agentport-installer" \
-    "https://api.github.com/repos/${repository}/attestations/sha256:${actual_checksum}")" || {
+  set -- -sS -o "$temporary_directory/attestations.json" -w '%{http_code}' \
+    -H "Accept: application/vnd.github+json" -H "User-Agent: agentport-installer"
+  if [ -n "${GITHUB_TOKEN:-}" ]; then set -- "$@" -H "Authorization: Bearer ${GITHUB_TOKEN}"; fi
+  api_status="$(curl "$@" "https://api.github.com/repos/${repository}/attestations/sha256:${actual_checksum}")" || {
     echo "Could not reach the GitHub attestations API." >&2
     return 2
   }
@@ -289,7 +369,7 @@ esac
 
 if [ "$requested_version" = "latest" ]; then
   say looking_up_latest
-  requested_version="$(curl -fsSL -H "User-Agent: agentport-installer" "https://api.github.com/repos/${repository}/releases/latest" \
+  requested_version="$(fetch "https://api.github.com/repos/${repository}/releases/latest" - application/vnd.github+json \
     | sed -n 's/.*"tag_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
     | head -n 1)"
 else
@@ -305,6 +385,18 @@ case "$requested_version" in
 esac
 
 say found_version "$requested_version"
+
+asset="agentport_${requested_version}_${os}_${arch}.tar.gz"
+base_url="${AGENTPORT_DOWNLOAD_BASE:-https://github.com/${repository}/releases/download/${requested_version}}"
+
+if [ "${AGENTPORT_DRY_RUN:-}" = "1" ]; then
+  say dry_run
+  say dry_archive "${base_url}/${asset}"
+  say dry_checksums "${base_url}/checksums.txt"
+  say dry_attestation "${base_url}/attestation.jsonl"
+  say dry_install_dir "$install_dir"
+  exit 0
+fi
 
 installed_binary="$install_dir/agentport"
 installed_version=""
@@ -341,14 +433,12 @@ else
   say no_valid_install "$installed_binary"
 fi
 
-asset="agentport_${requested_version}_${os}_${arch}.tar.gz"
-base_url="https://github.com/${repository}/releases/download/${requested_version}"
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf "$temporary_directory"' EXIT HUP INT TERM
 
 say downloading "$requested_version" "$os" "$arch"
-curl -fsSL --retry 3 -o "$temporary_directory/$asset" "$base_url/$asset"
-curl -fsSL --retry 3 -o "$temporary_directory/checksums.txt" "$base_url/checksums.txt"
+download_release_file "$asset" "$temporary_directory/$asset"
+download_release_file checksums.txt "$temporary_directory/checksums.txt"
 
 expected_checksum="$(awk -v asset="$asset" '$2 == asset { print $1 }' "$temporary_directory/checksums.txt")"
 if [ -z "$expected_checksum" ]; then
@@ -397,3 +487,5 @@ case ":$PATH:" in
     say add_to_path "$install_dir"
     ;;
 esac
+
+"$install_dir/agentport" version || true
