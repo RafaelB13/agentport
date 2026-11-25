@@ -46,7 +46,7 @@ func brewRunner(t *testing.T, version string, profiles []companion.Profile) (Run
 }
 
 func TestHomebrewUpgradePrintsTheHintAndUpdatesServersToThisVersion(t *testing.T) {
-	runner, out, installed := brewRunner(t, "v0.2.0", []companion.Profile{{Name: "m2", Destination: "bastion-m2"}})
+	runner, out, installed := brewRunner(t, "v0.2.0", []companion.Profile{{Name: "m2", Destination: "devbox"}})
 	if err := runner.RunHomebrew(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -78,7 +78,7 @@ func TestHomebrewUpgradeReportsAFailedServerButStillUpdatesTheOthers(t *testing.
 
 func TestHomebrewUpgradeLeavesServersAloneForANonReleaseBuild(t *testing.T) {
 	for _, version := range []string{"dev", "", "0.2.0"} {
-		runner, out, installed := brewRunner(t, version, []companion.Profile{{Name: "m2", Destination: "bastion-m2"}})
+		runner, out, installed := brewRunner(t, version, []companion.Profile{{Name: "m2", Destination: "devbox"}})
 		if err := runner.RunHomebrew(context.Background()); err != nil {
 			t.Fatalf("version %q: %v", version, err)
 		}

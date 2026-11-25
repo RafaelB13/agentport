@@ -6,6 +6,32 @@ agentport 讓在 SSH 伺服器上執行的程式碼代理程式，在你授權�
 
 > **開發中。** 基礎部分已可使用：Companion、SSH 反向通道、MCP 伺服器、在各代理程式中的自動註冊、安裝程式、可驗證的發行版本、需經你核准的連接埠工具、面板（分組、批次關閉、偵測到的連接埠分頁，以及連到伺服器的網頁終端機），以及 Companion 重新啟動後轉發的復原。Windows 主機已在 CI 中編譯，但尚未在真正的 Windows 上執行。連線時自動啟動，以及 `v0.1.0` 的端到端驗證仍未完成。下方的狀態表會說明哪些已完成、哪些是規劃中。
 
+**目錄**
+
+- [這是什麼](#這是什麼)
+- [狀態](#狀態)
+- [運作方式](#運作方式)
+- [需求](#需求)
+- [安裝](#安裝)
+  - [安裝腳本](#安裝腳本)
+- [設定伺服器](#設定伺服器)
+- [自動啟動](#自動啟動)
+- [日常使用](#日常使用)
+- [面板](#面板)
+- [終端機](#終端機)
+- [MCP 工具](#mcp-工具)
+- [多個代理程式工作階段](#多個代理程式工作階段)
+- [主機上被占用的連接埠](#主機上被占用的連接埠)
+- [獨立模式](#獨立模式)
+- [語言](#語言)
+- [安全性](#安全性)
+- [更新](#更新)
+- [解除安裝](#解除安裝)
+- [疑難排解](#疑難排解)
+- [開發](#開發)
+- [致謝](#致謝)
+- [授權](#授權)
+
 ## 這是什麼
 
 agentport 由三個部分組成：
@@ -205,12 +231,12 @@ gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
 `agentport setup` 用一道指令就能設定好伺服器：
 
 ```bash
-agentport setup bastion-m2 --profile m2
-ssh bastion-m2
+agentport setup devbox --profile m2
+ssh devbox
 codex
 ```
 
-這裡的 `bastion-m2` 是你 `~/.ssh/config` 中的 SSH 別名。接著請代理程式檢查連線：「檢查 agentport 的狀態。」它會呼叫 `agentport_status`。
+這裡的 `devbox` 是你 `~/.ssh/config` 中的 SSH 別名。接著請代理程式檢查連線：「檢查 agentport 的狀態。」它會呼叫 `agentport_status`。
 
 `setup` 的語法：
 
@@ -247,12 +273,12 @@ agentport setup <ssh目的地> [--profile 名稱] [--agent all|codex|claude|gemi
 
 ```text
 # ~/.ssh/config
-Host bastion-m2
+Host devbox
   HostName 10.0.0.12
   User rafael
   Port 2222
   IdentityFile ~/.ssh/id_ed25519
-  ProxyJump bastion
+  ProxyJump jumphost
 ```
 
 **規劃中：** `setup` 將以選項接收連接埠、金鑰與跳板主機（`-p`、`-i`、`-J`），並支援帶連接埠的 IPv6 位址（`使用者@[2001:db8::12]:2222`）。在那之前，請使用別名。
@@ -289,7 +315,7 @@ Match host 10.0.0.12 user rafael
 照常連到伺服器並啟動代理程式：
 
 ```bash
-ssh bastion-m2
+ssh devbox
 codex
 ```
 
@@ -448,7 +474,7 @@ Companion 會在啟動時檢查一次更新的穩定發行版本，之後最多�
 3. **若沒有其他設定檔使用，請從伺服器移除二進位檔**：
 
    ```bash
-   ssh bastion-m2 'rm -f ~/.local/bin/agentport'
+   ssh devbox 'rm -f ~/.local/bin/agentport'
    ```
 
 4. **移除本機檔案**：`<使用者設定目錄>/agentport/profiles/m2.json` 中的設定檔、`<使用者設定目錄>/agentport/keys/` 中的專用金鑰（若曾建立），以及 `<使用者快取目錄>/agentport/logs/` 中的日誌。

@@ -34,7 +34,7 @@ func (s *scripted) run(_ context.Context, name string, args ...string) ([]byte, 
 
 func TestRemoteDetectorParsesAndExcludesTheTunnelPort(t *testing.T) {
 	run := &scripted{out: scanOutput}
-	detector := &RemoteDetector{Destination: "bastion", ControlPath: "/tmp/cm/abc.sock", ExcludePorts: []int{39123}, Run: run.run}
+	detector := &RemoteDetector{Destination: "jumphost", ControlPath: "/tmp/cm/abc.sock", ExcludePorts: []int{39123}, Run: run.run}
 	listed, err := detector.Detect(context.Background(), false)
 	if err != nil {
 		t.Fatal(err)
@@ -49,12 +49,12 @@ func TestRemoteDetectorParsesAndExcludesTheTunnelPort(t *testing.T) {
 
 func TestRemoteDetectorUsesTheControlMasterWithoutANewConnection(t *testing.T) {
 	run := &scripted{out: scanOutput}
-	detector := &RemoteDetector{Destination: "bastion", ControlPath: "/tmp/cm/abc.sock", Run: run.run}
+	detector := &RemoteDetector{Destination: "jumphost", ControlPath: "/tmp/cm/abc.sock", Run: run.run}
 	if _, err := detector.Detect(context.Background(), false); err != nil {
 		t.Fatal(err)
 	}
 	joined := strings.Join(run.args, " ")
-	for _, want := range []string{"ssh", "-S /tmp/cm/abc.sock", "ControlMaster=no", "bastion", "agentport ports --json"} {
+	for _, want := range []string{"ssh", "-S /tmp/cm/abc.sock", "ControlMaster=no", "jumphost", "agentport ports --json"} {
 		if !strings.Contains(joined, want) {
 			t.Fatalf("ssh arguments %q do not contain %q", joined, want)
 		}
@@ -64,7 +64,7 @@ func TestRemoteDetectorUsesTheControlMasterWithoutANewConnection(t *testing.T) {
 func TestRemoteDetectorCachesForThreeSecondsAndRefreshes(t *testing.T) {
 	run := &scripted{out: scanOutput}
 	clock := time.Unix(1000, 0)
-	detector := &RemoteDetector{Destination: "bastion", Run: run.run, Now: func() time.Time { return clock }}
+	detector := &RemoteDetector{Destination: "jumphost", Run: run.run, Now: func() time.Time { return clock }}
 	ctx := context.Background()
 
 	if _, err := detector.Detect(ctx, false); err != nil {
@@ -94,7 +94,7 @@ func TestRemoteDetectorCachesForThreeSecondsAndRefreshes(t *testing.T) {
 
 func TestRemoteDetectorDoesNotCacheAFailure(t *testing.T) {
 	run := &scripted{err: errors.New("exit status 255")}
-	detector := &RemoteDetector{Destination: "bastion", Run: run.run}
+	detector := &RemoteDetector{Destination: "jumphost", Run: run.run}
 	if _, err := detector.Detect(context.Background(), false); err == nil || !strings.Contains(err.Error(), "scan the server") {
 		t.Fatalf("err = %v, want the scan error", err)
 	}

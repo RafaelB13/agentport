@@ -1,15 +1,15 @@
 # Referência de comandos
 
 Esta é a referência da interface de linha de comando do agentport. Nos
-exemplos, `m2` é o nome de um perfil local e `bastion-m2` é um destino aceito
+exemplos, `m2` é o nome de um perfil local e `devbox` é um destino aceito
 pelo SSH (host, alias de `~/.ssh/config` ou `usuario@host`).
 
 ## Fluxo recomendado
 
 ```bash
-agentport setup bastion-m2 --profile m2
+agentport setup devbox --profile m2
 agentport companion open m2
-ssh bastion-m2
+ssh devbox
 codex
 ```
 

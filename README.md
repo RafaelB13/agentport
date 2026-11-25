@@ -16,6 +16,32 @@ already have. You decide what is opened and when it is closed.
 > start on connect and the end-to-end validation for `v0.1.0` are still open.
 > The status table below says which parts are done and which are planned.
 
+**Contents**
+
+- [What it is](#what-it-is)
+- [Status](#status)
+- [How it works](#how-it-works)
+- [Requirements](#requirements)
+- [Installation](#installation)
+  - [Install script](#install-script)
+- [Server setup](#server-setup)
+- [Auto-start](#auto-start)
+- [Everyday use](#everyday-use)
+- [The panel](#the-panel)
+- [Terminal](#terminal)
+- [MCP tools](#mcp-tools)
+- [Multiple agent sessions](#multiple-agent-sessions)
+- [Busy ports on the host](#busy-ports-on-the-host)
+- [Standalone mode](#standalone-mode)
+- [Languages](#languages)
+- [Security](#security)
+- [Updating](#updating)
+- [Uninstalling](#uninstalling)
+- [Troubleshooting](#troubleshooting)
+- [Development](#development)
+- [Credits](#credits)
+- [License](#license)
+
 ## What it is
 
 agentport has three parts:
@@ -277,12 +303,12 @@ the same setting to the binaries they send to servers.
 `agentport setup` configures a server in one command:
 
 ```bash
-agentport setup bastion-m2 --profile m2
-ssh bastion-m2
+agentport setup devbox --profile m2
+ssh devbox
 codex
 ```
 
-Here `bastion-m2` is an SSH alias from your `~/.ssh/config`. Then ask the agent
+Here `devbox` is an SSH alias from your `~/.ssh/config`. Then ask the agent
 to check the link: "Check the agentport status." It calls `agentport_status`.
 
 The synopsis of `setup`:
@@ -336,12 +362,12 @@ use an alias for a server that needs them:
 
 ```text
 # ~/.ssh/config
-Host bastion-m2
+Host devbox
   HostName 10.0.0.12
   User rafael
   Port 2222
   IdentityFile ~/.ssh/id_ed25519
-  ProxyJump bastion
+  ProxyJump jumphost
 ```
 
 **Planned:** `setup` will take the port, key and jump host as flags
@@ -392,7 +418,7 @@ The same profile and remote port are used again.
 Connect to the server as usual and start the agent:
 
 ```bash
-ssh bastion-m2
+ssh devbox
 codex
 ```
 
@@ -643,7 +669,7 @@ the Companion page and by `agentport_status`.
 3. **Remove the binary** from the server, if no other profile uses it:
 
    ```bash
-   ssh bastion-m2 'rm -f ~/.local/bin/agentport'
+   ssh devbox 'rm -f ~/.local/bin/agentport'
    ```
 
 4. **Remove the local files**: the profile in

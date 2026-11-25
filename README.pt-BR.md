@@ -17,6 +17,32 @@ conexão SSH que você já tem. Você decide o que é aberto e quando é fechado
 > abertos. A tabela de estado abaixo diz o que está pronto e o que está
 > planejado.
 
+**Conteúdo**
+
+- [O que é](#o-que-é)
+- [Estado](#estado)
+- [Como funciona](#como-funciona)
+- [Requisitos](#requisitos)
+- [Instalação](#instalação)
+  - [Script de instalação](#script-de-instalação)
+- [Configurar um servidor](#configurar-um-servidor)
+- [Início automático](#início-automático)
+- [Uso no dia a dia](#uso-no-dia-a-dia)
+- [O painel](#o-painel)
+- [Terminal](#terminal)
+- [Ferramentas MCP](#ferramentas-mcp)
+- [Várias sessões de agente](#várias-sessões-de-agente)
+- [Portas ocupadas no host](#portas-ocupadas-no-host)
+- [Modo standalone](#modo-standalone)
+- [Idiomas](#idiomas)
+- [Segurança](#segurança)
+- [Atualização](#atualização)
+- [Desinstalação](#desinstalação)
+- [Solução de problemas](#solução-de-problemas)
+- [Desenvolvimento](#desenvolvimento)
+- [Créditos](#créditos)
+- [Licença](#licença)
+
 ## O que é
 
 O agentport tem três partes:
@@ -284,12 +310,12 @@ que enviam aos servidores.
 O `agentport setup` configura um servidor em um só comando:
 
 ```bash
-agentport setup bastion-m2 --profile m2
-ssh bastion-m2
+agentport setup devbox --profile m2
+ssh devbox
 codex
 ```
 
-Aqui, `bastion-m2` é um alias SSH do seu `~/.ssh/config`. Depois, peça ao agente
+Aqui, `devbox` é um alias SSH do seu `~/.ssh/config`. Depois, peça ao agente
 que verifique o link: "Verifique o status do agentport." Ele chama
 `agentport_status`.
 
@@ -343,12 +369,12 @@ alias para um servidor que precise deles:
 
 ```text
 # ~/.ssh/config
-Host bastion-m2
+Host devbox
   HostName 10.0.0.12
   User rafael
   Port 2222
   IdentityFile ~/.ssh/id_ed25519
-  ProxyJump bastion
+  ProxyJump jumphost
 ```
 
 **Planejado:** o `setup` vai receber a porta, a chave e o host de salto como
@@ -399,7 +425,7 @@ perfil e a mesma porta remota são usados de novo.
 Conecte-se ao servidor como de costume e inicie o agente:
 
 ```bash
-ssh bastion-m2
+ssh devbox
 codex
 ```
 
@@ -651,7 +677,7 @@ release mais novo aparece na página do Companion e em `agentport_status`.
 3. **Remova o binário** do servidor, se nenhum outro perfil o usar:
 
    ```bash
-   ssh bastion-m2 'rm -f ~/.local/bin/agentport'
+   ssh devbox 'rm -f ~/.local/bin/agentport'
    ```
 
 4. **Remova os arquivos locais**: o perfil em

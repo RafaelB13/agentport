@@ -40,11 +40,11 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 		return strings.Split(strings.TrimSpace(string(data)), "\n")
 	}
 
-	if err := runSetup([]string{"bastion-e2e", "--profile", "e2e", "--version", "v0.7.3", "--agent", "codex", "--no-start"}); err != nil {
+	if err := runSetup([]string{"devbox-e2e", "--profile", "e2e", "--version", "v0.7.3", "--agent", "codex", "--no-start"}); err != nil {
 		t.Fatal(err)
 	}
 	profile, err := companion.LoadProfile("e2e")
-	if err != nil || profile.Destination != "bastion-e2e" || profile.Token == "" {
+	if err != nil || profile.Destination != "devbox-e2e" || profile.Token == "" {
 		t.Fatalf("saved profile = %+v, %v", profile, err)
 	}
 	if downloads != 1 {
@@ -64,7 +64,7 @@ func TestServerLifecycleSetupConnectUninstall(t *testing.T) {
 	}
 
 	// Running setup again pairs afresh but has nothing to install.
-	if err := runSetup([]string{"bastion-e2e", "--profile", "e2e", "--version", "v0.7.3", "--agent", "codex", "--no-start"}); err != nil {
+	if err := runSetup([]string{"devbox-e2e", "--profile", "e2e", "--version", "v0.7.3", "--agent", "codex", "--no-start"}); err != nil {
 		t.Fatal(err)
 	}
 	if downloads != 1 {
@@ -106,8 +106,8 @@ func TestSetupWithAnUnverifiableReleaseInstallsNothingAndSavesNoProfile(t *testi
 	remote.FetchRelease = func(context.Context, upgrader.Options) (upgrader.Fetched, error) {
 		return upgrader.Fetched{}, os.ErrPermission
 	}
-	err := runSetup([]string{"bastion-e2e", "--profile", "refused", "--version", "v0.7.3", "--agent", "codex", "--no-start"})
-	if err == nil || !strings.Contains(err.Error(), "install agentport on bastion-e2e") {
+	err := runSetup([]string{"devbox-e2e", "--profile", "refused", "--version", "v0.7.3", "--agent", "codex", "--no-start"})
+	if err == nil || !strings.Contains(err.Error(), "install agentport on devbox-e2e") {
 		t.Fatalf("err = %v, want the install failure", err)
 	}
 	if _, statErr := os.Stat(server.Path("agentport")); statErr == nil {

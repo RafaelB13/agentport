@@ -16,7 +16,7 @@ import (
 )
 
 func TestRemotePreflightPassesTheWholeCheckAsOneRemoteCommand(t *testing.T) {
-	command := remotePreflightCommand("bastion-m2", "codex")
+	command := remotePreflightCommand("devbox", "codex")
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
@@ -26,7 +26,7 @@ func TestRemotePreflightPassesTheWholeCheckAsOneRemoteCommand(t *testing.T) {
 }
 
 func TestRemoteSupportedAgentsChecksOnlyBuiltInHarnesses(t *testing.T) {
-	command := remoteSupportedAgentsCommand("bastion-m2")
+	command := remoteSupportedAgentsCommand("devbox")
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
@@ -44,7 +44,7 @@ func TestRemoteSupportedAgentsScriptSucceedsWhenSomeHarnessesAreAbsent(t *testin
 }
 
 func TestRemoteLoginCommandEscapesArgumentsInsideLoginShell(t *testing.T) {
-	command := remoteLoginCommand("bastion-m2", "codex", "mcp", "add", "agentport-m2", "--env", "TOKEN=has'aquote")
+	command := remoteLoginCommand("devbox", "codex", "mcp", "add", "agentport-m2", "--env", "TOKEN=has'aquote")
 	if len(command.Args) != 3 {
 		t.Fatalf("ssh arguments = %#v; expected destination plus one remote command", command.Args)
 	}
@@ -233,11 +233,11 @@ func TestInstallVerifiedRefusesUnverifiedAndDamagedBinaries(t *testing.T) {
 
 func TestManagedSSHCommandsUseDedicatedIdentityWithoutPrompts(t *testing.T) {
 	identity := filepath.Join(t.TempDir(), "agentport-key")
-	install := uploadCommand(context.Background(), "bastion-m2", identity, strings.Repeat("0", 64))
-	login := remoteLoginCommandWithIdentity("bastion-m2", identity, "true")
-	for _, command := range []*exec.Cmd{install, login, sshKeyCheckCommand("bastion-m2", identity)} {
+	install := uploadCommand(context.Background(), "devbox", identity, strings.Repeat("0", 64))
+	login := remoteLoginCommandWithIdentity("devbox", identity, "true")
+	for _, command := range []*exec.Cmd{install, login, sshKeyCheckCommand("devbox", identity)} {
 		arguments := strings.Join(command.Args, " ")
-		for _, required := range []string{"-i " + identity, "IdentitiesOnly=yes", "BatchMode=yes", "bastion-m2"} {
+		for _, required := range []string{"-i " + identity, "IdentitiesOnly=yes", "BatchMode=yes", "devbox"} {
 			if !strings.Contains(arguments, required) {
 				t.Fatalf("SSH command %q does not contain %q", arguments, required)
 			}
@@ -247,7 +247,7 @@ func TestManagedSSHCommandsUseDedicatedIdentityWithoutPrompts(t *testing.T) {
 
 func TestBootstrapSSHKeyCommandIsIdempotentAndLimitsPasswordPrompts(t *testing.T) {
 	key := "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAITest agentport:dev"
-	command := bootstrapSSHKeyCommand("bastion-m2", key)
+	command := bootstrapSSHKeyCommand("devbox", key)
 	arguments := strings.Join(command.Args, " ")
 	for _, required := range []string{"NumberOfPasswordPrompts=1", "grep -qxF", "authorized_keys", key} {
 		if !strings.Contains(arguments, required) {
@@ -266,7 +266,7 @@ func TestSSHAuthenticationFailureRecognition(t *testing.T) {
 			t.Fatalf("authentication failure %q was not recognized", output)
 		}
 	}
-	if sshAuthenticationFailure([]byte("ssh: connect to host bastion port 22: Connection refused")) {
+	if sshAuthenticationFailure([]byte("ssh: connect to host jumphost port 22: Connection refused")) {
 		t.Fatal("network failure must not trigger key bootstrap")
 	}
 }
@@ -324,9 +324,9 @@ func TestCheckVersionAcceptsCurrentAndRefusesOldOrUnreadableServers(t *testing.T
 }
 
 func TestVersionForProfileRunsAgentportVersionThroughALoginShell(t *testing.T) {
-	command := VersionForProfile(companion.Profile{Destination: "bastion-m2", SSHIdentityFile: "/keys/m2"})
+	command := VersionForProfile(companion.Profile{Destination: "devbox", SSHIdentityFile: "/keys/m2"})
 	arguments := strings.Join(command.Args, " ")
-	for _, want := range []string{"bastion-m2", "/keys/m2", "sh -lc", ".local/bin", "agentport version", versionMarker} {
+	for _, want := range []string{"devbox", "/keys/m2", "sh -lc", ".local/bin", "agentport version", versionMarker} {
 		if !strings.Contains(arguments, want) {
 			t.Errorf("version command %q lacks %q", arguments, want)
 		}
