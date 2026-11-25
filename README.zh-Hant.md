@@ -144,7 +144,7 @@ gh attestation verify "agentport_${VERSION}_linux_amd64.tar.gz" \
 
 不加 `--bundle` 的 `gh attestation verify` 會向 GitHub 查詢，並需要先執行 `gh auth login`。若要在不登入的情況下驗證，請加上 `--bundle attestation.jsonl`。
 
-**自動檢查。** 從 `v0.7.1-rc.1` 開始，安裝程式與 `agentport upgrade` 除了檢查 SHA-256，還會確認該檔案是由本儲存庫的發行工作流程，針對要安裝的標籤所產生的。若此檢查失敗，安裝會被拒絕。安裝腳本在安裝了 `gh` 時使用 `gh attestation verify`，否則改查 GitHub 的建置證明 API。`agentport upgrade` 使用 API。`v0.7.1-rc.1` 之前的發行版本沒有建置證明；它們只以 SHA-256 檢查安裝，安裝程式也會說明這一點。
+**自動檢查。** 從 `v0.1.0` 開始，安裝程式與 `agentport upgrade` 除了檢查 SHA-256，還會確認該檔案是由本儲存庫的發行工作流程，針對要安裝的標籤所產生的。若此檢查失敗，安裝會被拒絕。安裝腳本在安裝了 `gh` 時使用 `gh attestation verify`，否則改查 GitHub 的建置證明 API。`agentport upgrade` 使用 API。`v0.1.0` 之前的發行版本沒有建置證明；它們只以 SHA-256 檢查安裝，安裝程式也會說明這一點。
 
 若建置證明 API 無法使用或超過速率限制，安裝會被拒絕，而不是在沒有檢查的情況下繼續。若只想以 SHA-256 檢查安裝，請設定 `AGENTPORT_SKIP_ATTESTATION=1`。`agentport setup` 與 `agentport upgrade` 也會把同樣的設定套用到它們送往伺服器的二進位檔。
 

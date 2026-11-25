@@ -122,10 +122,18 @@ func TestReadmesHaveTheLanguageBar(t *testing.T) {
 // its fallback mention the first release that has one. Each README must name
 // it the same number of times, and the same version, so a drift is caught.
 func TestReadmesAgreeOnTheAttestationSettings(t *testing.T) {
-	const attested = "v0.7.1-rc.1"
-	versions := regexp.MustCompile(`v\d+\.\d+\.\d+-rc\.\d+`)
+	const attested = "v0.1.0"
+	versions := regexp.MustCompile(`v\d+\.\d+\.\d+(?:-rc\.\d+)?`)
 	for _, name := range append([]string{"SECURITY.md"}, readmes...) {
-		text := read(t, name)
+		// Blockquote lines are the project status banner, which names
+		// unrelated milestones, so they are not part of the attestation text.
+		var kept []string
+		for _, line := range strings.Split(read(t, name), "\n") {
+			if !strings.HasPrefix(line, ">") {
+				kept = append(kept, line)
+			}
+		}
+		text := strings.Join(kept, "\n")
 		for _, version := range versions.FindAllString(text, -1) {
 			if version != attested {
 				t.Errorf("%s names %s as a release with an attestation, want %s", name, version, attested)

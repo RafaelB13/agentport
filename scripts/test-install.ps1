@@ -155,8 +155,8 @@ Invoke-Scenario "explicit opt-out is accepted with only the SHA-256 check" $true
 Assert-That "  the opt-out was announced" ($script:lastMessages -like "*AGENTPORT_SKIP_ATTESTATION=1*")
 Assert-That "  neither gh nor the API is consulted after the opt-out" (($script:ghCalls.Count + $script:apiCalls.Count) -eq 0)
 
-$version = "v0.7.0"
-Invoke-Scenario "release before v0.7.1-rc.1 is accepted with a warning" $true { $script:apiMode = "404" }
+$version = "v0.0.9"
+Invoke-Scenario "release before v0.1.0 is accepted with a warning" $true { $script:apiMode = "404" }
 Assert-That "  the warning says it predates attestations" ($script:lastMessages -like "*predates build attestations*")
 
 $env:AGENTPORT_LANG = "pt-BR"
@@ -174,6 +174,12 @@ Assert-That "  the PATH message is English by default" ((Get-agentportMessage "a
 $env:AGENTPORT_LANG = "pt_BR.UTF-8"
 Assert-That "  the PATH message is Portuguese on request" ((Get-agentportMessage "added_to_path" @("C:\Tools")) -like "C:\Tools foi adicionado ao PATH*")
 Remove-Item Env:AGENTPORT_LANG
+
+# v0.1.0 is the first attested release: it must be verified, never skipped.
+$version = "v0.1.0"
+Invoke-Scenario "v0.1.0 without an attestation is refused" $false { $script:apiMode = "404"; $script:haveGh = $false }
+Assert-That "  v0.1.0 is not treated as predating attestations" (-not ($script:lastMessages -like "*predates build attestations*"))
+Invoke-Scenario "v0.1.0 with a matching attestation is accepted" $true { }
 
 Remove-Item -Recurse -Force $work
 Write-Output ""

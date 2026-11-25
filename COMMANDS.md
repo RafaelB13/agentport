@@ -135,7 +135,7 @@ agentport upgrade
 
 Baixa a release estável mais recente para a plataforma local, confere o
 SHA-256 publicado em `checksums.txt` e o atestado de build do GitHub (a partir
-da `v0.7.1-rc.1`; `AGENTPORT_SKIP_ATTESTATION=1` ignora essa checagem) e
+da `v0.1.0`; `AGENTPORT_SKIP_ATTESTATION=1` ignora essa checagem) e
 substitui o executável que está em uso.
 Também atualiza todos os destinos dos perfis salvos, usando a identidade SSH
 gerenciada pelo perfil quando houver. Para cada servidor, esta máquina baixa e

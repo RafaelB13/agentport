@@ -17,7 +17,7 @@ const (
 	// AttestationMinVersion is the first release published with a build
 	// attestation. Earlier releases predate it, so only their SHA-256 can be
 	// checked.
-	AttestationMinVersion = "v0.7.1-rc.1"
+	AttestationMinVersion = "v0.1.0"
 	// SkipAttestationEnv opts out of the attestation check, for example on a
 	// network that cannot reach api.github.com.
 	SkipAttestationEnv = "AGENTPORT_SKIP_ATTESTATION"

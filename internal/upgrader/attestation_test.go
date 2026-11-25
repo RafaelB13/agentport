@@ -164,7 +164,7 @@ func TestPrepareAcceptsAnyMatchingAttestationInTheList(t *testing.T) {
 }
 
 func TestPrepareSkipsTheCheckForReleasesThatPredateAttestations(t *testing.T) {
-	fixture := &releaseFixture{version: "v0.7.0", attestation: func(*testing.T, string) (int, []byte) { return http.StatusNotFound, nil }}
+	fixture := &releaseFixture{version: "v0.0.9", attestation: func(*testing.T, string) (int, []byte) { return http.StatusNotFound, nil }}
 	staged, err := fixture.prepare(t, Options{})
 	if err != nil {
 		t.Fatal(err)
@@ -187,7 +187,7 @@ func TestPrepareHonoursTheExplicitOptOut(t *testing.T) {
 
 func TestAttestationRequiredFromTheFirstAttestedRelease(t *testing.T) {
 	for version, want := range map[string]bool{
-		"v0.6.0": false, "v0.7.0": false, "v0.7.1-rc.1": true, "v0.7.1": true, "v0.8.0": true, "v1.0.0": true, "not-a-version": true,
+		"v0.0.9": false, "v0.1.0": true, "v0.6.0": true, "v0.7.0": true, "v0.7.1-rc.1": true, "v0.7.1": true, "v0.8.0": true, "v1.0.0": true, "not-a-version": true,
 	} {
 		if got := attestationRequired(version); got != want {
 			t.Errorf("attestationRequired(%q) = %v, want %v", version, got, want)

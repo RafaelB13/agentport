@@ -211,15 +211,16 @@ run_install "explicit opt-out installs with only the SHA-256 check" 0 API_STATUS
 expect "  the opt-out was announced" grep -q 'AGENTPORT_SKIP_ATTESTATION=1' "$work/out.log"
 if api_was_queried; then fail "  the API is not consulted after the opt-out"; else pass "  the API is not consulted after the opt-out"; fi
 
-# A release that predates attestations cannot have one.
-version="v0.7.0"
+# A release that predates attestations cannot have one. Agentport's first
+# release, v0.1.0, is attested, so only versions below it are exempt.
+version="v0.0.9"
 asset="agentport_${version}_${os}_${arch}.tar.gz"
 mkdir -p "$work/release/agentport_${version}_${os}_${arch}"
 cp "$work/release/agentport_v0.7.1_${os}_${arch}/agentport" "$work/release/agentport_${version}_${os}_${arch}/agentport"
 tar -C "$work/release" -czf "$work/archive.tar.gz" "agentport_${version}_${os}_${arch}"
 if command -v sha256sum >/dev/null 2>&1; then digest="$(sha256sum "$work/archive.tar.gz" | awk '{ print $1 }')"; else digest="$(shasum -a 256 "$work/archive.tar.gz" | awk '{ print $1 }')"; fi
 printf '%s  %s\n' "$digest" "$asset" >"$work/checksums.txt"
-run_install "release before v0.7.1-rc.1 installs with a warning" 0 API_STATUS=404
+run_install "release before v0.1.0 installs with a warning" 0 API_STATUS=404
 expect "  the warning says it predates attestations" grep -q 'predates build attestations' "$work/out.log"
 
 # The language is chosen by AGENTPORT_LANG alone: Portuguese only when asked,
@@ -232,6 +233,22 @@ run_install "an unsupported language is English" 0 API_STATUS=404 AGENTPORT_LANG
 expect "  the system locale is not consulted" grep -q 'predates build attestations' "$work/out.log"
 expect "  the status lines are English" grep -q 'Downloading agentport' "$work/out.log"
 expect "  the PATH instruction is English" grep -q 'to PATH, then open a new terminal' "$work/out.log"
+
+# v0.1.0 is the first attested release: it must be verified, never skipped.
+version="v0.1.0"
+asset="agentport_${version}_${os}_${arch}.tar.gz"
+mkdir -p "$work/release/agentport_${version}_${os}_${arch}"
+printf '#!/bin/sh\necho %s\n' "$version" >"$work/release/agentport_${version}_${os}_${arch}/agentport"
+chmod +x "$work/release/agentport_${version}_${os}_${arch}/agentport"
+tar -C "$work/release" -czf "$work/archive.tar.gz" "agentport_${version}_${os}_${arch}"
+if command -v sha256sum >/dev/null 2>&1; then digest="$(sha256sum "$work/archive.tar.gz" | awk '{ print $1 }')"; else digest="$(shasum -a 256 "$work/archive.tar.gz" | awk '{ print $1 }')"; fi
+printf '%s  %s\n' "$digest" "$asset" >"$work/checksums.txt"
+run_install "v0.1.0 without an attestation: refuses, no warning" 1 API_STATUS=404 GH_SUPPORTS=0
+expect "  the API was queried" api_was_queried
+if grep -q 'predates build attestations' "$work/out.log"; then fail "  v0.1.0 is not treated as predating attestations"; else pass "  v0.1.0 is not treated as predating attestations"; fi
+good_api
+run_install "v0.1.0 with a matching attestation: installs" 0 GH_SUPPORTS=0
+expect "  the binary was installed" installed
 
 # A checksum mismatch is still fatal, before any attestation is consulted.
 printf '%s  %s\n' "0000000000000000000000000000000000000000000000000000000000000000" "$asset" >"$work/checksums.txt"
