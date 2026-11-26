@@ -242,5 +242,7 @@
   "Close terminal": "Fechar terminal",
   "The server terminal is not available on this computer.": "O terminal do servidor não está disponível neste computador.",
   "The server terminal could not start. Check that the server is connected.": "O terminal do servidor não pôde iniciar. Verifique se o servidor está conectado.",
-  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "Abre um shell no servidor conectado. Tudo o que você digitar é executado ali. Ele termina quando você fecha o terminal ou para o Companion."
+  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "Abre um shell no servidor conectado. Tudo o que você digitar é executado ali. Ele termina quando você fecha o terminal ou para o Companion.",
+  "Open link": "Abrir",
+  "Open port": "Abrir porta"
 }
