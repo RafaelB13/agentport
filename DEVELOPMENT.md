@@ -17,6 +17,12 @@ go vet ./...
 
 O binário local `./agentport` e a pasta `plans/` são ignorados pelo Git.
 
+O painel web do Companion é um app React em `web/`, compilado para
+`internal/companion/ui/` e versionado, então o build Go não precisa de Node.
+Para mudar o painel, use Node 24 e siga `web/README.md` (`npm ci && npm run
+build` dentro de `web/`, e commit também do resultado em
+`internal/companion/ui/`).
+
 A versão de desenvolvimento vive em `internal/buildinfo/buildinfo.go`. As
 releases usam a tag `vX.Y.Z` para sobrescrevê-la no binário e nos metadados MCP;
 para iniciar o próximo ciclo, altere apenas esse arquivo.
@@ -122,8 +128,9 @@ chave, e o que faltar no catálogo aparece em inglês.
   `i18n.T("English text %s", arg)`, com um **literal** como primeiro argumento. Os
   comandos e seus textos de ajuda ficam na tabela de `cmd/agentport/commands.go`,
   que também é de onde o `main` despacha.
-- **Página do Companion**: `t('English text')` no `app.js` e `{{t:English text}}`
-  no `index.html`. O servidor envia à página só as traduções que o script usa.
+- **Página do Companion**: `t('English text')`, com a chave literal entre aspas
+  simples, no app React de `web/src`; os catálogos ficam em
+  `internal/companion/ui/assets/i18n/` e o servidor os embute na página.
 - **Instaladores**: as tabelas de mensagens no início de `scripts/install.sh` e de
   `scripts/install.ps1`, escolhidas por `AGENTPORT_LANG`.
 - **Erros técnicos** ficam em inglês, sem tradução.

@@ -19,6 +19,10 @@ import (
 	"github.com/rafaelb13/agentport/internal/i18n"
 )
 
+// The panel is built from web/ (npm run build) into ui/: index.html and the
+// bundle under ui/assets, next to the catalogs (ui/assets/i18n) and brand marks
+// that the build does not own. The build is committed, so Go builds need no Node.
+//
 //go:embed ui/index.html ui/assets/*
 var dashboardFiles embed.FS
 
@@ -290,12 +294,13 @@ func panelRequestAllowed(r *http.Request) bool {
 
 // panelCSP lets the page run only its own script and no network other than this
 // Companion. script-src stays 'self' with no 'unsafe-inline' and no 'unsafe-eval'.
-// style-src allows 'unsafe-inline' because the vendored xterm.js injects a <style>
-// element and style attributes to measure and lay out the server terminal; without
-// it the terminal renders with a wrong character size. That is safe here: a style
-// cannot run script under script-src 'self', the panel loads no third-party
-// stylesheets, and img-src, connect-src and form-action still confine what CSS
-// could reach.
+// style-src allows 'unsafe-inline' because the bundled xterm.js injects a <style>
+// element and style attributes to measure and lay out the server terminal (without
+// it the terminal renders with a wrong character size), and the panel's menus and
+// dialogs (Radix UI) position themselves with style attributes. That is safe here:
+// a style cannot run script under script-src 'self', the panel loads no
+// third-party stylesheets, and img-src, connect-src and form-action still confine
+// what CSS could reach.
 const panelCSP = "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; object-src 'none'; frame-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'"
 
 func assetContentType(name string) string {
@@ -308,6 +313,8 @@ func assetContentType(name string) string {
 		return "application/json; charset=utf-8"
 	case strings.HasSuffix(name, ".svg"):
 		return "image/svg+xml"
+	case strings.HasSuffix(name, ".txt"):
+		return "text/plain; charset=utf-8"
 	}
 	return "application/octet-stream"
 }

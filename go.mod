@@ -4,6 +4,9 @@ go 1.27.0
 
 toolchain go1.27.4
 
+// The panel's npm dependencies (web/) ship Go files of their own.
+ignore ./web/node_modules
+
 require (
 	github.com/coder/websocket v1.8.14
 	github.com/creack/pty v1.1.24

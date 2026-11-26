@@ -116,6 +116,45 @@ jobs:
       - name: Staticcheck
         run: go run honnef.co/go/tools/cmd/staticcheck@v0.8.2 ./...
 
+  panel:
+    name: Panel build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build the panel
+        working-directory: web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Lint and typecheck
+        working-directory: web
+        run: |
+          npm run lint
+          npm run typecheck
+
+      # The build is committed so that Go builds need no Node; a fresh build
+      # must reproduce it byte for byte.
+      - name: Committed build matches the source
+        run: |
+          git diff --exit-code internal/companion/ui
+          untracked=$(git status --porcelain --untracked-files=all internal/companion/ui)
+          if [ -n "$untracked" ]; then
+            echo "The panel build wrote files that are not committed:" >&2
+            echo "$untracked" >&2
+            exit 1
+          fi
+
   installers:
     name: Installers
     runs-on: ${{ matrix.os }}

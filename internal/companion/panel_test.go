@@ -5,11 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
+	"path"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -86,6 +91,34 @@ func fetchText(t *testing.T, url string) (*http.Response, string) {
 // style may reference only this Companion, apart from the project's GitHub link.
 var externalURL = regexp.MustCompile(`https?://[^\s"'<>)]+`)
 
+// panelCodeFiles lists the panel's embedded markup, script and style: the page
+// and everything the web/ build wrote under ui/assets.
+func panelCodeFiles(t *testing.T) []string {
+	t.Helper()
+	var names []string
+	err := fs.WalkDir(dashboardFiles, "ui", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		switch path.Ext(name) {
+		case ".html", ".js", ".css":
+			if !entry.IsDir() {
+				names = append(names, strings.TrimPrefix(name, "ui/"))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"index.html", "assets/app.js", "assets/app.css"} {
+		if !slices.Contains(names, want) {
+			t.Fatalf("the built panel lacks %s (run npm run build in web/): %v", want, names)
+		}
+	}
+	return names
+}
+
 func TestPanelPageLoadsWithoutExternalURLsAndSetsCSP(t *testing.T) {
 	_, base := startPanel(t, &recordingPorts{}, nil)
 	response, page := fetchText(t, base)
@@ -117,16 +150,21 @@ func TestPanelPageLoadsWithoutExternalURLsAndSetsCSP(t *testing.T) {
 	if style := directives["style-src"]; style != "'self' 'unsafe-inline'" {
 		t.Fatalf("style-src = %q, want 'self' 'unsafe-inline' (xterm.js needs inline styles)", style)
 	}
-	for _, name := range []string{"index.html", "assets/app.js", "assets/styles.css"} {
+	// Every file of the bundle is checked as the Companion serves it.
+	for _, name := range panelCodeFiles(t) {
 		var body string
 		if name == "index.html" {
 			body = page
 		} else {
-			_, body = fetchText(t, base+name)
+			served, text := fetchText(t, base+name)
+			if served.StatusCode != http.StatusOK {
+				t.Fatalf("%s status = %d", name, served.StatusCode)
+			}
+			body = text
 		}
-		for _, url := range externalURL.FindAllString(body, -1) {
-			if !strings.HasPrefix(url, "https://github.com/rafaelb13/agentport") {
-				t.Errorf("%s refers to %s, which is outside this Companion", name, url)
+		for _, link := range externalURL.FindAllString(body, -1) {
+			if !strings.HasPrefix(link, "https://github.com/rafaelb13/agentport") {
+				t.Errorf("%s refers to %s, which is outside this Companion", name, link)
 			}
 		}
 		if strings.Contains(body, "@import") || strings.Contains(body, "fonts.googleapis") {
@@ -135,6 +173,44 @@ func TestPanelPageLoadsWithoutExternalURLsAndSetsCSP(t *testing.T) {
 	}
 	if !strings.Contains(page, "/assets/app.js") {
 		t.Fatal("the page does not load its script from this Companion")
+	}
+}
+
+// The page names its assets with the base the Companion writes in ({{BASE}}),
+// so they load under the view prefix whatever the page's own URL looks like;
+// the script reads the same base from the page to reach the API.
+func TestPanelPageLoadsItsAssetsUnderTheViewPrefix(t *testing.T) {
+	control, base := startPanel(t, &recordingPorts{}, nil)
+	_, page := fetchText(t, base)
+	prefix := "/view/" + control.State.ViewToken
+	for _, placeholder := range []string{"{{BASE}}", "{{LANG}}", "{{I18N}}"} {
+		if strings.Contains(page, placeholder) {
+			t.Fatalf("the served page still holds %s", placeholder)
+		}
+	}
+	if !strings.Contains(page, `<meta name="agentport-base" content="`+prefix+`"`) {
+		t.Fatal("the page does not carry its base path")
+	}
+	refs := regexp.MustCompile(`<(?:script|link)\b[^>]*\b(?:src|href)="([^"]+)"`).FindAllStringSubmatch(page, -1)
+	if len(refs) < 3 {
+		t.Fatalf("expected the icon, the script and the stylesheet, got %v", refs)
+	}
+	for _, ref := range refs {
+		if !strings.HasPrefix(ref[1], prefix+"/assets/") {
+			t.Errorf("%s does not load from %s/assets/", ref[1], prefix)
+			continue
+		}
+		response, body := fetchText(t, "http://"+control.State.Address+ref[1])
+		if response.StatusCode != http.StatusOK || body == "" {
+			t.Errorf("%s = %d (%d bytes)", ref[1], response.StatusCode, len(body))
+		}
+	}
+	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(script), "agentport-base") {
+		t.Fatal("the script does not read the base path from the page")
 	}
 }
 
@@ -149,26 +225,79 @@ func TestPanelPageSendsNoStoreAndStaysOnLoopbackAddress(t *testing.T) {
 	}
 }
 
-// The page's CSP forbids inline style attributes, so the markup must not use any.
-func TestPanelMarkupHasNoInlineStyles(t *testing.T) {
+// The page's CSP forbids inline scripts, so the markup may hold only scripts
+// loaded from the Companion and the JSON block of catalogs (data, never run).
+func TestPanelMarkupHasNoInlineStylesOrScripts(t *testing.T) {
 	page, err := dashboardFiles.ReadFile("ui/index.html")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if strings.Contains(string(page), " style=") {
-		t.Fatal("index.html has an inline style attribute, which the panel CSP blocks")
+		t.Fatal("index.html has an inline style attribute")
+	}
+	for _, tag := range regexp.MustCompile(`<script\b[^>]*>`).FindAllString(string(page), -1) {
+		if !strings.Contains(tag, ` src="`) && !strings.Contains(tag, `type="application/json"`) {
+			t.Errorf("index.html has an inline script %s, which the panel CSP blocks", tag)
+		}
 	}
 }
 
-func TestPanelScriptNeverBuildsMarkupFromStrings(t *testing.T) {
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
+// The panel runs under script-src 'self' without 'unsafe-eval': no part of the
+// bundle may turn a string into code.
+func TestPanelBundleNeverEvaluatesStrings(t *testing.T) {
+	for _, name := range panelCodeFiles(t) {
+		if path.Ext(name) != ".js" {
+			continue
+		}
+		script, err := dashboardFiles.ReadFile("ui/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, forbidden := range []string{"eval(", "new Function("} {
+			if strings.Contains(string(script), forbidden) {
+				t.Errorf("%s uses %s, which the panel CSP blocks", name, forbidden)
+			}
+		}
+	}
+}
+
+// panelSource walks the panel's source in web/src, which the build bundles.
+func panelSource(t *testing.T, visit func(name, text string)) {
+	t.Helper()
+	root := filepath.Join("..", "..", "web", "src")
+	err := filepath.WalkDir(root, func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		switch filepath.Ext(name) {
+		case ".ts", ".tsx", ".js":
+			data, err := os.ReadFile(name)
+			if err != nil {
+				return err
+			}
+			visit(filepath.ToSlash(name), string(data))
+		}
+		return nil
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, forbidden := range []string{"innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "eval(", "new Function("} {
-		if strings.Contains(string(script), forbidden) {
-			t.Errorf("the panel script uses %s; build the DOM with el() and text nodes", forbidden)
+}
+
+// The panel builds its DOM with React elements, which set every value as text;
+// nothing in its source writes markup from a string or runs a string as code.
+func TestPanelSourceNeverBuildsMarkupFromStrings(t *testing.T) {
+	files := 0
+	panelSource(t, func(name, text string) {
+		files++
+		for _, forbidden := range []string{"innerHTML", "outerHTML", "insertAdjacentHTML", "document.write", "dangerouslySetInnerHTML", "eval(", "new Function("} {
+			if strings.Contains(text, forbidden) {
+				t.Errorf("%s uses %s; build the DOM with React elements", name, forbidden)
+			}
 		}
+	})
+	if files < 10 {
+		t.Fatalf("only %d source files found in web/src", files)
 	}
 }
 
@@ -177,41 +306,42 @@ func TestPanelScriptParsesWithNode(t *testing.T) {
 	if err != nil {
 		t.Skip("node is not installed")
 	}
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	path := filepath.Join(t.TempDir(), "app.js")
-	if err := os.WriteFile(path, script, 0600); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := exec.Command(node, "--check", path).CombinedOutput(); err != nil {
-		t.Fatalf("node --check: %v\n%s", err, out)
+	for _, name := range panelCodeFiles(t) {
+		if path.Ext(name) != ".js" {
+			continue
+		}
+		script, err := dashboardFiles.ReadFile("ui/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		// The bundle is made of ES modules.
+		file := filepath.Join(t.TempDir(), strings.TrimSuffix(path.Base(name), ".js")+".mjs")
+		if err := os.WriteFile(file, script, 0600); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := exec.Command(node, "--check", file).CombinedOutput(); err != nil {
+			t.Fatalf("node --check %s: %v\n%s", name, err, out)
+		}
 	}
 }
 
 // pickLanguage must follow the rule: saved choice, then navigator.languages
 // (zh-TW/HK/MO/Hant to Traditional, zh-CN to English), then English. The
-// function runs in Node with the browser's navigator and storage replaced.
+// panel's own module (plain JavaScript) runs in Node with the inputs given.
 func TestPanelLanguagePickingRuleRunsInNode(t *testing.T) {
 	node, err := exec.LookPath("node")
 	if err != nil {
 		t.Skip("node is not installed")
 	}
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
+	module, err := filepath.Abs(filepath.Join("..", "..", "web", "src", "lib", "language.js"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	langs := regexp.MustCompile(`const LANGS = \[[^\]]*\];`).Find(script)
-	pick := regexp.MustCompile(`(?s)function pickLanguage\(\) \{.*?\n\}`).Find(script)
-	if langs == nil || pick == nil {
-		t.Fatal("pickLanguage not found in the script")
+	if _, err := os.Stat(module); err != nil {
+		t.Fatal(err)
 	}
-	program := "function withBrowser(languages, saved) {\n" +
-		"const navigator = {languages};\n" +
-		"const store = () => saved;\n" +
-		string(langs) + "\n" + string(pick) + "\n" +
-		"return pickLanguage();\n}\n" +
+	moduleURL := (&url.URL{Scheme: "file", Path: "/" + strings.TrimPrefix(filepath.ToSlash(module), "/")}).String()
+	program := "import { pickLanguage } from " + strconv.Quote(moduleURL) + ";\n" +
 		`const cases = [
   [null, ['pt-BR'], 'pt-BR'],
   ['es', ['pt-BR'], 'es'],
@@ -223,46 +353,43 @@ func TestPanelLanguagePickingRuleRunsInNode(t *testing.T) {
   ['pt-BR', ['zh-TW'], 'pt-BR'],
   [null, ['en-US'], 'en'],
   ['bogus', ['es-MX'], 'es'],
+  [null, [], 'en'],
 ];
 let bad = [];
 for (const [saved, langs, want] of cases) {
-  const got = withBrowser(langs, saved);
+  const got = pickLanguage(saved, langs);
   if (got !== want) bad.push(JSON.stringify([saved, langs, want, got]));
 }
 if (bad.length) { console.error(bad.join('\n')); process.exit(1); }
 `
-	path := filepath.Join(t.TempDir(), "lang.js")
-	if err := os.WriteFile(path, []byte(program), 0600); err != nil {
+	file := filepath.Join(t.TempDir(), "lang.mjs")
+	if err := os.WriteFile(file, []byte(program), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if out, err := exec.Command(node, path).CombinedOutput(); err != nil {
+	if out, err := exec.Command(node, file).CombinedOutput(); err != nil {
 		t.Fatalf("language rule: %v\n%s", err, out)
 	}
 }
 
 var (
-	// Keys the script looks up: t('...') and the data-i18n attributes of the page.
-	scriptKey   = regexp.MustCompile(`\bt\(\s*'((?:[^'\\]|\\.)*)'`)
-	pageKey     = regexp.MustCompile(`data-i18n(?:-title|-aria|-placeholder)?="([^"]*)"`)
+	// Keys the source looks up: t('...') with a literal English key.
+	scriptKey = regexp.MustCompile(`\bt\(\s*'((?:[^'\\]|\\.)*)'`)
+	// A t( call whose key is not a single-quoted literal would hide its key
+	// from this test.
+	dynamicKey  = regexp.MustCompile(`\bt\(\s*[^'\s]`)
 	placeholder = regexp.MustCompile(`\{[a-z]+\}`)
 )
 
 func TestPanelCatalogsMatchTheEnglishKeys(t *testing.T) {
-	script, err := dashboardFiles.ReadFile("ui/assets/app.js")
-	if err != nil {
-		t.Fatal(err)
-	}
-	page, err := dashboardFiles.ReadFile("ui/index.html")
-	if err != nil {
-		t.Fatal(err)
-	}
 	english := map[string]bool{}
-	for _, m := range scriptKey.FindAllStringSubmatch(string(script), -1) {
-		english[strings.ReplaceAll(m[1], `\'`, `'`)] = true
-	}
-	for _, m := range pageKey.FindAllStringSubmatch(string(page), -1) {
-		english[m[1]] = true
-	}
+	panelSource(t, func(name, text string) {
+		for _, m := range scriptKey.FindAllStringSubmatch(text, -1) {
+			english[strings.ReplaceAll(m[1], `\'`, `'`)] = true
+		}
+		for _, m := range dynamicKey.FindAllString(text, -1) {
+			t.Errorf("%s calls %s…: pass t a literal key in single quotes", name, m)
+		}
+	})
 	if len(english) < 100 {
 		t.Fatalf("only %d English keys found; the extraction is broken", len(english))
 	}

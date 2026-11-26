@@ -77,8 +77,11 @@ func TestControlServerServesDashboardBrandAssets(t *testing.T) {
 	}{
 		{"assets/agentport-mark.svg", "image/svg+xml"},
 		{"assets/favicon.svg", "image/svg+xml"},
-		{"assets/styles.css", "text/css; charset=utf-8"},
+		{"assets/app.css", "text/css; charset=utf-8"},
 		{"assets/app.js", "text/javascript; charset=utf-8"},
+		{"assets/xterm-screen.js", "text/javascript; charset=utf-8"},
+		{"assets/i18n/pt-BR.json", "application/json; charset=utf-8"},
+		{"assets/third-party-licenses.txt", "text/plain; charset=utf-8"},
 	} {
 		response, err := http.Get(ViewURL(control.State) + asset.path)
 		if err != nil {
