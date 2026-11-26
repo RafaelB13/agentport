@@ -242,5 +242,7 @@
   "Close terminal": "關閉終端機",
   "The server terminal is not available on this computer.": "這台電腦無法使用伺服器終端機。",
   "The server terminal could not start. Check that the server is connected.": "伺服器終端機無法啟動。請確認伺服器已連線。",
-  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "在已連線的伺服器上開啟 shell。你輸入的內容都會在那裡執行。關閉終端機或停止 Companion 後，工作階段即結束。"
+  "Opens a shell on the connected server. Anything you type runs there. It ends when you close it or stop the Companion.": "在已連線的伺服器上開啟 shell。你輸入的內容都會在那裡執行。關閉終端機或停止 Companion 後，工作階段即結束。",
+  "Open link": "開啟",
+  "Open port": "開啟連接埠"
 }

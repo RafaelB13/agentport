@@ -63,12 +63,19 @@ function applyStatic(root) {
 
 // --- DOM helpers --------------------------------------------------------------
 
+// SVG elements must be created in the SVG namespace: one made with
+// document.createElement lands in the HTML namespace and never renders. The
+// namespace is read from the page's own inline logo, so the script names no URL
+// (see TestPanelPageLoadsWithoutExternalURLsAndSetsCSP).
+const SVG_NS = document.querySelector('.logo svg').namespaceURI;
+const SVG_TAGS = new Set(['svg', 'path', 'circle', 'rect', 'g', 'line', 'polyline', 'polygon']);
+
 // el builds an element. Every string child becomes a text node.
 function el(tag, props, ...children) {
-  const node = document.createElement(tag);
+  const node = SVG_TAGS.has(tag) ? document.createElementNS(SVG_NS, tag) : document.createElement(tag);
   for (const [key, value] of Object.entries(props || {})) {
     if (value === undefined || value === null || value === false) continue;
-    if (key === 'class') node.className = value;
+    if (key === 'class') node.setAttribute('class', value);
     else if (key === 'text') node.textContent = String(value);
     else if (key.startsWith('on') && typeof value === 'function') node.addEventListener(key.slice(2), value);
     else if (key === 'dataset') Object.assign(node.dataset, value);
@@ -85,7 +92,45 @@ const arrow = () => el('span', {class: 'arrow'}, '→');
 function route(remote, local, extraClass) {
   return el('div', {class: 'r' + (extraClass ? ' ' + extraClass : '')}, ':' + remote, arrow(), el('span', {class: 'to'}, 'localhost:' + local));
 }
-const ICON_X = el('svg', {width: 12, height: 12, viewBox: '0 0 16 16', 'aria-hidden': 'true'}, el('path', {d: 'm4 4 8 8M12 4l-8 8', stroke: 'currentColor', 'stroke-width': 1.6, 'stroke-linecap': 'round', fill: 'none'}));
+// ICONS are stroked paths on a 24×24 grid. icon() builds a new node on every
+// call, because a DOM node can sit in only one place at a time.
+const ICONS = {
+  x: 'M6 6l12 12M18 6 6 18',
+  external: 'M14 4h6v6M20 4l-9 9M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4',
+  pin: 'M12 17v5M8 3h8M9 3v6.5L6 13v2h12v-2l-3-3.5V3',
+  edit: 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4',
+  chev: 'm6 9 6 6 6-6',
+  sun: 'M12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4',
+  moon: 'M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z',
+  auto: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18ZM12 3v18',
+  inbox: 'M3 13h5l1.5 3h5L16 13h5M5.5 5h13L21 13v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-5l2.5-8Z',
+};
+function icon(name, size) {
+  const s = size || 16;
+  const svg = el('svg', {class: 'ico', width: s, height: s, viewBox: '0 0 24 24', 'aria-hidden': 'true', fill: 'none', stroke: 'currentColor', 'stroke-width': 2, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'},
+    el('path', {d: ICONS[name]}));
+  if (name === 'auto') svg.append(el('path', {d: 'M12 3a9 9 0 0 1 0 18Z', fill: 'currentColor', stroke: 'none'}));
+  return svg;
+}
+const xIcon = () => icon('x', 16);
+
+// MOTION is false when the visitor asks for reduced motion: rows then leave at once.
+const MOTION = !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+// leave plays the exit animation of rows before they are removed.
+function leave(nodes) {
+  const list = [...nodes].filter(Boolean);
+  if (!MOTION || !list.length) return Promise.resolve();
+  list.forEach(n => n.classList.add('leaving'));
+  return new Promise(resolve => setTimeout(resolve, 180));
+}
+function openRows(remotes) {
+  const wanted = new Set(remotes.map(Number));
+  return [...document.querySelectorAll('#p-open .row-wrap')].filter(n => wanted.has(Number(n.dataset.port)));
+}
+// SEEN maps the open ports on screen to when they first appeared, so only new
+// rows play the enter animation, and a re-render during it continues it.
+let SEEN = new Map();
+const ENTER_MS = 220;
 
 function fmtDuration(seconds) {
   const s = Math.max(0, Math.round(Number(seconds) || 0));
@@ -490,12 +535,17 @@ function renderOpen() {
   box.replaceChildren();
   renderOpenTools();
   const rows = visibleForwards();
+  const now = Date.now();
+  const seen = SEEN;
+  SEEN = new Map(rows.map(f => [f.remote_port, seen.has(f.remote_port) ? seen.get(f.remote_port) : now]));
+  const entering = f => now - SEEN.get(f.remote_port);
   if (!rows.length) {
-    box.append(el('div', {class: 'list-empty'}, S.forwards.length ? t('No port matches this session filter.') : (S.offline ? t('The Companion is not answering.') : t('No ports open. The agent asks for a port, or you open one with /.'))));
+    box.append(el('div', {class: 'list-empty'}, el('span', {class: 'empty-ico'}, icon('inbox', 28)),
+      el('span', null, S.forwards.length ? t('No port matches this session filter.') : (S.offline ? t('The Companion is not answering.') : t('No ports open. The agent asks for a port, or you open one with /.')))));
     return;
   }
   if (S.groupBy === 'list') {
-    for (const f of rows) box.append(forwardRow(f));
+    for (const f of rows) box.append(forwardRow(f, entering(f)));
     return;
   }
   const groups = new Map();
@@ -516,12 +566,12 @@ function renderOpen() {
     const toggle = el('button', {class: 'gtog', type: 'button', 'aria-expanded': String(!collapsed), onclick: () => {
       collapsed ? S.collapsed.delete(key) : S.collapsed.add(key);
       renderOpen();
-    }}, el('span', {class: 'chev', 'aria-hidden': 'true'}, '▾'), el('b', null, key));
+    }}, el('span', {class: 'chev', 'aria-hidden': 'true'}, icon('chev', 16)), el('b', null, key));
     box.append(el('div', {class: 'ghead' + (collapsed ? ' col' : '')},
       check, toggle,
-      el('span', {class: 'gmeta'}, el('span', null, t('{n} ports', {n: items.length})), el('span', null, items.some(f => f.pinned) ? t('pinned') : null)),
+      el('span', {class: 'gmeta'}, el('span', null, items.length === 1 ? t('1 port') : t('{n} ports', {n: items.length})), el('span', null, items.some(f => f.pinned) ? t('pinned') : null)),
       el('button', {class: 'btn ghost gclose', type: 'button', onclick: () => confirmClose(items.map(f => f.remote_port), t('Close group {name}?', {name: key}))}, t('Close group'))));
-    if (!collapsed) for (const f of items) box.append(forwardRow(f));
+    if (!collapsed) for (const f of items) box.append(forwardRow(f, entering(f)));
   }
 }
 
@@ -538,7 +588,7 @@ function renderOpenTools() {
       t('Close all on {server}', {server: S.status ? S.status.destination || S.status.profile : t('this server')})));
 }
 
-function forwardRow(f) {
+function forwardRow(f, entering) {
   const checked = S.selected.has(f.remote_port);
   const box = el('input', {type: 'checkbox', class: 'rck', checked, 'aria-label': t('Select :{port}', {port: f.remote_port})});
   box.addEventListener('change', () => {
@@ -561,31 +611,29 @@ function forwardRow(f) {
   chips.append(f.origin === 'manual' ? el('span', {class: 'chip'}, t('You')) : el('span', {class: 'chip agent'}, t('Agent')));
   for (const o of f.owners || []) if (o !== 'user') chips.append(el('span', {class: 'chip'}, o));
   if (f.pinned) chips.append(el('span', {class: 'flag'}, t('Pinned')));
-  const what = el('div', {class: 'what'}, el('b', null, name), el('small', null, f.path ? f.url + f.path : f.url), chips);
-  const row = el('div', {class: 'item' + (checked ? ' sel' : ''), dataset: {port: String(f.remote_port)}},
+  const href = f.url + (f.path || '');
+  const what = el('div', {class: 'what'}, el('b', null, name),
+    el('a', {class: 'url', href, target: '_blank', rel: 'noopener noreferrer', 'data-tip': t('Open in a new tab')}, href), chips);
+  const row = el('div', {class: 'item' + (checked ? ' sel' : '') + (f.state === 'active' ? ' is-live' : ''), dataset: {port: String(f.remote_port)}},
     box,
     route(f.remote_port, f.local_port),
     what,
     el('div', {class: 'acts'},
-      el('a', {class: 'ibtn', href: f.url + (f.path || ''), target: '_blank', rel: 'noopener noreferrer', 'data-tip': t('Open in a new tab'), 'aria-label': t('Open in a new tab')}, linkIcon()),
-      el('button', {class: 'ibtn' + (f.pinned ? ' on' : ''), type: 'button', 'aria-pressed': String(!!f.pinned), 'data-tip': f.pinned ? t('Unpin') : t('Pin'), 'aria-label': f.pinned ? t('Unpin') : t('Pin'), onclick: () => togglePin(f)}, pinIcon()),
-      el('button', {class: 'ibtn', type: 'button', 'data-tip': t('Edit'), 'aria-label': t('Edit'), onclick: () => openEdit(f)}, editIcon()),
-      el('button', {class: 'ibtn', type: 'button', 'aria-expanded': String(S.expanded.has(f.remote_port)), 'data-tip': t('Details'), 'aria-label': t('Details'), onclick: () => toggleDetails(f)}, el('span', {class: 'chev'}, '▾')),
-      el('button', {class: 'ibtn danger', type: 'button', 'data-tip': t('Close'), 'aria-label': t('Close'), onclick: () => confirmClose([f.remote_port], t('Close :{port}?', {port: f.remote_port}), f)}, ICON_X)));
+      el('a', {class: 'btn primary open-btn', href, target: '_blank', rel: 'noopener noreferrer', 'data-tip': t('Open in a new tab')}, icon('external', 16), el('span', null, t('Open link'))),
+      el('button', {class: 'ibtn' + (f.pinned ? ' on' : ''), type: 'button', 'aria-pressed': String(!!f.pinned), 'data-tip': f.pinned ? t('Unpin') : t('Pin'), 'aria-label': f.pinned ? t('Unpin') : t('Pin'), onclick: () => togglePin(f)}, icon('pin', 16)),
+      el('button', {class: 'ibtn', type: 'button', 'data-tip': t('Edit'), 'aria-label': t('Edit'), onclick: () => openEdit(f)}, icon('edit', 16)),
+      el('button', {class: 'ibtn', type: 'button', 'aria-expanded': String(S.expanded.has(f.remote_port)), 'data-tip': t('Details'), 'aria-label': t('Details'), onclick: () => toggleDetails(f)}, el('span', {class: 'chev'}, icon('chev', 16))),
+      el('button', {class: 'ibtn danger', type: 'button', 'data-tip': t('Close'), 'aria-label': t('Close'), onclick: () => confirmClose([f.remote_port], t('Close :{port}?', {port: f.remote_port}), f)}, xIcon())));
   row.addEventListener('dblclick', e => { if (e.target.closest('button,a,input')) return; startRename(f); });
   const parts = [row];
   if (S.expanded.has(f.remote_port)) parts.push(detailsBox(f));
-  return el('div', {class: 'row-wrap'}, parts);
-}
-
-function linkIcon() {
-  return el('svg', {width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': 'true'}, el('path', {d: 'M9 3h4v4M13 3 7.5 8.5M6 4H3.5v8.5H12V10', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round'}));
-}
-function pinIcon() {
-  return el('svg', {width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': 'true'}, el('path', {d: 'M9.5 2.5 13.5 6.5 10.5 7.5 8.5 11.5 4.5 7.5 8.5 3.5ZM7 9 2.5 13.5', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round'}));
-}
-function editIcon() {
-  return el('svg', {width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': 'true'}, el('path', {d: 'M3 13l.6-2.6L10.8 3.2l2 2L5.6 12.4ZM9.8 4.2l2 2', fill: 'none', stroke: 'currentColor', 'stroke-width': 1.4, 'stroke-linejoin': 'round'}));
+  const wrap = el('div', {class: 'row-wrap', dataset: {port: String(f.remote_port)}}, parts);
+  // entering is how long ago the row first appeared: a re-render continues its animation.
+  if (MOTION && entering !== undefined && entering < ENTER_MS) {
+    wrap.classList.add('entering');
+    wrap.style.animationDelay = -entering + 'ms';
+  }
+  return wrap;
 }
 
 // remoteName is what runs on the server behind a forwarded port, for a forward
@@ -712,8 +760,8 @@ function detectedRow(p) {
     el('div', {class: 'r'}, ':' + p.port),
     what,
     el('div', {class: 'acts'},
-      el('button', {class: 'btn', type: 'button', onclick: () => openDetected(p)}, t('Open')),
-      el('button', {class: 'ibtn', type: 'button', 'aria-expanded': String(S.detExpanded.has(p.port)), 'data-tip': t('Details'), 'aria-label': t('Details'), onclick: () => toggleDetected(p)}, el('span', {class: 'chev'}, '▾'))));
+      el('button', {class: 'btn primary', type: 'button', onclick: () => openDetected(p)}, t('Open port')),
+      el('button', {class: 'ibtn', type: 'button', 'aria-expanded': String(S.detExpanded.has(p.port)), 'data-tip': t('Details'), 'aria-label': t('Details'), onclick: () => toggleDetected(p)}, el('span', {class: 'chev'}, icon('chev', 16)))));
   const parts = [row];
   if (S.detExpanded.has(p.port)) parts.push(processBox(p));
   return el('div', {class: 'row-wrap'}, parts);
@@ -820,7 +868,7 @@ function renderClosed() {
       el('div', {class: 'acts'},
         el('button', {class: 'btn', type: 'button', onclick: () => reopen(c)}, t('Reopen')),
         el('button', {class: 'btn ghost', type: 'button', onclick: () => openEditClosed(c)}, t('Reopen with changes')),
-        el('button', {class: 'ibtn', type: 'button', 'data-tip': t('Remove from history'), 'aria-label': t('Remove from history'), onclick: () => forgetClosed(c)}, ICON_X)));
+        el('button', {class: 'ibtn', type: 'button', 'data-tip': t('Remove from history'), 'aria-label': t('Remove from history'), onclick: () => leave([row]).then(() => forgetClosed(c))}, xIcon())));
     box.append(row);
   }
 }
@@ -863,7 +911,7 @@ function renderStrip() {
   const tunnelError = s && s.tunnel && !tunnelUp ? s.tunnel.last_error : '';
   tunnel.textContent = s ? (tunnelUp ? t('active') : t('down') + (tunnelError ? ' — ' + tunnelError : '')) : '—';
   tunnel.title = tunnelError || '';
-  tunnel.style.color = s ? (tunnelUp ? 'var(--live)' : 'var(--stop)') : '';
+  tunnel.dataset.state = s ? (tunnelUp ? 'up' : 'down') : '';
   const sessions = new Set();
   for (const f of S.forwards) for (const o of f.owners || []) if (o !== 'user') sessions.add(o);
   for (const p of S.pending) if (p.session) sessions.add(p.session);
@@ -924,6 +972,7 @@ function confirmCloseAll() {
 }
 
 async function closePorts(remotes) {
+  await leave(openRows(remotes));
   try {
     const result = await ports('POST', '/forwards/close', {remote_ports: remotes});
     S.selected.clear();
@@ -935,6 +984,7 @@ async function closePorts(remotes) {
 }
 
 async function closeAllPorts() {
+  await leave(document.querySelectorAll('#p-open .row-wrap'));
   try {
     const result = await ports('POST', '/forwards/close-all', {});
     S.selected.clear();
@@ -973,7 +1023,7 @@ function editPort(o) {
     el('option', {value: '1h'}, t('1 hour')),
     el('option', {value: 'pin'}, t('Until I close it')));
   let checked = {status: 'free'};
-  const save = el('button', {class: 'btn primary', type: 'button'}, o.mode === 'edit' ? t('Save') : t('Open'));
+  const save = el('button', {class: 'btn primary', type: 'button'}, o.mode === 'edit' ? t('Save') : t('Open port'));
   const validate = async () => {
     const port = Number(local.value);
     if (!Number.isInteger(port) || port < 1 || port > 65535) {
@@ -1056,7 +1106,7 @@ function renderProfiles() {
     const count = p.forwards || 0;
     const counter = p.running ? (count === 1 ? t('1 port') : t('{n} ports', {n: count})) : t('stopped');
     const close = p.running && count > 0 && !p.current
-      ? el('span', {class: 'pcl', role: 'button', tabindex: '0', 'data-tip': t('Close the ports of {server}', {server: p.destination || p.name}), 'aria-label': t('Close the ports of {server}', {server: p.destination || p.name}), onclick: e => { e.stopPropagation(); closeProfilePorts(p); }}, ICON_X)
+      ? el('span', {class: 'pcl', role: 'button', tabindex: '0', 'data-tip': t('Close the ports of {server}', {server: p.destination || p.name}), 'aria-label': t('Close the ports of {server}', {server: p.destination || p.name}), onclick: e => { e.stopPropagation(); closeProfilePorts(p); }}, xIcon())
       : el('span', {class: 'pcl ph'});
     const row = el('button', {class: 'pi', type: 'button', role: 'menuitem', 'aria-current': String(p.current), dataset: {prof: p.name}, disabled: !p.running && !p.current, onclick: () => switchTo(p)},
       el('span', {class: 'd' + (p.running ? ' on' : '')}),
@@ -1194,7 +1244,7 @@ function applyTheme(theme) {
   if (theme) document.documentElement.dataset.theme = theme;
   else delete document.documentElement.dataset.theme;
   const button = $('theme');
-  button.textContent = theme === 'dark' ? '☾' : theme === 'light' ? '☀' : '◐';
+  button.replaceChildren(icon(theme === 'dark' ? 'moon' : theme === 'light' ? 'sun' : 'auto', 18));
   button.dataset.tip = t('Theme: {theme}', {theme: theme === 'dark' ? t('dark') : theme === 'light' ? t('light') : t('system')});
   button.removeAttribute('title');
   termRefreshTheme();
