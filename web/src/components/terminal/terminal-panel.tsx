@@ -24,7 +24,9 @@ const BADGE: Record<TermState, BadgeProps['variant']> = {
   unavailable: 'muted',
 }
 
-export function TerminalPanel({ active }: { active: boolean }) {
+// openRequest counts the requests to open the terminal (the search's "Open
+// terminal"): each new value opens a session once the tab knows a terminal can run.
+export function TerminalPanel({ active, openRequest = 0 }: { active: boolean; openRequest?: number }) {
   const { t: translateNow } = useI18n()
   const { resolved } = useTheme()
   const [state, setState] = useState<TermState>('idle')
@@ -172,6 +174,18 @@ export function TerminalPanel({ active }: { active: boolean }) {
     screen.current?.term.write('\r\n\x1b[2m' + t('Session closed') + '\x1b[0m\r\n')
     setTermState('idle')
   }
+
+  const openRef = useRef(open)
+  openRef.current = open
+  const [wantOpen, setWantOpen] = useState(false)
+  useEffect(() => {
+    if (openRequest > 0) setWantOpen(true)
+  }, [openRequest])
+  useEffect(() => {
+    if (!wantOpen || !active || available === null) return
+    setWantOpen(false)
+    if (available) void openRef.current()
+  }, [wantOpen, active, available])
 
   const labels: Record<TermState, string> = {
     idle: t('Closed'),

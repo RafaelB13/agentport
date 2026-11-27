@@ -16,7 +16,7 @@ npm run lint
 ```
 
 O build escreve em `internal/companion/ui/` (`index.html` e `assets/app.js`,
-`assets/app.css`, o chunk do terminal, os arquivos `.woff2` das fontes Inter e JetBrains Mono e
+`assets/app.css`, os chunks do terminal e da busca, os arquivos `.woff2` das fontes Inter e JetBrains Mono e
 `assets/third-party-licenses.txt`),
 que o binário Go embute com `go:embed`. **O resultado é versionado**: assim
 `go build`/`go install` funcionam sem Node. Depois de mudar `web/`, rode
@@ -52,6 +52,15 @@ AGENTPORT_PANEL_URL='http://127.0.0.1:<porta>/view/<token>/' npm run dev
 
 3. Abra `http://localhost:5173/`. Sem `AGENTPORT_PANEL_URL` o app sobe, mas a
    API não responde.
+
+## Busca (⌘K)
+
+A busca no estilo do Spotlight fica em `src/components/spotlight/`: abre com
+⌘K/Ctrl+K, com `/`, pelo botão do cabeçalho e pelo campo "Abrir porta" da linha
+das abas. Ela lista portas abertas, detectadas e encerradas, pedidos do agente,
+servidores, comandos do painel e atividade (`use-items.ts`); a ordenação e os
+prefixos `>` (só comandos) e `:` (só portas) ficam em `src/lib/spotlight.ts`.
+Enter roda a ação principal, ⌘Enter a segunda, e → ou Tab mostram todas.
 
 ## Componentes
 

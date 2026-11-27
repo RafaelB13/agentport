@@ -3,7 +3,7 @@ import { Tip } from '@/components/tip'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { useDialogs } from '@/lib/dialogs'
-import { fmtDateTime } from '@/lib/format'
+import { closedReason, fmtDateTime } from '@/lib/format'
 import { useI18n } from '@/lib/i18n'
 import { usePanel } from '@/lib/panel'
 import type { ClosedForward } from '@/lib/types'
@@ -13,21 +13,6 @@ export function ClosedPorts() {
   const { t, lang } = useI18n()
   const panel = usePanel()
   const dialogs = useDialogs()
-
-  function reason(value: string) {
-    switch (value) {
-      case 'user':
-        return t('You closed it')
-      case 'agent':
-        return t('The agent released it')
-      case 'session_ended':
-        return t('Agent ended')
-      case 'expired':
-        return t('Time ran out')
-      default:
-        return value
-    }
-  }
 
   function reopenWithChanges(c: ClosedForward) {
     dialogs.editPort({
@@ -61,7 +46,7 @@ export function ClosedPorts() {
               <PortRoute remote={c.remote_port} local={c.local_port} className="mb-0.5 text-xs md:hidden" />
               <div className="truncate text-sm font-semibold">{c.label || t('No name')}</div>
               <div className="truncate text-[13px] text-muted-foreground">
-                {reason(c.reason)} · {fmtDateTime(lang, c.closed_at)}
+                {closedReason(t, c.reason)} · {fmtDateTime(lang, c.closed_at)}
               </div>
             </div>
             <div className="flex items-center gap-0.5">

@@ -27,3 +27,19 @@ export function remoteProcessName(info: { process?: string; cmdline?: string } |
   const first = (info.cmdline || '').trim().split(/\s+/)[0] || ''
   return (first.split('/').pop() || '').slice(0, 32)
 }
+
+// closedReason says why a port closed, from the reason the Companion recorded.
+export function closedReason(t: Translate, value: string): string {
+  switch (value) {
+    case 'user':
+      return t('You closed it')
+    case 'agent':
+      return t('The agent released it')
+    case 'session_ended':
+      return t('Agent ended')
+    case 'expired':
+      return t('Time ran out')
+    default:
+      return value
+  }
+}

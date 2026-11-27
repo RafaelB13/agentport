@@ -13,6 +13,7 @@ import type { InfoTab } from '@/lib/dialogs'
 import { useI18n } from '@/lib/i18n'
 import { PROJECT_LABEL, PROJECT_URL } from '@/lib/links'
 import { usePanel } from '@/lib/panel'
+import { MOD_KEY } from '@/lib/spotlight'
 
 type Block = ['p', string] | ['ol' | 'ul', string[]]
 
@@ -160,15 +161,48 @@ export function InfoDialog({
   )
 }
 
+// A shortcut is one or more keys: pressed together (+), one of a range (…), or
+// either of two (/).
+type Shortcut = [string[], '+' | '…' | '/', string]
+
+function ShortcutList({ rows }: { rows: Shortcut[] }) {
+  return (
+    <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5 text-sm">
+      {rows.map(([keys, join, text]) => (
+        <div key={text} className="contents">
+          <dt className="flex items-center gap-1">
+            {keys.map((key, index) => (
+              <span key={key} className="flex items-center gap-1">
+                {index > 0 && <span className="text-xs text-muted-foreground">{join}</span>}
+                <kbd className="min-w-6 rounded border bg-muted px-1.5 py-0.5 text-center font-mono text-xs">{key}</kbd>
+              </span>
+            ))}
+          </dt>
+          <dd className="text-muted-foreground">{text}</dd>
+        </div>
+      ))}
+    </dl>
+  )
+}
+
 export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { t } = useI18n()
-  const rows: [string[], string][] = [
-    [['/'], t('Open a port (ports on the server)')],
-    [['A'], t('Approve the oldest request')],
-    [['R'], t('Deny the oldest request')],
-    [['1', '4'], t('Open, Detected, Closed, Activity')],
-    [['?'], t('Show this list')],
-    [['Esc'], t('Close menus and this window')],
+  const panel: Shortcut[] = [
+    [[MOD_KEY, 'K'], '+', t('Search ports, servers and commands')],
+    [['/'], '+', t('Search, or open a port')],
+    [['A'], '+', t('Approve the oldest request')],
+    [['R'], '+', t('Deny the oldest request')],
+    [['1', '4'], '…', t('Open, Detected, Closed, Activity')],
+    [['?'], '+', t('Show this list')],
+    [['Esc'], '+', t('Close menus and this window')],
+  ]
+  const search: Shortcut[] = [
+    [['↑', '↓'], '/', t('Move through the results')],
+    [['↵'], '+', t('Open the highlighted result')],
+    [[MOD_KEY, '↵'], '+', t('Run its second action')],
+    [['→', 'Tab'], '/', t('Show all its actions')],
+    [['>'], '+', t('Show only commands')],
+    [[':'], '+', t('Show only ports')],
   ]
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
@@ -177,21 +211,9 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
           <DialogTitle>{t('Keyboard shortcuts')}</DialogTitle>
           <DialogDescription>{t('Double-click a port\'s name to rename it.')}</DialogDescription>
         </DialogHeader>
-        <dl className="grid grid-cols-[auto_1fr] items-center gap-x-4 gap-y-2.5 text-sm">
-          {rows.map(([keys, text]) => (
-            <div key={text} className="contents">
-              <dt className="flex items-center gap-1">
-                {keys.map((key, index) => (
-                  <span key={key} className="flex items-center gap-1">
-                    {index > 0 && <span className="text-muted-foreground">…</span>}
-                    <kbd className="min-w-6 rounded border bg-muted px-1.5 py-0.5 text-center font-mono text-xs">{key}</kbd>
-                  </span>
-                ))}
-              </dt>
-              <dd className="text-muted-foreground">{text}</dd>
-            </div>
-          ))}
-        </dl>
+        <ShortcutList rows={panel} />
+        <h3 className="-mb-1 mt-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('In the search')}</h3>
+        <ShortcutList rows={search} />
       </DialogContent>
     </Dialog>
   )
