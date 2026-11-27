@@ -8,7 +8,7 @@ toolchain go1.27.4
 ignore ./web/node_modules
 
 require (
-	github.com/coder/websocket v1.8.14
+	github.com/coder/websocket v1.8.15
 	github.com/creack/pty v1.1.24
 	github.com/modelcontextprotocol/go-sdk v1.8.0
 )
