@@ -214,6 +214,30 @@ func TestPanelPageLoadsItsAssetsUnderTheViewPrefix(t *testing.T) {
 	}
 }
 
+// The UI font is bundled: every font file the stylesheet names is served from
+// this Companion as a font, next to the stylesheet.
+func TestPanelServesItsBundledFonts(t *testing.T) {
+	control, _ := startPanel(t, &recordingPorts{}, nil)
+	prefix := "http://" + control.State.Address + "/view/" + control.State.ViewToken + "/assets/"
+	style, err := dashboardFiles.ReadFile("ui/assets/app.css")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fonts := regexp.MustCompile(`url\(\./([^)]+\.woff2)\)`).FindAllStringSubmatch(string(style), -1)
+	if len(fonts) == 0 {
+		t.Fatal("app.css names no bundled .woff2 font")
+	}
+	for _, font := range fonts {
+		response, body := fetchText(t, prefix+font[1])
+		if response.StatusCode != http.StatusOK || body == "" {
+			t.Errorf("%s = %d (%d bytes)", font[1], response.StatusCode, len(body))
+		}
+		if got := response.Header.Get("Content-Type"); got != "font/woff2" {
+			t.Errorf("%s Content-Type = %q, want font/woff2", font[1], got)
+		}
+	}
+}
+
 func TestPanelPageSendsNoStoreAndStaysOnLoopbackAddress(t *testing.T) {
 	control, base := startPanel(t, &recordingPorts{}, nil)
 	if !strings.HasPrefix(control.State.Address, "127.0.0.1:") {

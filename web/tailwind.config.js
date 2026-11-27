@@ -1,4 +1,5 @@
 import animate from 'tailwindcss-animate'
+import defaultTheme from 'tailwindcss/defaultTheme'
 
 /** @type {import('tailwindcss').Config} */
 export default {
@@ -10,6 +11,14 @@ export default {
       padding: '1rem',
     },
     extend: {
+      // Inter and JetBrains Mono are bundled from @fontsource-variable (see
+      // src/main.tsx): variable fonts, so 500 and 600 render as such (Menlo, the
+      // mono Chrome falls back to on macOS, has only 400 and 700). The system
+      // stacks cover the scripts they lack.
+      fontFamily: {
+        sans: ['"Inter Variable"', 'Inter', ...defaultTheme.fontFamily.sans],
+        mono: ['"JetBrains Mono Variable"', ...defaultTheme.fontFamily.mono],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',

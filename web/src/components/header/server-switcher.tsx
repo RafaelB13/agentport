@@ -32,7 +32,7 @@ export function ServerSwitcher() {
       <Tip
         label={
           <span className="flex flex-col gap-0.5">
-            <span className="font-medium">{t('Switch server')}</span>
+            <span className="font-semibold">{t('Switch server')}</span>
             <span className="text-muted-foreground">
               {connected ? t('Connected') : t('Disconnected')}
               {s ? ' · ' + host : ''}
@@ -47,16 +47,16 @@ export function ServerSwitcher() {
             aria-label={t('Switch server')}
           >
             <StatusDot ok={connected} />
-            <span className="min-w-0 truncate font-mono text-[13px] font-medium">{host}</span>
+            <span className="min-w-0 truncate font-mono text-sm font-semibold">{host}</span>
             {detail && (
-              <span className="hidden min-w-0 truncate text-xs font-normal text-muted-foreground lg:inline">{detail}</span>
+              <span className="hidden min-w-0 truncate text-[13px] font-medium text-muted-foreground lg:inline">{detail}</span>
             )}
             <ChevronsUpDown className="size-3.5 shrink-0 opacity-60" />
           </Button>
         </DropdownMenuTrigger>
       </Tip>
       <DropdownMenuContent align="start" className="w-[22rem] max-w-[calc(100vw-2rem)]">
-        <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+        <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">
           {t('Servers on this computer')}
         </DropdownMenuLabel>
         {panel.profiles.length === 0 && (
@@ -80,7 +80,7 @@ export function ServerSwitcher() {
                   aria-hidden="true"
                 />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate font-medium" title={p.name}>
+                  <span className="block truncate font-semibold" title={p.name}>
                     {p.name}
                   </span>
                   {p.destination && (

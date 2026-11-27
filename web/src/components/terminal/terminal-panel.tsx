@@ -66,8 +66,8 @@ export function TerminalPanel({ active }: { active: boolean }) {
   const theme = useCallback(() => {
     const el = screenRef.current
     const css = el ? getComputedStyle(el) : null
-    const background = css?.backgroundColor || (resolved === 'dark' ? '#09090b' : '#ffffff')
-    const foreground = css?.color || (resolved === 'dark' ? '#fafafa' : '#09090b')
+    const background = css?.backgroundColor || (resolved === 'dark' ? '#1e2024' : '#ffffff')
+    const foreground = css?.color || (resolved === 'dark' ? '#e8eaed' : '#09090b')
     return {
       background,
       foreground,

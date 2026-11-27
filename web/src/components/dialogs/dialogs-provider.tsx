@@ -161,7 +161,7 @@ function SwitchDialog({
         </AlertDialogHeader>
         <div className="flex items-center gap-2">
           <Checkbox id="switch-remember" checked={remember} onCheckedChange={(value) => setRemember(value === true)} />
-          <Label htmlFor="switch-remember" className="font-normal">
+          <Label htmlFor="switch-remember" className="font-medium">
             {t('Remember my choice')}
           </Label>
         </div>

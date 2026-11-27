@@ -82,7 +82,7 @@ export function companionBuild(outDir: string, nodeModules: string): Plugin {
       const assets = path.join(outDir, 'assets')
       if (!fs.existsSync(assets)) return
       for (const name of fs.readdirSync(assets)) {
-        if (/\.(js|css|map|txt)$/.test(name)) fs.rmSync(path.join(assets, name), { force: true })
+        if (/\.(js|css|map|txt|woff2)$/.test(name)) fs.rmSync(path.join(assets, name), { force: true })
       }
     },
     generateBundle(_options, bundle) {

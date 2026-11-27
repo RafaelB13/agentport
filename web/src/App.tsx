@@ -21,7 +21,7 @@ const TABS: Tab[] = ['open', 'det', 'closed', 'log', 'term']
 
 function Count({ n }: { n: number }) {
   return (
-    <span className="ml-1.5 rounded-md bg-muted-foreground/10 px-1.5 py-px text-[11px] font-semibold tabular-nums text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-foreground">
+    <span className="ml-1.5 rounded-md bg-muted-foreground/10 px-1.5 py-px text-xs font-semibold tabular-nums text-muted-foreground group-data-[state=active]:bg-primary/10 group-data-[state=active]:text-foreground">
       {n}
     </span>
   )

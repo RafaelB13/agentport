@@ -102,7 +102,7 @@ function PolicyItems({ policy, setPolicy }: { policy: Policy; setPolicy: (policy
   const panel = usePanel()
   return (
     <>
-      <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{t('When to ask for approval')}</DropdownMenuLabel>
+      <DropdownMenuLabel className="text-xs font-medium text-muted-foreground">{t('When to ask for approval')}</DropdownMenuLabel>
       <DropdownMenuRadioGroup value={policy} onValueChange={(value) => setPolicy(value as Policy)}>
         <DropdownMenuRadioItem value="ask" className="items-start py-2">
           <MenuText title={t('Ask every time')} hint={t('Each port the agent asks for waits for your approval.')} />
@@ -133,7 +133,7 @@ function PolicyItems({ policy, setPolicy }: { policy: Policy; setPolicy: (policy
 function MenuText({ title, hint }: { title: string; hint: string }) {
   return (
     <span className="flex min-w-0 flex-col gap-0.5">
-      <span className="font-medium">{title}</span>
+      <span className="font-semibold">{title}</span>
       <span className="text-xs leading-snug text-muted-foreground">{hint}</span>
     </span>
   )
@@ -161,7 +161,7 @@ function HelpItems() {
         ))}
         <DropdownMenuItem className="gap-2.5" onSelect={() => dialogs.openShortcuts()}>
           <Keyboard className="size-4 text-muted-foreground" />
-          <span className="font-medium">{t('Keyboard shortcuts')}</span>
+          <span className="font-semibold">{t('Keyboard shortcuts')}</span>
           <DropdownMenuShortcut>?</DropdownMenuShortcut>
         </DropdownMenuItem>
       </DropdownMenuGroup>
@@ -175,7 +175,7 @@ function HelpItems() {
       <DropdownMenuItem asChild className="gap-2.5">
         <a href={ISSUES_URL} target="_blank" rel="noopener noreferrer">
           <ExternalLink className="size-4 text-muted-foreground" />
-          <span className="font-medium">{t('Report a problem')}</span>
+          <span className="font-semibold">{t('Report a problem')}</span>
         </a>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
@@ -224,7 +224,7 @@ export function HeaderActions() {
           <Tip
             label={
               <span className="flex flex-col gap-0.5">
-                <span className="font-medium">{t('When to ask for approval')}</span>
+                <span className="font-semibold">{t('When to ask for approval')}</span>
                 <span className="text-muted-foreground">{policyLabel}</span>
               </span>
             }
@@ -260,7 +260,7 @@ export function HeaderActions() {
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-8 gap-1.5 px-2 text-xs font-medium text-muted-foreground data-[state=open]:bg-accent"
+                className="h-8 gap-1.5 px-2 text-xs font-semibold text-muted-foreground data-[state=open]:bg-accent"
                 aria-label={t('Language')}
               >
                 <Languages className="size-4" />

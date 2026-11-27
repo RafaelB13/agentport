@@ -56,7 +56,7 @@ export function PendingRequests() {
 
   return (
     <section aria-labelledby="requests-title" className="shrink-0">
-      <h2 id="requests-title" className="mb-2 flex items-center gap-2 text-sm font-semibold">
+      <h2 id="requests-title" className="mb-2 flex items-center gap-2 text-sm font-bold">
         {t('Requests from the agent')}
         <Badge variant="warning" className="px-1.5 tabular-nums">
           {panel.pending.length}
@@ -130,11 +130,11 @@ function SingleRequest({
     <Card className={cardClass}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <PortRoute remote={port.remote_port} local={port.remote_port} />
-        <span className="min-w-0 truncate text-xs text-muted-foreground">{who(req)}</span>
+        <span className="min-w-0 truncate text-[13px] text-muted-foreground">{who(req)}</span>
       </div>
       {req.reason && <p className="mt-1.5 text-sm">{req.reason}</p>}
       {(port.label || port.path) && (
-        <p className="mt-1 truncate font-mono text-xs text-muted-foreground">{[port.label, port.path].filter(Boolean).join(' · ')}</p>
+        <p className="mt-1 truncate font-mono text-[13px] text-muted-foreground">{[port.label, port.path].filter(Boolean).join(' · ')}</p>
       )}
       <ConflictBox
         remote={port.remote_port}
@@ -207,13 +207,13 @@ function ConflictBox({
       <RadioGroup value={choice ?? 'remap'} onValueChange={(value) => onChoice(value as ConflictChoice)} className="gap-1.5 pl-6">
         <div className="flex items-center gap-2">
           <RadioGroupItem value="remap" id={`remap-${remote}`} />
-          <Label htmlFor={`remap-${remote}`} className="font-normal">
+          <Label htmlFor={`remap-${remote}`} className="font-medium">
             {t('Use another free port')}
           </Label>
         </div>
         <div className="flex items-center gap-2">
           <RadioGroupItem value="stop" id={`stop-${remote}`} disabled={!check.stoppable} />
-          <Label htmlFor={`stop-${remote}`} className={cn('font-normal', !check.stoppable && 'opacity-50')}>
+          <Label htmlFor={`stop-${remote}`} className={cn('font-medium', !check.stoppable && 'opacity-50')}>
             {t('Stop {process} and use :{port}', { process: check.process || t('it'), port: remote })}
           </Label>
         </div>
@@ -240,7 +240,7 @@ function BatchRequest({ req }: { req: PendingRequest }) {
     <Card className={cardClass}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="text-sm font-semibold">{t('{n} ports', { n: total })}</span>
-        <span className="min-w-0 truncate text-xs text-muted-foreground">{who(req)}</span>
+        <span className="min-w-0 truncate text-[13px] text-muted-foreground">{who(req)}</span>
       </div>
       {req.reason && <p className="mt-1.5 text-sm">{req.reason}</p>}
       <div className="mt-3 overflow-hidden rounded-md border bg-background/60">
@@ -250,7 +250,7 @@ function BatchRequest({ req }: { req: PendingRequest }) {
             checked={selected.size === total ? true : selected.size ? 'indeterminate' : false}
             onCheckedChange={(value) => setSelected(value === true ? new Set(req.ports.map((p) => p.remote_port)) : new Set())}
           />
-          <Label htmlFor={`all-${req.id}`} className="text-xs font-medium">
+          <Label htmlFor={`all-${req.id}`} className="text-xs font-semibold">
             {t('Select all')}
           </Label>
           <span className="ml-auto tabular-nums text-muted-foreground">{t('{n} selected', { n: selected.size })}</span>
@@ -280,8 +280,8 @@ function BatchRequest({ req }: { req: PendingRequest }) {
                 />
                 <PortRoute remote={p.remote_port} local={p.remote_port} className={cn(!on && 'opacity-60')} />
                 <span className="min-w-0 truncate">
-                  <span className="font-medium">{p.label || ''}</span>
-                  {p.path && <span className="ml-2 font-mono text-xs text-muted-foreground">{p.path}</span>}
+                  <span className="font-semibold">{p.label || ''}</span>
+                  {p.path && <span className="ml-2 font-mono text-[13px] text-muted-foreground">{p.path}</span>}
                 </span>
               </label>
             )

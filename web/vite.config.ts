@@ -54,6 +54,9 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       sourcemap: false,
       modulePreload: { polyfill: false },
+      // The font files stay files: the CSP's default-src 'self' allows no
+      // data: fonts.
+      assetsInlineLimit: 0,
       // Stable names: the Companion sends every asset with no-store, so hashes
       // buy nothing, and the committed build diffs cleanly.
       rollupOptions: {
