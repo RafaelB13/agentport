@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react'
+import type { ComponentPropsWithoutRef, ReactNode } from 'react'
 import {
   Bell,
   BellOff,
@@ -18,7 +18,6 @@ import {
   SunMoon,
   TriangleAlert,
 } from 'lucide-react'
-import { toast } from 'sonner'
 import { GitHubIcon } from '@/components/brand'
 import { Tip } from '@/components/tip'
 import { Button } from '@/components/ui/button'
@@ -45,56 +44,16 @@ import { LANG_NAMES, LANG_SHORT, useI18n } from '@/lib/i18n'
 import { LANGS, type Lang } from '@/lib/language.js'
 import { ISSUES_URL, PROJECT_LABEL, PROJECT_URL } from '@/lib/links'
 import { usePanel } from '@/lib/panel'
-import { readStored, writeStored } from '@/lib/storage'
-import { useTheme, type ThemeChoice } from '@/lib/theme'
+import { usePolicy, type Policy } from '@/lib/policy'
+import { useStopArming } from '@/lib/stop'
+import { themeLabel as labelOfTheme, useTheme, type ThemeChoice } from '@/lib/theme'
 import { cn } from '@/lib/utils'
-
-type Policy = 'ask' | 'session'
-
-// The approval policy is a choice of this browser, as it always was.
-function usePolicy() {
-  const { t } = useI18n()
-  const [policy, setPolicyState] = useState<Policy>(() => (readStored('agentport.policy') === 'session' ? 'session' : 'ask'))
-  const setPolicy = useCallback(
-    (next: Policy) => {
-      setPolicyState(next)
-      writeStored('agentport.policy', next)
-      toast(
-        next === 'session'
-          ? t('Ports you approve reopen without asking until the session ends.')
-          : t('Each port asks for approval.'),
-      )
-    },
-    [t],
-  )
-  return { policy, setPolicy }
-}
-
-// useStopArming makes stopping the Companion take two clicks within 3 seconds.
-function useStopArming() {
-  const panel = usePanel()
-  const [armed, setArmed] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>()
-  useEffect(() => () => clearTimeout(timer.current), [])
-  const press = useCallback(() => {
-    clearTimeout(timer.current)
-    if (!armed) {
-      setArmed(true)
-      timer.current = setTimeout(() => setArmed(false), 3000)
-      return false
-    }
-    setArmed(false)
-    void panel.stopCompanion()
-    return true
-  }, [armed, panel])
-  return { armed, press }
-}
 
 const THEME_ICONS: Record<ThemeChoice, typeof Sun> = { system: SunMoon, light: Sun, dark: Moon }
 
 function useThemeLabel() {
   const { t } = useI18n()
-  return (choice: ThemeChoice) => (choice === 'dark' ? t('dark') : choice === 'light' ? t('light') : t('system'))
+  return (choice: ThemeChoice) => labelOfTheme(t, choice)
 }
 
 function PolicyItems({ policy, setPolicy }: { policy: Policy; setPolicy: (policy: Policy) => void }) {

@@ -15,6 +15,9 @@
  * --muted-foreground is darker (light) and brighter (dark) than stock zinc so
  * secondary text stays readable: 6.6:1 on the light background (6.0:1 on
  * --muted); 8.9:1 on the dark background (7.7:1 on cards, 6.9:1 on popovers).
+ *
+ * --brand is the violet of the mark (#7C6AF7), for tints such as the search's
+ * highlighted row; --brand-strong is the same hue as readable text.
  */
 @layer base {
   :root {
@@ -38,6 +41,8 @@
     --input: 240 5.9% 90%;
     --ring: 240 10% 3.9%;
     --radius: 0.5rem;
+    --brand: 248 90% 69%;
+    --brand-strong: 248 62% 52%;
     color-scheme: light;
   }
 
@@ -61,6 +66,8 @@
     --border: 220 9% 28%;
     --input: 220 9% 32%;
     --ring: 220 9% 65%;
+    --brand: 248 90% 69%;
+    --brand-strong: 248 95% 80%;
     color-scheme: dark;
   }
 
@@ -85,6 +92,8 @@
       --border: 220 9% 28%;
       --input: 220 9% 32%;
       --ring: 220 9% 65%;
+      --brand: 248 90% 69%;
+      --brand-strong: 248 95% 80%;
       color-scheme: dark;
     }
   }

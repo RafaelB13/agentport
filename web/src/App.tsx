@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react'
 import { Activity, ArrowLeftRight, History, Radar, SquareTerminal } from 'lucide-react'
 import { ConnectionAlert } from '@/components/connection-alert'
 import { AppHeader } from '@/components/header/app-header'
@@ -6,8 +6,9 @@ import { ActivityLog } from '@/components/ports/activity-log'
 import { ClosedPorts } from '@/components/ports/closed-ports'
 import { DetectedPorts } from '@/components/ports/detected-ports'
 import { OpenPorts } from '@/components/ports/open-ports'
-import { PortPicker } from '@/components/ports/port-picker'
 import { PendingRequests } from '@/components/requests/pending-requests'
+import { SpotlightProvider } from '@/components/spotlight/spotlight-provider'
+import { PortField } from '@/components/spotlight/triggers'
 import { StatusBar } from '@/components/status-bar'
 import { TerminalPanel } from '@/components/terminal/terminal-panel'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,8 +16,8 @@ import { useDialogs } from '@/lib/dialogs'
 import { useI18n } from '@/lib/i18n'
 import { isTyping } from '@/lib/keys'
 import { usePanel } from '@/lib/panel'
+import type { Tab } from '@/lib/spotlight'
 
-type Tab = 'open' | 'det' | 'closed' | 'log' | 'term'
 const TABS: Tab[] = ['open', 'det', 'closed', 'log', 'term']
 
 function Count({ n }: { n: number }) {
@@ -32,24 +33,27 @@ export default function App() {
   const panel = usePanel()
   const dialogs = useDialogs()
   const [tab, setTabState] = useState<Tab>('open')
-  const picker = useRef<HTMLInputElement>(null)
+  const [terminalRequest, setTerminalRequest] = useState(0)
 
   function setTab(next: Tab) {
     setTabState(next)
     if (next === 'det') void panel.loadDetected(true)
   }
 
-  // Keyboard: / opens a port, ? lists the shortcuts, 1 to 4 pick a tab. A and R
-  // (approve and deny the oldest request) live with the requests.
+  // Keyboard: ? lists the shortcuts, 1 to 4 pick a tab. A and R (approve and
+  // deny the oldest request) live with the requests; / and Cmd+K (the search)
+  // with the search.
   const setTabRef = useRef(setTab)
   setTabRef.current = setTab
+  const goTab = useCallback((next: Tab) => setTabRef.current(next), [])
+  const openTerminal = useCallback(() => {
+    setTabRef.current('term')
+    setTerminalRequest((n) => n + 1)
+  }, [])
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
       if (isTyping(event.target) || event.ctrlKey || event.metaKey || event.altKey || dialogs.anyOpen) return
-      if (event.key === '/') {
-        event.preventDefault()
-        picker.current?.focus()
-      } else if (event.key === '?') {
+      if (event.key === '?') {
         dialogs.openShortcuts()
       } else if (event.key >= '1' && event.key <= '4') {
         setTabRef.current(TABS[Number(event.key) - 1])
@@ -68,6 +72,7 @@ export default function App() {
   ]
 
   return (
+    <SpotlightProvider onTab={goTab} openTerminal={openTerminal}>
     <div className="flex h-dvh flex-col overflow-hidden">
       <AppHeader />
       <main className="flex min-h-0 flex-1 flex-col">
@@ -90,7 +95,7 @@ export default function App() {
                   </TabsTrigger>
                 ))}
               </TabsList>
-              <PortPicker ref={picker} className="lg:w-80 xl:w-96" />
+              <PortField className="lg:w-80 xl:w-96" />
             </div>
             <TabsContent value="open" forceMount className="mt-3 min-h-0 flex-1 data-[state=inactive]:hidden">
               <OpenPorts />
@@ -105,12 +110,13 @@ export default function App() {
               <ActivityLog />
             </TabsContent>
             <TabsContent value="term" forceMount className="mt-3 min-h-0 flex-1 data-[state=inactive]:hidden">
-              <TerminalPanel active={tab === 'term'} />
+              <TerminalPanel active={tab === 'term'} openRequest={terminalRequest} />
             </TabsContent>
           </Tabs>
         </div>
       </main>
       <StatusBar />
     </div>
+    </SpotlightProvider>
   )
 }

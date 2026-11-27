@@ -1,4 +1,5 @@
 import { createContext, useContext } from 'react'
+import type { Translate } from './i18n'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
 
@@ -18,4 +19,9 @@ export function useTheme(): ThemeState {
   const value = useContext(ThemeContext)
   if (!value) throw new Error('useTheme outside ThemeProvider')
   return value
+}
+
+// themeLabel names a theme choice in the panel's language.
+export function themeLabel(t: Translate, choice: ThemeChoice): string {
+  return choice === 'dark' ? t('dark') : choice === 'light' ? t('light') : t('system')
 }

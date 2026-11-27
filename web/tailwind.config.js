@@ -58,6 +58,10 @@ export default {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        brand: {
+          DEFAULT: 'hsl(var(--brand) / <alpha-value>)',
+          strong: 'hsl(var(--brand-strong) / <alpha-value>)',
+        },
       },
       keyframes: {
         'row-in': {
