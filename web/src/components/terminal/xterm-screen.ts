@@ -19,6 +19,9 @@ export function createScreen(container: HTMLElement, theme: ITheme, onData: (dat
     scrollback: 5000,
     theme,
     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Consolas, monospace',
+    // Medium and bold, like the rest of the panel: regular mono reads thin.
+    fontWeight: '500',
+    fontWeightBold: '700',
   })
   const fit = new FitAddon()
   term.loadAddon(fit)

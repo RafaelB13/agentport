@@ -54,13 +54,13 @@ export function ClosedPorts() {
         {[...panel.closed].reverse().map((c) => (
           <div
             key={c.remote_port + ':' + c.closed_at}
-            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30 sm:px-4 md:grid-cols-[11.5rem_minmax(0,1fr)_auto] md:gap-x-4"
+            className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-2 last:border-b-0 hover:bg-muted/30 sm:px-4 md:grid-cols-[13rem_minmax(0,1fr)_auto] md:gap-x-4"
           >
             <PortRoute remote={c.remote_port} local={c.local_port} className="hidden md:flex" />
             <div className="min-w-0">
               <PortRoute remote={c.remote_port} local={c.local_port} className="mb-0.5 text-xs md:hidden" />
-              <div className="truncate text-sm font-medium">{c.label || t('No name')}</div>
-              <div className="truncate text-xs text-muted-foreground">
+              <div className="truncate text-sm font-semibold">{c.label || t('No name')}</div>
+              <div className="truncate text-[13px] text-muted-foreground">
                 {reason(c.reason)} · {fmtDateTime(lang, c.closed_at)}
               </div>
             </div>

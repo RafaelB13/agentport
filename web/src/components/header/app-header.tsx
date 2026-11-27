@@ -11,7 +11,7 @@ export function AppHeader() {
       <div className="mx-auto flex h-14 w-full max-w-screen-2xl items-center gap-2 px-4 sm:gap-3 sm:px-6">
         <div className="flex shrink-0 items-center gap-2">
           <BrandMark />
-          <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">agentport</span>
+          <span className="hidden text-base font-bold tracking-tight sm:inline">agentport</span>
         </div>
         <Separator orientation="vertical" className="h-5" />
         <div className="flex min-w-0 flex-1 items-center">

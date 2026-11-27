@@ -24,7 +24,7 @@ export function ConnectionAlert() {
       <AlertTitle className="leading-5">{t('Disconnected')}</AlertTitle>
       <AlertDescription className="space-y-1 text-xs text-foreground/80">
         <p>{t('Dropped tunnel: the Companion reconnects by itself; the status shows it.')}</p>
-        {error && <p className="break-words font-mono text-[11px] text-destructive">{error}</p>}
+        {error && <p className="break-words font-mono text-xs text-destructive">{error}</p>}
       </AlertDescription>
     </Alert>
   )

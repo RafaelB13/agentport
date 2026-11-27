@@ -62,7 +62,7 @@ export const PortPicker = forwardRef<HTMLInputElement, { className?: string }>(f
         className="h-9 py-0"
         icon={<Plus className="mr-2 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />}
         suffix={
-          <kbd className="pointer-events-none ml-2 hidden h-5 select-none items-center rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+          <kbd className="pointer-events-none ml-2 hidden h-5 select-none items-center rounded border bg-muted px-1.5 font-mono text-xs font-semibold text-muted-foreground sm:inline-flex">
             /
           </kbd>
         }
@@ -100,7 +100,7 @@ export const PortPicker = forwardRef<HTMLInputElement, { className?: string }>(f
                     value={String(p.port)}
                     onSelect={() => void submit(p.port, document.activeElement as HTMLInputElement)}
                   >
-                    <span className="w-14 shrink-0 font-mono text-[13px] font-semibold tabular-nums">:{p.port}</span>
+                    <span className="w-14 shrink-0 font-mono text-sm font-semibold tabular-nums">:{p.port}</span>
                     <span className="min-w-0 truncate">{p.process || t('Unknown process')}</span>
                     <span className="ml-auto shrink-0 font-mono text-xs text-muted-foreground">{p.bind}</span>
                   </CommandItem>

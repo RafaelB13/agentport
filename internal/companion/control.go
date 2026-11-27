@@ -315,6 +315,8 @@ func assetContentType(name string) string {
 		return "image/svg+xml"
 	case strings.HasSuffix(name, ".txt"):
 		return "text/plain; charset=utf-8"
+	case strings.HasSuffix(name, ".woff2"):
+		return "font/woff2"
 	}
 	return "application/octet-stream"
 }

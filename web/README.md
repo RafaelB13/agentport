@@ -16,7 +16,8 @@ npm run lint
 ```
 
 O build escreve em `internal/companion/ui/` (`index.html` e `assets/app.js`,
-`assets/app.css`, o chunk do terminal e `assets/third-party-licenses.txt`),
+`assets/app.css`, o chunk do terminal, os arquivos `.woff2` das fontes Inter e JetBrains Mono e
+`assets/third-party-licenses.txt`),
 que o binário Go embute com `go:embed`. **O resultado é versionado**: assim
 `go build`/`go install` funcionam sem Node. Depois de mudar `web/`, rode
 `npm run build` e faça commit também de `internal/companion/ui/`; o CI refaz o

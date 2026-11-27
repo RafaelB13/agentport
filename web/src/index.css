@@ -3,10 +3,18 @@
 @tailwind utilities;
 
 /*
- * shadcn/ui zinc theme. "auto" follows the system: the dark values apply when the
- * system asks for dark and the page has no explicit .light choice, so the first
- * paint already has the right colors (the CSP allows no inline script to set a
- * class before it). The script still sets .dark for Tailwind's dark: variants.
+ * shadcn/ui theme: zinc for light, a soft slate gray for dark. "auto" follows the
+ * system: the dark values apply when the system asks for dark and the page has
+ * no explicit .light choice, so the first paint already has the right colors
+ * (the CSP allows no inline script to set a class before it). The script still
+ * sets .dark for Tailwind's dark: variants.
+ *
+ * Dark is not near-black: the page is #1e2024, cards #282c33, popovers #2f333c,
+ * with off-white text (#e8eaed) and borders a visible step lighter (#41454e).
+ *
+ * --muted-foreground is darker (light) and brighter (dark) than stock zinc so
+ * secondary text stays readable: 6.6:1 on the light background (6.0:1 on
+ * --muted); 8.9:1 on the dark background (7.7:1 on cards, 6.9:1 on popovers).
  */
 @layer base {
   :root {
@@ -21,7 +29,7 @@
     --secondary: 240 4.8% 95.9%;
     --secondary-foreground: 240 5.9% 10%;
     --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted-foreground: 240 5% 38%;
     --accent: 240 4.8% 95.9%;
     --accent-foreground: 240 5.9% 10%;
     --destructive: 0 72.2% 50.6%;
@@ -34,49 +42,49 @@
   }
 
   .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
+    --background: 220 10% 13%;
+    --foreground: 216 12% 92%;
+    --card: 220 12% 18%;
+    --card-foreground: 216 12% 92%;
+    --popover: 220 12% 21%;
+    --popover-foreground: 216 12% 92%;
+    --primary: 216 12% 92%;
+    --primary-foreground: 220 10% 13%;
+    --secondary: 220 10% 23%;
+    --secondary-foreground: 216 12% 92%;
+    --muted: 220 10% 23%;
+    --muted-foreground: 220 9% 76%;
+    --accent: 220 10% 26%;
+    --accent-foreground: 216 12% 92%;
     --destructive: 0 62.8% 50%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --border: 220 9% 28%;
+    --input: 220 9% 32%;
+    --ring: 220 9% 65%;
     color-scheme: dark;
   }
 
   @media (prefers-color-scheme: dark) {
     :root:not(.light) {
-      --background: 240 10% 3.9%;
-      --foreground: 0 0% 98%;
-      --card: 240 10% 3.9%;
-      --card-foreground: 0 0% 98%;
-      --popover: 240 10% 3.9%;
-      --popover-foreground: 0 0% 98%;
-      --primary: 0 0% 98%;
-      --primary-foreground: 240 5.9% 10%;
-      --secondary: 240 3.7% 15.9%;
-      --secondary-foreground: 0 0% 98%;
-      --muted: 240 3.7% 15.9%;
-      --muted-foreground: 240 5% 64.9%;
-      --accent: 240 3.7% 15.9%;
-      --accent-foreground: 0 0% 98%;
+      --background: 220 10% 13%;
+      --foreground: 216 12% 92%;
+      --card: 220 12% 18%;
+      --card-foreground: 216 12% 92%;
+      --popover: 220 12% 21%;
+      --popover-foreground: 216 12% 92%;
+      --primary: 216 12% 92%;
+      --primary-foreground: 220 10% 13%;
+      --secondary: 220 10% 23%;
+      --secondary-foreground: 216 12% 92%;
+      --muted: 220 10% 23%;
+      --muted-foreground: 220 9% 76%;
+      --accent: 220 10% 26%;
+      --accent-foreground: 216 12% 92%;
       --destructive: 0 62.8% 50%;
       --destructive-foreground: 0 0% 98%;
-      --border: 240 3.7% 15.9%;
-      --input: 240 3.7% 15.9%;
-      --ring: 240 4.9% 83.9%;
+      --border: 220 9% 28%;
+      --input: 220 9% 32%;
+      --ring: 220 9% 65%;
       color-scheme: dark;
     }
   }
@@ -91,8 +99,13 @@
   #root {
     @apply h-full;
   }
+  /*
+   * Inter (self-hosted, bundled by the build) at a medium base weight, with the
+   * default subpixel smoothing: thin system text at 400 with grayscale
+   * antialiasing was hard to read on macOS. Nothing in the panel goes below 500.
+   */
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background font-sans text-sm font-medium text-foreground subpixel-antialiased;
     font-feature-settings: 'cv11', 'ss01';
   }
 }

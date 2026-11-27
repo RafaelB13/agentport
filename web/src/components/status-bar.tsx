@@ -10,7 +10,7 @@ function Item({ label, children, className }: { label: string; children: ReactNo
   return (
     <div className={cn('flex min-w-0 items-center gap-1.5', className)}>
       <dt className="shrink-0 text-muted-foreground">{label}</dt>
-      <dd className="min-w-0 truncate font-medium tabular-nums text-foreground">{children}</dd>
+      <dd className="min-w-0 truncate font-semibold tabular-nums text-foreground">{children}</dd>
     </div>
   )
 }
@@ -41,7 +41,7 @@ export function StatusBar() {
   return (
     <footer className="shrink-0 border-t bg-muted/30">
       <dl
-        className="mx-auto flex h-9 w-full max-w-screen-2xl items-center gap-x-5 px-4 text-xs sm:px-6"
+        className="mx-auto flex h-9 w-full max-w-screen-2xl items-center gap-x-5 px-4 text-[13px] sm:px-6"
       >
         <Item label={t('Tunnel')} className="flex-initial">
           {tunnelError ? (
@@ -61,7 +61,7 @@ export function StatusBar() {
           {panel.forwards.length}
         </Item>
         <Item label={t('Panel')} className="hidden shrink-0 md:flex">
-          <span className="font-mono font-normal">{window.location.host}</span>
+          <span className="font-mono">{window.location.host}</span>
         </Item>
         <div className="ml-auto flex shrink-0 items-center gap-3 text-muted-foreground">
           <span className="hidden lg:inline">agentport{s?.version ? ' ' + s.version : ''}</span>

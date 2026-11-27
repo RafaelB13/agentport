@@ -98,7 +98,7 @@ export function ForwardRow(props: ForwardRowProps) {
       <div
         className={cn(
           'grid items-center gap-x-3 px-3 py-2 transition-colors sm:px-4 md:gap-x-4',
-          'grid-cols-[auto_minmax(0,1fr)_auto] md:grid-cols-[auto_11.5rem_minmax(0,1fr)_auto]',
+          'grid-cols-[auto_minmax(0,1fr)_auto] md:grid-cols-[auto_13rem_minmax(0,1fr)_auto]',
           selected ? 'bg-muted/60' : 'hover:bg-muted/30',
         )}
         onDoubleClick={(event) => {
@@ -122,12 +122,12 @@ export function ForwardRow(props: ForwardRowProps) {
                 side="top"
                 label={
                   <span className="flex max-w-80 flex-col gap-0.5">
-                    <span className="break-words font-medium">{name}</span>
+                    <span className="break-words font-semibold">{name}</span>
                     <span className="text-muted-foreground">{t('Double-click to rename')}</span>
                   </span>
                 }
               >
-                <span className="min-w-0 truncate text-sm font-medium" onDoubleClick={props.onStartRename}>
+                <span className="min-w-0 truncate text-sm font-semibold" onDoubleClick={props.onStartRename}>
                   {name}
                 </span>
               </Tip>
@@ -138,7 +138,7 @@ export function ForwardRow(props: ForwardRowProps) {
           </div>
           <Tip side="bottom" label={t('Open in a new tab')}>
             <a
-              className="block w-fit max-w-full truncate font-mono text-xs text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
+              className="block w-fit max-w-full truncate font-mono text-[13px] text-muted-foreground underline-offset-2 hover:text-foreground hover:underline"
               href={href}
               target="_blank"
               rel="noopener noreferrer"

@@ -42,19 +42,19 @@ export function DetectedPorts() {
             return (
               <div key={p.port} className="border-b last:border-b-0">
                 <div className="grid grid-cols-[3.75rem_minmax(0,1fr)_auto] items-center gap-x-3 px-3 py-2 hover:bg-muted/30 sm:px-4 md:grid-cols-[5.5rem_minmax(10rem,15rem)_minmax(0,1fr)_auto] md:gap-x-4">
-                  <span className="font-mono text-[13px] font-semibold tabular-nums">:{p.port}</span>
+                  <span className="font-mono text-sm font-semibold tabular-nums">:{p.port}</span>
                   <div className="min-w-0">
-                    <div className="truncate text-sm font-medium" title={p.process}>
+                    <div className="truncate text-sm font-semibold" title={p.process}>
                       {p.process || t('Unknown process')}
                     </div>
-                    <div className="break-words font-mono text-xs text-muted-foreground sm:truncate">
+                    <div className="break-words font-mono text-[13px] text-muted-foreground sm:truncate">
                       {[p.bind, p.user].filter(Boolean).join(' · ')}
                     </div>
                   </div>
                   <div className="hidden min-w-0 md:block">
                     {p.cmdline && (
                       <Tip side="top" label={<span className="block max-w-xl break-all font-mono">{p.cmdline}</span>}>
-                        <p className="truncate font-mono text-xs text-muted-foreground">{p.cmdline}</p>
+                        <p className="truncate font-mono text-[13px] text-muted-foreground">{p.cmdline}</p>
                       </Tip>
                     )}
                   </div>

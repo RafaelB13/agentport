@@ -170,7 +170,7 @@ export function OpenPorts() {
         />
         {names.length > 0 && (
           <Select value={activeSession} onValueChange={setSession}>
-            <SelectTrigger className="h-8 w-auto min-w-36 max-w-56 gap-2 text-xs" aria-label={t('Filter by agent session')}>
+            <SelectTrigger className="h-8 w-auto min-w-36 max-w-56 gap-2 text-[13px]" aria-label={t('Filter by agent session')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -184,7 +184,7 @@ export function OpenPorts() {
           </Select>
         )}
         <div className="flex items-center gap-2">
-          <span className="hidden text-xs text-muted-foreground sm:inline">{t('Group by')}</span>
+          <span className="hidden text-[13px] text-muted-foreground sm:inline">{t('Group by')}</span>
           <ToggleGroup
             type="single"
             size="sm"
@@ -203,7 +203,7 @@ export function OpenPorts() {
               <ToggleGroupItem
                 key={value}
                 value={value}
-                className="h-7 rounded-[5px] px-2.5 text-xs text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
+                className="h-7 rounded-[5px] px-2.5 text-[13px] text-muted-foreground hover:bg-transparent hover:text-foreground data-[state=on]:bg-background data-[state=on]:text-foreground data-[state=on]:shadow-sm"
               >
                 {label}
               </ToggleGroupItem>
@@ -265,7 +265,7 @@ export function OpenPorts() {
                     />
                     <button
                       type="button"
-                      className="flex min-w-0 items-center gap-1.5 rounded-sm text-sm font-semibold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                      className="flex min-w-0 items-center gap-1.5 rounded-sm text-sm font-bold focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                       aria-expanded={!closedGroup}
                       onClick={() => setCollapsed((current) => toggle(current, key))}
                     >
@@ -275,14 +275,14 @@ export function OpenPorts() {
                       />
                       <span className="truncate">{key}</span>
                     </button>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-[13px] text-muted-foreground">
                       {items.length === 1 ? t('1 port') : t('{n} ports', { n: items.length })}
                       {items.some((f) => f.pinned) ? ' · ' + t('pinned') : ''}
                     </span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="ml-auto h-7 shrink-0 px-2 text-xs text-muted-foreground hover:text-destructive"
+                      className="ml-auto h-7 shrink-0 px-2 text-[13px] text-muted-foreground hover:text-destructive"
                       onClick={() => confirmClose(items.map((f) => f.remote_port), t('Close group {name}?', { name: key }))}
                     >
                       {t('Close group')}
